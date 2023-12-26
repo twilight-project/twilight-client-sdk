@@ -1,4 +1,14 @@
-use crate::*;
+use crate::{
+    relayer_types::{CreateLendOrder, CreateLendOrderZkos, ZkosCreateOrder},
+    *,
+};
+use address::{Address, AddressType, Script};
+use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
+use quisquislib::{
+    accounts::Account,
+    keys::{PublicKey, SecretKey},
+    ristretto::{RistrettoPublicKey, RistrettoSecretKey},
+};
 use relayer_types::{
     CancelTraderOrder, CancelTraderOrderZkos, CreateTraderOrder, CreateTraderOrderZkos,
     ExecuteLendOrder, ExecuteLendOrderZkos, ExecuteTraderOrder, ExecuteTraderOrderZkos,
@@ -6,20 +16,25 @@ use relayer_types::{
     ZkosCancelMsg, ZkosQueryMsg, ZkosSettleMsg,
 };
 use std::convert::From;
-use zkschnorr::Signature as SchnorrSignature;
+use uuid::Uuid;
+use zkschnorr::Signature;
+use zkvm::{
+    zkos_types::{OutputMemo, ValueWitness},
+    IOType, Input, InputData, Output, OutputData, Utxo,
+};
 
 /// Get hardcodded script address.
 /// as hex string
 /// Returing default value for now but will be changed to actual script address LATER
 
-pub fn get_harcoded_script_address() -> Result<String, JsValue> {
+pub fn get_harcoded_script_address() -> String {
     let script_address = Script::default();
     //create Address
     let address = script_address.as_hex();
 
-    let j = serde_json::to_string(&address);
-    let msg_to_return = j.unwrap();
-    Ok(msg_to_return)
+    //let j = serde_json::to_string(&address);
+    //let msg_to_return = j.unwrap();
+    address
 }
 
 /// create Output for Memo
@@ -30,7 +45,7 @@ pub fn create_output_for_memo(
     balance: u64,
     order_size: u64,
     scalar: String, // Hex string of Scalar
-) -> Result<String, JsValue> {
+) -> Output {
     // recreate scalar bytes from hex string
     let scalar_bytes = hex::decode(&scalar).unwrap();
     let scalar = Scalar::from_bytes_mod_order(scalar_bytes.try_into().unwrap());
@@ -39,21 +54,21 @@ pub fn create_output_for_memo(
         OutputMemo::new_from_wasm(script_address, owner_address, balance, order_size, scalar);
 
     let output: Output = Output::memo(OutputData::memo(output_memo));
-    let j: Result<String, serde_json::Error> = serde_json::to_string(&output);
-    let msg_to_return = j.unwrap();
-    Ok(msg_to_return)
+    //let j: Result<String, serde_json::Error> = serde_json::to_string(&output);
+    //let msg_to_return = j.unwrap();
+    output
 }
 
 /// create input from output
 /// Works for memo and Coin type of Inputs only
 
 pub fn create_input_from_output(
-    output: String,
-    utxo: String,
+    out: Output,
+    utxo: Utxo,
     withdraw_amount: u64, //ONLY NEEDED FOR MEMO in case of settlement transactions
-) -> Result<String, JsValue> {
-    let out: Output = serde_json::from_str(&output).unwrap();
-    let utxo: Utxo = serde_json::from_str(&utxo).unwrap();
+) -> Result<Input, &'static str> {
+    //let out: Output = serde_json::from_str(&output).unwrap();
+    //let utxo: Utxo = serde_json::from_str(&utxo).unwrap();
     let mut inp: Input;
     match out.out_type {
         IOType::Coin => {
@@ -66,35 +81,33 @@ pub fn create_input_from_output(
                 utxo,
                 out_memo.clone(),
                 0,
-                zkvm::Commitment::blinded(withdraw_amount), /*SHOULD BE HANDLES DISCREETly LATER. The sign happens on this amount while the user is unaware of the settlement amount figure at the time of creation of this memo */
+                Some(zkvm::Commitment::blinded(withdraw_amount)), /*SHOULD BE HANDLES DISCREETly LATER. The sign happens on this amount while the user is unaware of the settlement amount figure at the time of creation of this memo */
             ));
         }
         //Also what happens at the time of Liquadation. The tx needs input from user which he may not be willing to give
-        _ => return Err(JsValue::from_str("Invalid IOType")),
+        _ => return Err("Invalid IOType"),
     }
-    let j = serde_json::to_string(&inp);
-    let msg_to_return = j.unwrap();
-    Ok(msg_to_return)
+    // let j = serde_json::to_string(&inp);
+    // let msg_to_return = j.unwrap();
+    Ok(inp)
 }
 
 ///Sign a msg using private key and public key
 /// Returns signature as string
 /// msg is the cancel message request
-pub fn sign_message_by_pk(msg: String, pk: String, seed: &str) -> Result<String, JsValue> {
+pub fn sign_message_by_pk(msg: String, pk: String, secret_key: &RistrettoSecretKey) -> Signature {
     //let msg: String = serde_json::from_str(&msg).unwrap();
     let pk: RistrettoPublicKey = serde_json::from_str(&pk).unwrap();
 
-    //derive private key
-    let secret_key: RistrettoSecretKey = crate::hex_str_to_secret_key(seed);
     let message = bincode::serialize(&msg).unwrap();
 
-    let signature: SchnorrSignature =
-        pk.sign_msg(&message, &secret_key, ("PublicKeySign").as_bytes());
+    let signature: Signature = pk.sign_msg(&message, &secret_key, ("PublicKeySign").as_bytes());
 
     // let sig = sign(&msg.as_bytes(), &pk, &sk);
-    let j = serde_json::to_string(&signature);
-    let msg_to_return = j.unwrap();
-    Ok(msg_to_return)
+    //let j = serde_json::to_string(&signature);
+    //let msg_to_return = j.unwrap();
+    //Ok(msg_to_return)
+    signature
 }
 
 ///Sign an Input Coin/Memo using private key and public key
@@ -104,29 +117,29 @@ pub fn sign_message_by_pk(msg: String, pk: String, seed: &str) -> Result<String,
 pub fn sign_input(
     input: Input,
     pub_key: RistrettoPublicKey,
-    secret_key: RistrettoSecretKey,
+    secret_key: &RistrettoSecretKey,
 ) -> Signature {
     let mut message: Vec<u8> = Vec::new();
 
-    if input.in_type == IOType::Coin {
-        // Just sign the input directly with Witness set to 0
-        let input_sign = input.as_input_for_signing();
-        message = bincode::serialize(&input_sign).unwrap();
-    } else if input.in_type == IOType::Memo {
-        // Create the Verifier View of the Memo and set the Witness to 0
-        let memo = input.as_out_memo().unwrap().to_owned();
-        //convert commitment into point
-        let memo_verifier = memo.verifier_view();
+    // if input.in_type == IOType::Coin {
+    //     // Just sign the input directly with Witness set to 0
+    //     let input_sign = input.as_input_for_signing();
+    //     message = bincode::serialize(&input_sign).unwrap();
+    // } else if input.in_type == IOType::Memo {
+    //     // Create the Verifier View of the Memo and set the Witness to 0
+    //     let memo = input.as_out_memo().unwrap().to_owned();
+    //     //convert commitment into point
+    //     let memo_verifier = memo.verifier_view();
 
-        // create signer view
-        let input_sign = Input::memo(InputData::memo(
-            input.as_utxo().unwrap().to_owned(),
-            memo_verifier,
-            0,
-            input.input.get_commitment_value_memo().unwrap().to_owned(),
-        ));
-        message = bincode::serialize(&input_sign).unwrap();
-    }
+    //     // create signer view
+    //     let input_sign = Input::memo(InputData::memo(
+    //         input.as_utxo().unwrap().to_owned(),
+    //         memo_verifier,
+    //         0,
+    //         Some(input.input.get_coin_value_from_memo().unwrap().to_owned()),
+    //     ));
+    //     message = bincode::serialize(&input_sign).unwrap();
+    // }
     // let
     let signature: Signature =
         pub_key.sign_msg(&message, &secret_key, ("PublicKeySign").as_bytes());
@@ -171,6 +184,7 @@ pub fn create_zkos_order(
     let witness = ValueWitness::create_value_witness(
         input_sign.clone(),
         secret_key,
+        output.clone(),
         enc_acc,
         pubkey.clone(),
         pedersen_commitment.clone(),
@@ -186,7 +200,7 @@ pub fn create_zkos_order(
 pub fn create_trader_order_zkos(
     input_coin: String,
     output_memo: String,
-    seed: &str,
+    secret_key: RistrettoSecretKey,
     rscalar: String, // Hex string of Scalar
     value: u64,
     account_id: String,
@@ -198,10 +212,8 @@ pub fn create_trader_order_zkos(
     order_status: String,
     entryprice: f64,
     execution_price: f64,
-) -> Result<String, JsValue> {
+) -> String {
     //prepare data for signature and same value proof
-    //derive private key
-    let secret_key: RistrettoSecretKey = crate::hex_str_to_secret_key(seed);
     let input: Input = serde_json::from_str(&input_coin).unwrap();
     let output: Output = serde_json::from_str(&output_memo).unwrap();
     //let scalar_hex: String = serde_json::from_str(&rscalar).unwrap();
@@ -223,10 +235,11 @@ pub fn create_trader_order_zkos(
     let create_zkos_order_full: CreateTraderOrderZkos =
         CreateTraderOrderZkos::new(create_order, zkos_order);
     let order_hex: String = create_zkos_order_full.encode_as_hex_string();
-    println!("order_hex: {}", order_hex);
-    let j = serde_json::to_string(&order_hex);
-    let msg_to_return = j.unwrap();
-    Ok(msg_to_return)
+    //println!("order_hex: {}", order_hex);
+    //let j = serde_json::to_string(&order_hex);
+    //let msg_to_return = j.unwrap();
+    //Ok(msg_to_return)
+    order_hex
 }
 
 /// ExecuteOrderZkos. Used to settle trade or lend orders
@@ -235,10 +248,10 @@ pub fn create_trader_order_zkos(
 /// rest of the normal settle order message
 /// tx_type = "ORDERTX" for settling trader orders
 /// tx_type = "LENDTX" for settling lend orders
-///
+/// returns hex string of the object
 pub fn execute_order_zkos(
     input_memo: String,
-    seed: &str,
+    secret_key: &RistrettoSecretKey,
     account_id: String,
     uuid: String,
     order_type: String,
@@ -246,11 +259,8 @@ pub fn execute_order_zkos(
     order_status: String,
     execution_price_poolshare_price: f64,
     tx_type: String,
-) -> Result<String, JsValue> {
+) -> String {
     //prepare data for signature and same value proof
-
-    //derive private key
-    let secret_key: RistrettoSecretKey = crate::hex_str_to_secret_key(seed);
     //recreate uuid
     let uuid: Uuid = serde_json::from_str(&uuid).unwrap();
     // let u_bytes = hex::decode(uuid_hex).unwrap();
@@ -301,8 +311,9 @@ pub fn execute_order_zkos(
         }
     }
 
-    let msg_to_return = serde_json::to_string(&settle_hex);
-    Ok(msg_to_return.unwrap())
+    //let msg_to_return = serde_json::to_string(&settle_hex);
+    //Ok(msg_to_return.unwrap())
+    settle_hex
 }
 
 /// Create a ZkosLendOrder from ZkosAccount
@@ -310,7 +321,7 @@ pub fn execute_order_zkos(
 pub fn create_lend_order_zkos(
     input_coin: String,
     output_memo: String,
-    seed: &str,
+    secret_key: RistrettoSecretKey,
     rscalar: String, // Hex string of Scalar
     value: u64,
     account_id: String,
@@ -318,11 +329,8 @@ pub fn create_lend_order_zkos(
     order_type: String,
     order_status: String,
     deposit: f64,
-) -> Result<String, JsValue> {
+) -> String {
     //prepare data for signature and same value proof
-
-    //derive private key
-    let secret_key: RistrettoSecretKey = crate::hex_str_to_secret_key(seed);
     let input: Input = serde_json::from_str(&input_coin).unwrap();
     let output: Output = serde_json::from_str(&output_memo).unwrap();
     //let scalar_hex: String = serde_json::from_str(&rscalar).unwrap();
@@ -335,26 +343,24 @@ pub fn create_lend_order_zkos(
     let create_zkos_order_full: CreateLendOrderZkos =
         CreateLendOrderZkos::new(create_order, zkos_order);
     let order_hex: String = create_zkos_order_full.encode_as_hex_string();
-    println!("order_hex: {}", order_hex);
-    let j = serde_json::to_string(&order_hex);
-    let msg_to_return = j.unwrap();
-    Ok(msg_to_return)
+    //println!("order_hex: {}", order_hex);
+    //let j = serde_json::to_string(&order_hex);
+    //let msg_to_return = j.unwrap();
+    //Ok(msg_to_return)
+    order_hex
 }
 
 /// CancelTraderOrderZkos
-///
+/// output-> hex string of the query object
 pub fn cancel_trader_order_zkos(
     add_hex: String, //hex address string
-    seed: &str,
+    secret_key: &RistrettoSecretKey,
     account_id: String,
     uuid: String,
     order_type: String,
     order_status: String,
-) -> Result<String, JsValue> {
+) -> String {
     //prepare data for signature and same value proof
-
-    //derive private key
-    let secret_key: RistrettoSecretKey = crate::hex_str_to_secret_key(seed);
     //extract hex address from jstring
     //let add_hex: String = serde_json::from_str(&address).unwrap();
     //extract Address from hex
@@ -379,54 +385,20 @@ pub fn cancel_trader_order_zkos(
         CancelTraderOrderZkos::new(cancel_order, cancel_order_msg);
     let order_hex: String = cancel_order_zkos.encode_as_hex_string();
 
-    let msg_to_return = serde_json::to_string(&order_hex);
-    Ok(msg_to_return.unwrap())
-}
-
-/// return hex address of an Zkos account
-///  
-pub fn get_hex_address_from_trading_account(account: String) -> Result<String, JsValue> {
-    let acc: TradingAccount = serde_json::from_str(&account).unwrap();
-    let address = acc.address;
-    //let j = serde_json::to_string(&address);
-    //let msg_to_return = j.unwrap();
-    // return the hex address directly
-    Ok(address)
-}
-
-/// convert hex scalar to json string
-///
-pub fn convert_hex_scalar_to_json(hex_scalar: String) -> Result<String, JsValue> {
-    // let hex_scalar: String = serde_json::from_str(&hex_scalar).unwrap();
-    let scalar_bytes = hex::decode(&hex_scalar).unwrap();
-    let scalar = Scalar::from_bytes_mod_order(scalar_bytes.try_into().unwrap());
-    let j = serde_json::to_string(&scalar);
-    let msg_to_return = j.unwrap();
-    Ok(msg_to_return)
-}
-
-/// create default utxo as Json string
-///  Can be used for creating Utxo for Anonymity and Reciever accounts in Quisquis Transaction
-pub fn create_default_utxo() -> Result<String, JsValue> {
-    let utxo = Utxo::default();
-    // let utx0_bytes = bincode::serialize(&utxo).unwrap();
-    let j = serde_json::to_string(&utxo);
-    let msg_to_return = j.unwrap();
-    Ok(msg_to_return)
+    //let msg_to_return = serde_json::to_string(&order_hex);
+    //Ok(msg_to_return.unwrap())
+    order_hex
 }
 
 /// QueryTraderOrderZkos
-///
+/// gives hex of the query object
 pub fn query_trader_order_zkos(
     add_hex: String, //hex address string
-    seed: &str,
+    secret_key: &RistrettoSecretKey,
     account_id: String,
     order_status: String,
-) -> Result<String, JsValue> {
+) -> String {
     //prepare data for signature and same value proof
-
-    //derive private key
-    let secret_key: RistrettoSecretKey = crate::hex_str_to_secret_key(seed);
     //extract hex address from jstring
     // let add_hex: String = serde_json::from_str(&address).unwrap();
     //extract Address from hex
@@ -439,28 +411,26 @@ pub fn query_trader_order_zkos(
     // the cancel request is the message for Sign
     let message = bincode::serialize(&query_order).unwrap();
 
-    let signature: Signature = pk.sign_msg(&message, &secret_key, ("PublicKeySign").as_bytes());
+    let signature: Signature = pk.sign_msg(&message, secret_key, ("PublicKeySign").as_bytes());
 
     let query_order_msg: ZkosQueryMsg = ZkosQueryMsg::new(add_hex.clone(), signature);
     let query_order_zkos: QueryTraderOrderZkos =
         QueryTraderOrderZkos::new(query_order, query_order_msg);
     let order_hex: String = query_order_zkos.encode_as_hex_string();
 
-    let msg_to_return = serde_json::to_string(&order_hex);
-    Ok(msg_to_return.unwrap())
+    //let msg_to_return = serde_json::to_string(&order_hex);
+    //Ok(msg_to_return.unwrap())
+    order_hex
 }
 
 /// QueryLendOrderZkos
 ///
 pub fn query_lend_order_zkos(
     add_hex: String, //hex address string
-    seed: &str,
+    secret_key: &RistrettoSecretKey,
     account_id: String,
     order_status: String,
-) -> Result<String, JsValue> {
-    //prepare data for signature and same value proof
-    //derive private key
-    let secret_key: RistrettoSecretKey = crate::hex_str_to_secret_key(seed);
+) -> String {
     //extract hex address from jstring
     //let add_hex: String = serde_json::from_str(&address).unwrap();
     //extract Address from hex
@@ -473,37 +443,21 @@ pub fn query_lend_order_zkos(
     // the cancel request is the message for Sign
     let message = bincode::serialize(&query_lend).unwrap();
 
-    let signature: Signature = pk.sign_msg(&message, &secret_key, ("PublicKeySign").as_bytes());
+    let signature: Signature = pk.sign_msg(&message, secret_key, ("PublicKeySign").as_bytes());
 
     let query_lend_msg: ZkosQueryMsg = ZkosQueryMsg::new(add_hex.clone(), signature);
     let query_lend_zkos: QueryLendOrderZkos = QueryLendOrderZkos::new(query_lend, query_lend_msg);
     let order_hex: String = query_lend_zkos.encode_as_hex_string();
 
-    let msg_to_return = serde_json::to_string(&order_hex);
-    Ok(msg_to_return.unwrap())
+    //let msg_to_return = serde_json::to_string(&order_hex);
+    //Ok(msg_to_return.unwrap())
+    order_hex
 }
 
-/// convert Utxo json Object int Hex String
-pub fn get_utxo_hex_from_json(utxo_json: String) -> Result<String, JsValue> {
+/// convert Utxo json Object into Hex String
+pub fn get_utxo_hex_from_json(utxo_json: String) -> String {
     let utxo: Utxo = serde_json::from_str(&utxo_json).unwrap();
     let utxo_bytes = bincode::serialize(&utxo).unwrap();
     let utxo_hex = hex::encode(&utxo_bytes);
-
-    Ok(utxo_hex)
-}
-
-/// convert output to FundingAccountHex
-/// Input:: Output(Coin) as Json String
-/// Output:: FundingAccountHex as Json String
-///
-pub fn get_funding_trading_account_hex_from_output(
-    output: String,
-    balance: u64,
-) -> Result<String, JsValue> {
-    let out: Output = serde_json::from_str(&output).unwrap();
-    let funding_account = FundingTradingAccountHex::from_output(out, balance);
-    match funding_account {
-        Some(funding_account) => Ok(serde_json::to_string(&funding_account).unwrap()),
-        None => Err(JsValue::from_str("Invalid Output Type")),
-    }
+    utxo_hex
 }

@@ -1,5 +1,11 @@
+use quisquislib::accounts::SigmaProof;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use zkvm::zkos_types::Input;
+use zkschnorr::Signature;
+use zkvm::{
+    zkos_types::{Input, ValueWitness},
+    Output,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum TXType {
