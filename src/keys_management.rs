@@ -40,11 +40,20 @@ fn read_bytes_from_file<P: AsRef<Path>>(file_path: P) -> io::Result<Vec<u8>> {
 }
 
 fn new_wallet(password: &[u8], file_path: String, iv: &[u8]) -> RistrettoSecretKey {
-    let secret_key: quisquislib::ristretto::RistrettoSecretKey =
-        quisquislib::keys::SecretKey::random(&mut OsRng);
+    let seed =
+        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+    // let secret_key: quisquislib::ristretto::RistrettoSecretKey =
+    //   quisquislib::keys::SecretKey::random(&mut OsRng);
+    let secret_key = hex_str_to_secret_key(seed);
     let private_key_bytes = secret_key.as_bytes();
     let encrypted_private_key = encrypt(&private_key_bytes, password, iv);
-    write_bytes_to_file(file_path, encrypted_private_key.as_slice());
+    let result = write_bytes_to_file(file_path, encrypted_private_key.as_slice());
+    match result {
+        Ok(_) => (),
+        Err(_) => {
+            panic!("Can not write secret key bytes to the file")
+        }
+    }
     return secret_key;
 }
 
@@ -73,7 +82,13 @@ fn get_public_key(secret_key: RistrettoSecretKey) -> RistrettoPublicKey {
         return public_key;
     } else {
         let public_key = RistrettoPublicKey::from_secret_key(&secret_key, &mut OsRng);
-        write_bytes_to_file(file_path.to_string(), &public_key.as_bytes());
+        let result = write_bytes_to_file(file_path.to_string(), &public_key.as_bytes());
+        match result {
+            Ok(_) => (),
+            Err(_) => {
+                panic!("Can not write public key bytes to the file")
+            }
+        }
         return public_key;
     }
 }
@@ -99,4 +114,17 @@ fn hex_str_to_secret_key(seed: &str) -> RistrettoSecretKey {
 
     //derive private key
     SecretKey::from_bytes(seed.as_bytes())
+}
+
+#[cfg(test)]
+mod test {
+    use super::init_wallet;
+    #[test]
+    fn get_key_test() {
+        let password = b"your_password_he";
+        let iv = b"your_password_he"; // Use a secure way to handle the password
+
+        let wallet = init_wallet(password, "wallet.txt".to_string(), iv);
+        println!("wallet {:?}", wallet);
+    }
 }
