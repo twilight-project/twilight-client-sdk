@@ -1,33 +1,13 @@
-use crate::trading_account::TradingAccount;
-use address::{Address, AddressType, Network, Script};
-use base64;
-use console_error_panic_hook;
-use core::convert::TryInto;
-use curve25519_dalek::ristretto::CompressedRistretto;
-use curve25519_dalek::scalar::Scalar;
-use sha3::{Digest, Keccak256};
+use address::{Address, AddressType};
+
 use transaction::quisquislib::{
-    accounts::Account,
-    elgamal::ElGamalCommitment,
-    keys::{PublicKey, SecretKey},
+    keys::PublicKey,
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
 };
-use zkschnorr::Signature;
-use zkvm::zkos_types::{
-    IOType, Input, InputData, Output, OutputCoin, OutputData, OutputMemo, Utxo, ValueWitness,
-    ZkosCreateOrder,
-};
+use zkvm::zkos_types::{IOType, Input, Output, OutputCoin, Utxo};
 
 use hex;
-use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
-use zkvm::tx::TxID;
-use zkvm::Hash;
-//use serde_json;
-use std::panic;
-use web_sys;
-
-use crate::relayer::{CreateLendOrder, CreateLendOrderZkos};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UtxoOutputRawWasm {
@@ -60,13 +40,14 @@ impl UtxoOutputRawWasm {
 /// Function to create Utxo type from hex string
 /// Returns Utxo as Json string.
 
-pub fn create_utxo_from_hex_string(utxo_hex: String) -> Result<String, JsValue> {
+pub fn create_utxo_from_hex_string(utxo_hex: String) -> Utxo {
     let utxo_bytes = hex::decode(&utxo_hex).unwrap();
     let utxo: Utxo = bincode::deserialize(&utxo_bytes).unwrap();
 
-    let j = serde_json::to_string(&utxo);
-    let msg_to_return = j.unwrap();
-    Ok(msg_to_return)
+    //let j = serde_json::to_string(&utxo);
+    //let msg_to_return = j.unwrap();
+    //Ok(msg_to_return)
+    utxo
 }
 
 /// Function to check list of coin utxos against the provided secretkey
@@ -74,8 +55,8 @@ pub fn create_utxo_from_hex_string(utxo_hex: String) -> Result<String, JsValue> 
 
 pub fn coin_addrerss_monitoring(
     vector_utxo_output_str: String,
-    seed: &str,
-) -> Result<String, JsValue> {
+    sk: RistrettoSecretKey,
+) -> Vec<String> {
     // recieves a vector of outputs as a hex string
     // recreate Vec<UtxoOutputRawWasm> from hex string
     // get vector bytes from hex
@@ -84,7 +65,7 @@ pub fn coin_addrerss_monitoring(
         bincode::deserialize(&vector_utxo_bytes).unwrap();
 
     // create secret key from seed
-    let sk: RistrettoSecretKey = hex_str_to_secret_key(&seed);
+    //let sk: RistrettoSecretKey = hex_str_to_secret_key(&seed);
 
     // create vector of addresses
     let mut vector_addresses: Vec<String> = Vec::new();
@@ -109,18 +90,19 @@ pub fn coin_addrerss_monitoring(
         }
     }
     // convert vector of addresses to Json string
-    let j = serde_json::to_string(&vector_addresses);
-    let msg_to_return = j.unwrap();
-    Ok(msg_to_return)
+    // let j = serde_json::to_string(&vector_addresses);
+    // let msg_to_return = j.unwrap();
+    // Ok(msg_to_return)
+    vector_addresses
 }
 
 /// Utility function to convert TxId into hex string
 /// Returns TxId as hex string
 
-pub fn tx_id_to_hex_string(utxo: String) -> Result<String, JsValue> {
+pub fn tx_id_to_hex_string(utxo: String) -> String {
     let utxo: Utxo = serde_json::from_str(&utxo).unwrap();
     let tx_id_hex = utxo.tx_id_to_hex();
-    Ok(tx_id_hex)
+    tx_id_hex
 }
 
 /// Function to select anonymity accounts from the set of utxos provided
@@ -129,7 +111,7 @@ pub fn tx_id_to_hex_string(utxo: String) -> Result<String, JsValue> {
 pub fn select_anonymity_accounts(
     vector_utxo_output_str: String,
     sender_input: String,
-) -> Result<String, JsValue> {
+) -> Vec<Input> {
     // recreate Vec<UtxoOutputRawWasm> from hex string
     // get vector bytes from hex
     let vector_utxo_bytes = hex::decode(&vector_utxo_output_str).unwrap();
@@ -172,7 +154,8 @@ pub fn select_anonymity_accounts(
         }
     }
     // convert vector of addresses to Json string
-    let j = serde_json::to_string(&inputs_anonymity_vector);
-    let msg_to_return = j.unwrap();
-    Ok(msg_to_return)
+    // let j = serde_json::to_string(&inputs_anonymity_vector);
+    // let msg_to_return = j.unwrap();
+    // Ok(msg_to_return)
+    inputs_anonymity_vector
 }
