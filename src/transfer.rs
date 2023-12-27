@@ -247,8 +247,8 @@ fn preprocess_tx_request_frontend(
 // returns the tx as Hex string
 pub fn create_quisquis_transaction_single(
     sk: RistrettoSecretKey,
-    sender: String,
-    reciever: String,
+    sender_inp: Input,
+    reciever: String, //
     amount: u64,
     address_input: bool,
     updated_sender_balance: u64,
@@ -261,7 +261,7 @@ pub fn create_quisquis_transaction_single(
 
     let (rec_acc, rec_comm_scalar) = compute_address_input(address_input, reciever.clone());
 
-    let sender_inp: Input = serde_json::from_str(&sender).unwrap();
+    //let sender_inp: Input = serde_json::from_str(&sender).unwrap();
     let sender_acc = sender_inp.to_quisquis_account().unwrap();
 
     let sender_count = 1 as usize;
