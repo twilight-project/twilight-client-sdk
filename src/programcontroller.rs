@@ -1,13 +1,15 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
+use address::{Address, Network};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
+use zkvm::merkle::CallProof;
 pub type Tag = String;
 use zkvm::encoding::Encodable;
-use zkvm::Program;
+use zkvm::{Hasher, MerkleTree, Program};
 // pub fn remove_program() {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -23,11 +25,11 @@ impl ContractManager {
         }
     }
 
-    pub fn add_program(&mut self, tag: &str, program: Program) -> Result<(), String> {
+    pub fn add_program(&mut self, tag: &str, program: Program) -> Result<(), &'static str> {
         let mut encoded_program_data = program.encode_to_vec();
         let program_hex_encoded = hex::encode(encoded_program_data);
         if self.program_index.contains_key(tag) {
-            Err("Program Tag already exist".to_string())
+            Err("Program Tag already exist")
         } else {
             let len = self.program.len();
             self.program_index.insert(tag.to_string(), len);
@@ -60,20 +62,20 @@ impl ContractManager {
             .unwrap();
     }
 
-    pub fn get_program_by_tag(self, tag: &str) -> Result<Program, String> {
+    pub fn get_program_by_tag(self, tag: &str) -> Result<Program, &'static str> {
         match self.program_index.get(tag) {
             Some(index) => match hex::decode(self.program[*index].clone()) {
                 Ok(program_bytes) => match Program::parse(&program_bytes) {
                     Ok(program) => Ok(program),
-                    Err(err) => Err("Program parsing error".to_string()),
+                    Err(err) => Err("Program parsing error"),
                 },
-                Err(_) => Err("Program doesn't exist or hex invalid".to_string()),
+                Err(_) => Err("Program doesn't exist or hex invalid"),
             },
-            None => Err("Program doesn't exist".to_string()),
+            None => Err("Program doesn't exist"),
         }
     }
 
-    pub fn get_program_vec(self) -> Result<Vec<Program>, String> {
+    pub fn get_program_vec(&self) -> Result<Vec<Program>, &'static str> {
         let vec_program_len: usize = self.program.len();
         let mut programs: Vec<Program> = Vec::new();
         if vec_program_len > 0 {
@@ -81,21 +83,57 @@ impl ContractManager {
                 match hex::decode(program_hex) {
                     Ok(program_bytes) => match Program::parse(&program_bytes) {
                         Ok(program) => programs.push(program),
-                        Err(_) => return Err("Program parsing error".to_string()),
+                        Err(_) => return Err("Program parsing error"),
                     },
-                    Err(_) => return Err("Program doesn't exist or hex invalid".to_string()),
+                    Err(_) => return Err("Program doesn't exist or hex invalid"),
                 }
             }
 
             Ok(programs)
         } else {
-            Err("Program doesn't exist".to_string())
+            Err("Program doesn't exist")
         }
+    }
+    pub fn create_call_proof(
+        &self,
+        network: Network,
+        tag: &str,
+    ) -> Result<CallProof, &'static str> {
+        // create a tree of programs
+        let hasher = Hasher::new(b"ZkOS.MerkelTree");
+        //get vector of programs
+        let progs_list = self.get_program_vec()?;
+
+        //get the index of the tagged program
+        match self.program_index.get(tag) {
+            Some(index) => {
+                let call_proof =
+                    CallProof::create_call_proof(&progs_list, index.to_owned(), &hasher, network);
+
+                match call_proof {
+                    Some(cp) => Ok(cp),
+                    None => Err("Call proof can not be created successfully"),
+                }
+            }
+            None => Err("Program doesn't exist"),
+        }
+    }
+
+    pub fn create_contract_address(&self, network: Network) -> Result<String, &'static str> {
+        //get vector of programs
+        let progs = self.get_program_vec()?;
+
+        //create tree root
+        let root = MerkleTree::root(b"ZkOS.MerkelTree", progs.iter());
+        //convert root to address
+        let address = Address::script_address(network, root.0);
+        //script address as hex
+        Ok(address.as_hex())
     }
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use crate::programcontroller::*;
     use std::fs::File;
     use std::io::prelude::*;
@@ -373,5 +411,43 @@ mod test {
         let programs = ContractManager::import_program(path);
         let single_program = programs.get_program_vec();
         println!("program_vec : {:?}", single_program.unwrap());
+    }
+    #[test]
+    fn create_contract_address_test() {
+        let path = "./relayerprogram.json";
+        let programs = ContractManager::import_program(path);
+        let contract_address = programs.create_contract_address(Network::default());
+        println!("address : {:?}", contract_address);
+    }
+    #[test]
+    fn create_call_proof_test() {
+        let path = "./relayerprogram.json";
+        let programs = ContractManager::import_program(path);
+        let call_proof: Result<CallProof, &str> =
+            programs.create_call_proof(Network::default(), "CreateTraderOrder");
+        println!("call_proof : {:?}", call_proof);
+        // verify call proof
+        //create tree root
+        let progs = programs.get_program_vec().unwrap();
+        let root = MerkleTree::root(b"ZkOS.MerkelTree", progs.iter());
+        //convert root to address
+        let address = Address::script_address(Network::default(), root.0);
+        //script address as hex
+        let address_hex = address.as_hex();
+        // get program for CreateTraderOrder
+        let prog_index = programs.program_index.get("CreateTraderOrder").unwrap();
+        // get program at index
+        let program_hex = programs.program[*prog_index].clone();
+        let decode_hex: Vec<u8> = hex::decode(program_hex).unwrap();
+
+        let decoded_program_data: Program = Program::parse(&decode_hex).unwrap();
+        let hasher = Hasher::new(b"ZkOS.MerkelTree");
+
+        // verify call proof
+        let verify =
+            call_proof
+                .unwrap()
+                .verify_call_proof(address_hex, &decoded_program_data, &hasher);
+        println!("verify: {:?}", verify);
     }
 }
