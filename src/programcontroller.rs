@@ -56,13 +56,13 @@ impl ContractManager {
         decode_data
     }
 
-    pub fn export_program(self, path: &str) {
+    pub fn export_program(&self, path: &str) {
         let mut file = File::create(path).unwrap();
         file.write_all(&serde_json::to_vec_pretty(&self.clone()).unwrap())
             .unwrap();
     }
 
-    pub fn get_program_by_tag(self, tag: &str) -> Result<Program, &'static str> {
+    pub fn get_program_by_tag(&self, tag: &str) -> Result<Program, &'static str> {
         match self.program_index.get(tag) {
             Some(index) => match hex::decode(self.program[*index].clone()) {
                 Ok(program_bytes) => match Program::parse(&program_bytes) {
