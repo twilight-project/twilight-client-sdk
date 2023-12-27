@@ -1,18 +1,11 @@
-use address::{Address, AddressType, Network};
+use address::Network;
 
 use crate::{chain::*, programcontroller::ContractManager};
 use curve25519_dalek::scalar::Scalar;
 use rand::rngs::OsRng;
-use transaction::{
-    quisquislib::{
-        keys::PublicKey,
-        ristretto::{RistrettoPublicKey, RistrettoSecretKey},
-    },
-    Transaction, TransactionData,
-};
-use transactionapi::rpcclient::{method::*, txrequest::*};
+use transaction::{quisquislib::ristretto::RistrettoSecretKey, Transaction, TransactionData};
 use zkvm::{
-    zkos_types::{IOType, Input, Output, OutputCoin, OutputMemo, OutputState, Utxo},
+    zkos_types::{Input, Output, OutputMemo, OutputState, Utxo},
     Commitment, InputData, OutputData, String as ZkvmString,
 };
 /// Broadcasts a contract deploy transaction to the ZKOS Server on chain.
@@ -218,7 +211,11 @@ pub fn create_memo_for_deployment(
     memo
 }
 #[cfg(test)]
+#[allow(unused_imports)]
+#[allow(dead_code)]
+#[allow(unused)]
 mod test {
+
     use super::get_transaction_coin_input_from_address;
     use crate::utxo_util::*;
     use block_modes::IvState;
