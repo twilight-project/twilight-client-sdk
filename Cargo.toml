@@ -2,8 +2,16 @@
 name = "zkos-client-wallet"
 version = "0.1.0"
 edition = "2021"
-
+authors = ["Usman Shahid <>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "zkoswalletlib"
+path = "src/lib.rs"
+
+#[bin]
+#name = "zkoswalletbin"
+#path = "src/bin.rs"
 
 [profile.release]
 debug = true

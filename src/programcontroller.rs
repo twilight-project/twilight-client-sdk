@@ -1,5 +1,5 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
+//#![allow(dead_code)]
+//#![allow(unused_imports)]
 use address::{Address, Network};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -10,7 +10,6 @@ use zkvm::merkle::CallProof;
 pub type Tag = String;
 use zkvm::encoding::Encodable;
 use zkvm::{Hasher, MerkleTree, Program};
-// pub fn remove_program() {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ContractManager {
