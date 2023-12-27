@@ -524,19 +524,14 @@ pub fn create_dark_transfer_transaction(
 }
 
 ///Verify Quisquis and Dark Transaction.
-pub fn verify_quisquis_tx(tx: String) -> Result<String, &'static str> {
+pub fn verify_quisquis_tx(tx: String) -> Result<(), &'static str> {
     //decode the tx to binary
     let tx_binary: Vec<u8> = hex::decode(&tx).unwrap();
     // deserialize Tx to type Transaction
     let tx_t: transaction::Transaction = bincode::deserialize(&tx_binary).unwrap();
 
     //verify transaction
-    let verify = tx_t.verify();
-    if verify.is_ok() {
-        return Ok(serde_json::to_string(&verify.unwrap()).unwrap());
-    } else {
-        return Err("Transaction Verification Failed");
-    }
+    tx_t.verify()
 }
 // pub fn get_updated_address_from_transaction(sk: RistrettoSecretKey, tx: String) -> String {
 //     //decode the tx to binary
@@ -570,16 +565,12 @@ pub fn verify_quisquis_tx(tx: String) -> Result<String, &'static str> {
 /// Create burn transaction message
 
 pub fn create_burn_message_transaction(
-    input_string: String,
+    input: Input,
     amount: u64,
     ecrypt_scalar_hex: String,
     sk: RistrettoSecretKey,
     init_address: String,
 ) -> String {
-    //create input from input_string
-    let input: Input = serde_json::from_str(&input_string).unwrap();
-    // create sk from seed
-    //let sk: RistrettoSecretKey = hex_str_to_secret_key(seed);
     // create Scalar from hex
     let scalar_bytes = hex::decode(&ecrypt_scalar_hex).unwrap();
     let scalar = Scalar::from_bytes_mod_order(scalar_bytes.try_into().unwrap());
