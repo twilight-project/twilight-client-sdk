@@ -39,9 +39,9 @@ fn read_bytes_from_file<P: AsRef<Path>>(file_path: P) -> io::Result<Vec<u8>> {
     Ok(buffer)
 }
 
-fn new_wallet(password: &[u8], file_path: String, iv: &[u8]) -> RistrettoSecretKey {
-    let seed =
-        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+fn new_wallet(password: &[u8], file_path: String, iv: &[u8], seed: &str) -> RistrettoSecretKey {
+    //let seed =
+    //  "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
     // let secret_key: quisquislib::ristretto::RistrettoSecretKey =
     //   quisquislib::keys::SecretKey::random(&mut OsRng);
     let secret_key = hex_str_to_secret_key(seed);
@@ -57,21 +57,32 @@ fn new_wallet(password: &[u8], file_path: String, iv: &[u8]) -> RistrettoSecretK
     return secret_key;
 }
 
-fn load_wallet(password: &[u8], file_path: String, iv: &[u8]) -> RistrettoSecretKey {
-    let encypted_private_key_bytes = read_bytes_from_file(file_path).unwrap();
+fn load_wallet(password: &[u8], file_path: String, iv: &[u8]) -> Option<RistrettoSecretKey> {
+    let encypted_private_key_bytes = read_bytes_from_file(file_path);
+    let encypted_private_key_bytes = match encypted_private_key_bytes {
+        Ok(bytes) => bytes,
+        Err(_) => return None,
+    };
     let private_key_bytes = decrypt(encypted_private_key_bytes.as_slice(), password, iv);
     let secret_key = quisquislib::ristretto::RistrettoSecretKey::from_bytes(&private_key_bytes);
-    return secret_key;
+    Some(secret_key)
 }
 
-fn init_wallet(password: &[u8], file_path: String, iv: &[u8]) -> RistrettoSecretKey {
-    let wallet: RistrettoSecretKey;
+fn init_wallet(
+    password: &[u8],
+    file_path: String,
+    iv: &[u8],
+    key_seed: Option<String>,
+) -> Option<RistrettoSecretKey> {
     if Path::new(&file_path).exists() {
-        wallet = load_wallet(password, file_path, iv);
+        load_wallet(password, file_path, iv)
     } else {
-        wallet = new_wallet(password, file_path, iv);
+        let seed = match key_seed {
+            Some(seed) => seed,
+            None => return None,
+        };
+        Some(new_wallet(password, file_path, iv, &seed))
     }
-    return wallet;
 }
 
 fn get_public_key(secret_key: RistrettoSecretKey) -> RistrettoPublicKey {
@@ -98,8 +109,14 @@ fn get_public_key(secret_key: RistrettoSecretKey) -> RistrettoPublicKey {
 fn main() {
     let password = b"your_password_here";
     let iv = b"your_password_here"; // Use a secure way to handle the password
-
-    let wallet = init_wallet(password, "wallet.txt".to_string(), iv);
+    let seed =
+        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+    let wallet = init_wallet(
+        password,
+        "wallet.txt".to_string(),
+        iv,
+        Some(seed.to_string()),
+    );
     // let loaded_wallet = Wallet::load_from_file("wallet.json".to_string());
 }
 
@@ -123,8 +140,14 @@ mod test {
     fn get_key_test() {
         let password = b"your_password_he";
         let iv = b"your_password_he"; // Use a secure way to handle the password
-
-        let wallet = init_wallet(password, "wallet.txt".to_string(), iv);
+        let seed =
+     "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+        let wallet = init_wallet(
+            password,
+            "wallet.txt".to_string(),
+            iv,
+            Some(seed.to_string()),
+        );
         println!("wallet {:?}", wallet);
     }
 }
