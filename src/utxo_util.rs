@@ -4,8 +4,12 @@ use transaction::quisquislib::{
     keys::PublicKey,
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
 };
-use zkvm::zkos_types::{IOType, Input, Output, OutputCoin, Utxo};
 
+use zkvm::zkos_types::{IOType, Input, Output, OutputCoin, Utxo};
+lazy_static! {
+    pub static ref ZKOS_SERVER_URL: String =
+        std::env::var("ZKOS_SERVER_URL").expect("missing environment variable ZKOS_SERVER_URL");
+}
 use hex;
 use serde::{Deserialize, Serialize};
 
