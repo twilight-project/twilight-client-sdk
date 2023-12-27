@@ -6,6 +6,34 @@ lazy_static! {
         std::env::var("ZKOS_SERVER_URL").expect("missing environment variable ZKOS_SERVER_URL");
 }
 
+pub fn get_transaction_coin_input_from_address(address_hex: String) -> Result<Input, String> {
+    let coin_utxo_vec_result = get_coin_utxo_by_address_hex(address_hex);
+    match coin_utxo_vec_result {
+        Ok(utxo_vec_hex) => {
+            if utxo_vec_hex.len() > 0 {
+                let coin_output_result = get_coin_output_by_utxo_id_hex(utxo_vec_hex[0].clone());
+                match coin_output_result {
+                    Ok(coin_output) => {
+                        let input_result = crate::relayer::create_input_from_output(
+                            coin_output,
+                            utxo_vec_hex[0].clone(),
+                            0,
+                        );
+                        match input_result {
+                            Ok(input) => Ok(input),
+                            Err(_) => return Err("create_input_from_output error")?,
+                        }
+                    }
+                    Err(_) => return Err("No output found for given utxo")?,
+                }
+            } else {
+                return Err("No utxo found")?;
+            }
+        }
+        Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+    }
+}
+
 pub fn get_coin_utxo_by_address_hex(address_hex: String) -> Result<Vec<String>, String> {
     let tx_send: RpcBody<Vec<String>> = RpcRequest::new(vec![address_hex], Method::getUtxos);
     let res = tx_send.send(ZKOS_SERVER_URL.clone());
