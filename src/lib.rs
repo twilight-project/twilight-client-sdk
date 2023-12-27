@@ -10,6 +10,7 @@ pub extern crate zkschnorr;
 pub extern crate zkvm;
 
 mod keys_management;
+pub mod programcontroller;
 pub mod relayer;
 pub mod relayer_types;
 pub mod script;
