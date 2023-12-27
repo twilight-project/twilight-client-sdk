@@ -15,6 +15,49 @@ use zkvm::{
     zkos_types::{IOType, Input, Output, OutputCoin, OutputMemo, OutputState, Utxo},
     Commitment, InputData, OutputData, String as ZkvmString,
 };
+/// Broadcasts a contract deploy transaction to the ZKOS Server on chain.
+/// @param sk: RistrettoSecretKey of the coin owner
+/// @param value_sats: value in sats to be deposited in the contract
+/// @param coin_address: on-chain address of the coin owner
+/// @param ecryption_commitment_scalar: commitment scalar used for Elgamal encryption of QQ Account and memo commitment
+/// @param program_json_path: path to the json file containing the contract program
+/// @param chain_net: Network address indicator i.e., Main or TestNet
+/// @param state_variables: vector of state variables to be initialized
+/// @param program_tag: tag of the program to be deployed   
+/// @return transaction id
+pub fn broadcast_contract_deploy_transaction(
+    sk: RistrettoSecretKey,
+    value_sats: u64,
+    coin_address: String,
+    ecryption_commitment_scalar: Scalar,
+    program_json_path: &str,
+    chain_net: Network, // Main / TestNet
+    state_variables: Vec<u64>,
+    program_tag: String,
+) -> Result<String, String> {
+    let tx = create_contract_deploy_transaction(
+        sk,
+        value_sats,
+        coin_address,
+        ecryption_commitment_scalar,
+        program_json_path,
+        chain_net,
+        state_variables,
+        program_tag,
+    )?;
+    tx_commit_broadcast_transaction(tx)
+}
+
+/// Creates a contract deploy transaction
+/// @param sk: RistrettoSecretKey of the coin owner
+/// @param value_sats: value in sats to be deposited in the contract
+/// @param coin_address: on-chain address of the coin owner
+/// @param ecryption_commitment_scalar: commitment scalar used for Elgamal encryption of QQ Account and memo commitment
+/// @param program_json_path: path to the json file containing the contract program
+/// @param chain_net: Network address indicator i.e., Main or TestNet
+/// @param state_variables: vector of state variables to be initialized
+/// @param program_tag: tag of the program to be deployed
+/// @return transaction
 pub fn create_contract_deploy_transaction(
     sk: RistrettoSecretKey,
     value_sats: u64,
@@ -75,7 +118,14 @@ pub fn create_contract_deploy_transaction(
         Err(e) => Err(format!("Error at creating script transaction :{:?}", e).into()),
     }
 }
-
+/// creates input and output state for contract deployment
+/// Input state is initialized as zero
+/// Output State is initialized with the coin deposit values
+/// @param value_sats: value in sats to be deposited in the contract
+/// @param state_variables: vector of state variables to be initialized
+/// @param contract_address: contract address
+/// @param coin_address: on-chain address of the coin owner
+/// @return input state and output state
 pub fn create_state_for_deployment(
     value_sats: u64,
     state_variables: Vec<u64>,
@@ -140,6 +190,12 @@ pub fn create_state_for_deployment(
     (input_state, output)
 }
 
+/// creates output memo for contract deployment
+/// @param initial_deposit: value in sats to be deposited in the contract
+/// @param contract_address: contract address
+/// @param coin_address: on-chain address of the coin owner
+/// @param scalar_commitment: commitment scalar used for Elgamal encryption of QQ Account and memo commitment
+/// @return output memo
 pub fn create_memo_for_deployment(
     initial_deposit: u64,
     contract_address: String,
