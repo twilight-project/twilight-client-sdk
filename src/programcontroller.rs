@@ -26,7 +26,7 @@ impl ContractManager {
     }
 
     pub fn add_program(&mut self, tag: &str, program: Program) -> Result<(), &'static str> {
-        let mut encoded_program_data = program.encode_to_vec();
+        let encoded_program_data = program.encode_to_vec();
         let program_hex_encoded = hex::encode(encoded_program_data);
         if self.program_index.contains_key(tag) {
             Err("Program Tag already exist")
@@ -41,11 +41,10 @@ impl ContractManager {
     pub fn import_program(path: &str) -> ContractManager {
         let read_data = fs::read(path);
         let decode_data: ContractManager;
-        let mut is_file_exist = false;
+
         match read_data {
             Ok(json_data_encode) => {
                 decode_data = serde_json::from_slice(&json_data_encode).unwrap();
-                is_file_exist = true;
             }
             Err(arg) => {
                 println!("No previous program Found- Error:{:#?}", arg);
@@ -67,7 +66,7 @@ impl ContractManager {
             Some(index) => match hex::decode(self.program[*index].clone()) {
                 Ok(program_bytes) => match Program::parse(&program_bytes) {
                     Ok(program) => Ok(program),
-                    Err(err) => Err("Program parsing error"),
+                    Err(_err) => Err("Program parsing error"),
                 },
                 Err(_) => Err("Program doesn't exist or hex invalid"),
             },
@@ -133,6 +132,9 @@ impl ContractManager {
 }
 
 #[cfg(test)]
+#[allow(unused_imports)]
+#[allow(dead_code)]
+#[allow(unused)]
 mod tests {
     use crate::programcontroller::*;
     use std::fs::File;
