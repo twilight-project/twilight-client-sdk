@@ -64,11 +64,12 @@ pub fn create_output_for_memo(
 
 pub fn create_input_from_output(
     out: Output,
-    utxo: Utxo,
+    utxo: String,
     withdraw_amount: u64, //ONLY NEEDED FOR MEMO in case of settlement transactions
 ) -> Result<Input, &'static str> {
     //let out: Output = serde_json::from_str(&output).unwrap();
     //let utxo: Utxo = serde_json::from_str(&utxo).unwrap();
+    let utxo: Utxo = bincode::deserialize(&hex::decode(utxo).unwrap()).unwrap();
     let mut inp: Input;
     match out.out_type {
         IOType::Coin => {
@@ -153,7 +154,7 @@ pub fn sign_input(
 ///Create a ZkosCreateTraderOrder OR ZkosCreateLendOrder from ZkosAccount
 /// Returns ZkosCreateOrder as string
 /// input : Input::coin(InputData::coin(utxo, out_coin.clone(), 0));
-/// output : Output::memo(OutputData::memo(output_memo));
+/// output : Output::memo(OutputData::memo(_memo));
 /// seed : Secret key
 /// rscalar: Scalar used to create Encryption and Commitment
 /// value: value of the order.  Should be equal to the balance of the input otherwise the difference might be burned

@@ -1,3 +1,12 @@
+use address::{Address, AddressType};
+
+use transaction::quisquislib::{
+    keys::PublicKey,
+    ristretto::{RistrettoPublicKey, RistrettoSecretKey},
+};
+use transactionapi::rpcclient::{method::*, txrequest::*};
+use zkvm::zkos_types::{IOType, Input, Output, OutputCoin, Utxo};
+
 // pub fn create_refenece_deploy_transaction(sk: RistrettoSecretKey, value_sats: u64) -> Transaction {
 //     let mut rng = rand::thread_rng();
 //     // commitment scalar for encryption and commitment
@@ -276,3 +285,47 @@
 //         // println!("utxx_hex {:?}", utxx_hex);
 //     }
 // }
+use crate::chain::*;
+pub fn get_transaction_coin_input_from_address(address_hex: String) -> Result<Input, String> {
+    let coin_utxo_vec_result = get_coin_utxo_by_address_hex(address_hex);
+    match coin_utxo_vec_result {
+        Ok(utxo_vec_hex) => {
+            if utxo_vec_hex.len() > 0 {
+                let coin_output_result = get_coin_output_by_utxo_id_hex(utxo_vec_hex[0].clone());
+                match coin_output_result {
+                    Ok(coin_output) => {
+                        let input_result = crate::relayer::create_input_from_output(
+                            coin_output,
+                            utxo_vec_hex[0].clone(),
+                            0,
+                        );
+                        match input_result {
+                            Ok(input) => Ok(input),
+                            Err(_) => return Err("create_input_from_output error".to_string()),
+                        }
+                    }
+                    Err(_) => return Err("No output found for given utxo".to_string()),
+                }
+            } else {
+                return Err("No utxo found".to_string());
+            }
+        }
+        Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::get_transaction_coin_input_from_address;
+    use crate::utxo_util::*;
+
+    #[test]
+    fn get_transaction_coin_input_from_address_test() {
+        dotenv::dotenv().expect("Failed loading dotenv");
+        let address="0c0a2555a4de4e44e9f10e8d682b1e63f58216ec3ae0d5947e6c65fd1efa952433e0a226db8e1ab54305ce578e39a305871ada6037e76a2ba74bc86e5c8011d736be751ed4".to_string();
+        println!(
+            "utxo_vec:{:?}",
+            get_transaction_coin_input_from_address(address)
+        );
+    }
+}
