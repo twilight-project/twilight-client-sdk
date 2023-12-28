@@ -226,10 +226,36 @@ pub fn create_input_memo_from_output_memo(
     Ok(inp)
 }
 
-/// create input state from output state
-///
-pub fn create_input_state_type() {}
+/// create input state from given output state
+///  
+pub fn create_input_state_from_output_state(
+    out: Output,
+    utxo: String,
+    script_data: Option<Vec<ZkvmString>>,
+) -> Result<Input, &'static str> {
+    let utxo_bytes = match hex::decode(&utxo) {
+        Ok(bytes) => bytes,
+        Err(_) => return Err("Invalid Utxo:: Hex Decode Error "),
+    };
+    let utxo: Utxo = match bincode::deserialize(&utxo_bytes) {
+        Ok(utxo) => utxo,
+        Err(_) => return Err("Invalid Utxo::Bincode Decode Error"),
+    };
+    // get memo output from output
+    let out_state = match out.as_out_state() {
+        Some(state) => state,
+        None => return Err("Invalid Output:: Not a State Output"),
+    };
 
+    let inp = Input::state(InputData::state(
+        utxo,
+        out_state.clone(),
+        script_data,
+        1, // witness is 1 for state for now
+    ));
+
+    Ok(inp)
+}
 /// convert hex string to Scalar
 pub fn hex_to_scalar(hex: String) -> Option<Scalar> {
     let byt = match hex::decode(&hex) {

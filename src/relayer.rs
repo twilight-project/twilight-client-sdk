@@ -118,9 +118,7 @@ pub fn execute_order_zkos(
     execution_price_poolshare_price: f64,
     tx_type: TXType,
 ) -> String {
-    //prepare data for signature and same value proof
-    //recreate uuid
-
+    //prepare data for signature
     //extract publickey from owner address of output memo
     let owner_address_string = output_memo.as_output_data().get_owner_address().unwrap();
     let owner: Address = Address::from_hex(&owner_address_string, AddressType::default()).unwrap();
