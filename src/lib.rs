@@ -11,7 +11,7 @@ pub extern crate zkschnorr;
 pub extern crate zkvm;
 
 pub mod chain;
-mod keys_management;
+pub mod keys_management;
 pub mod programcontroller;
 pub mod relayeclientrpc;
 pub mod relayer;
