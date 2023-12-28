@@ -218,7 +218,7 @@ pub fn create_memo_for_deployment(
 mod test {
 
     use super::get_transaction_coin_input_from_address;
-    use crate::utxo_util::*;
+    use crate::util::*;
     use block_modes::IvState;
     use rand::rngs::OsRng;
     use zkvm::{program, Commitment};

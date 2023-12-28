@@ -19,5 +19,5 @@ pub mod relayer_rpcclient;
 pub mod relayer_types;
 pub mod script;
 pub mod transfer;
-pub mod utxo_util;
+pub mod util;
 //use rand::rngs::OsRng;
