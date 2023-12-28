@@ -1,4 +1,3 @@
-use crate::utxo_util::create_input_coin_from_output_coin;
 use hex;
 use transactionapi::rpcclient::{method::*, txrequest::*};
 use zkvm::zkos_types::{Input, Output, Utxo};
@@ -16,7 +15,7 @@ pub fn get_transaction_coin_input_from_address(address_hex: String) -> Result<In
                 let coin_output_result = get_coin_output_by_utxo_id_hex(utxo_vec_hex[0].clone());
                 match coin_output_result {
                     Ok(coin_output) => {
-                        let input_result = create_input_coin_from_output_coin(
+                        let input_result = crate::util::create_input_coin_from_output_coin(
                             coin_output,
                             utxo_vec_hex[0].clone(),
                         );
@@ -45,7 +44,7 @@ pub fn get_transaction_memo_input_from_address(
                 let coin_output_result = get_memo_output_by_utxo_id_hex(utxo_vec_hex[0].clone());
                 match coin_output_result {
                     Ok(coin_output) => {
-                        let input_result = crate::utxo_util::create_input_memo_from_output_memo(
+                        let input_result = crate::util::create_input_memo_from_output_memo(
                             coin_output,
                             utxo_vec_hex[0].clone(),
                             withdraw_amount,
