@@ -249,12 +249,12 @@ impl CreateLendOrderZkos {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ZkosSettleMsg {
-    pub input: Input,         //memo type input
+    pub output: Output,       //memo type output
     pub signature: Signature, //quisquis signature
 }
 impl ZkosSettleMsg {
-    pub fn new(input: Input, signature: Signature) -> ZkosSettleMsg {
-        ZkosSettleMsg { input, signature }
+    pub fn new(output: Output, signature: Signature) -> ZkosSettleMsg {
+        ZkosSettleMsg { output, signature }
     }
 }
 

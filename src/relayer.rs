@@ -77,7 +77,7 @@ pub fn create_trader_order_zkos(
     execution_price: f64,
 ) -> Result<String, &'static str> {
     //prepare data for signature and same value proof
-    let rscalar = match hex_to_scalar(rscalar) {
+    let rscalar = match crate::util::hex_to_scalar(rscalar) {
         Some(scalar) => scalar,
         None => return Err("Invalid Scalar:: Hex Decode Error "),
     };
@@ -108,7 +108,7 @@ pub fn create_trader_order_zkos(
 /// tx_type = "LENDTX" for settling lend orders
 /// returns hex string of the object
 pub fn execute_order_zkos(
-    input_memo: Input,
+    output_memo: Output, // Provides the Prover Memo Output used to create the order
     secret_key: &RistrettoSecretKey,
     account_id: String,
     uuid: Uuid,
@@ -121,20 +121,19 @@ pub fn execute_order_zkos(
     //prepare data for signature and same value proof
     //recreate uuid
 
-    //extract publickey from owner address of input memo
-    let owner: String = input_memo.as_owner_address().unwrap().to_owned();
-    let pk: RistrettoPublicKey = Address::from_hex(&owner, AddressType::default())
-        .unwrap()
-        .as_coin_address()
-        .public_key;
+    //extract publickey from owner address of output memo
+    let owner_address_string = output_memo.as_output_data().get_owner_address().unwrap();
+    let owner: Address = Address::from_hex(&owner_address_string, AddressType::default()).unwrap();
+    let pk: RistrettoPublicKey = owner.into();
+
     // sign the input memo
-    let message = bincode::serialize(&input_memo).unwrap();
+    let message = bincode::serialize(&output_memo).unwrap();
     let signature: Signature = pk.sign_msg(&message, &secret_key, ("PublicKeySign").as_bytes());
 
     //Let order type (Trade or Lend)
 
-    let settle_zkos_msg: ZkosSettleMsg = ZkosSettleMsg::new(input_memo.clone(), signature.clone());
-    let mut settle_hex: String = String::new();
+    let settle_zkos_msg: ZkosSettleMsg = ZkosSettleMsg::new(output_memo.clone(), signature.clone());
+
     match tx_type {
         TXType::ORDERTX => {
             let execute_order: ExecuteTraderOrder = ExecuteTraderOrder::new(
@@ -147,7 +146,7 @@ pub fn execute_order_zkos(
             );
             let order_zkos_settle: ExecuteTraderOrderZkos =
                 ExecuteTraderOrderZkos::new(execute_order, settle_zkos_msg.clone());
-            settle_hex = order_zkos_settle.encode_as_hex_string();
+            return order_zkos_settle.encode_as_hex_string();
         }
         TXType::LENDTX => {
             let execute_lend: ExecuteLendOrder = ExecuteLendOrder::new(
@@ -160,10 +159,9 @@ pub fn execute_order_zkos(
             );
             let order_zkos_settle: ExecuteLendOrderZkos =
                 ExecuteLendOrderZkos::new(execute_lend, settle_zkos_msg.clone());
-            settle_hex = order_zkos_settle.encode_as_hex_string();
+            return order_zkos_settle.encode_as_hex_string();
         }
     }
-    settle_hex
 }
 
 /// Create a ZkosLendOrder from ZkosAccount
@@ -180,7 +178,7 @@ pub fn create_lend_order_zkos(
     order_status: String,
     deposit: f64,
 ) -> Result<String, &'static str> {
-    let rscalar = match hex_to_scalar(rscalar) {
+    let rscalar = match crate::util::hex_to_scalar(rscalar) {
         Some(scalar) => scalar,
         None => return Err("Invalid Scalar:: Hex Decode Error "),
     };
@@ -277,33 +275,4 @@ pub fn query_lend_order_zkos(
     let query_lend_zkos: QueryLendOrderZkos = QueryLendOrderZkos::new(query_lend, query_lend_msg);
     let order_hex: String = query_lend_zkos.encode_as_hex_string();
     order_hex
-}
-
-// Public utility functions used for type conversions
-// scalar to hex
-pub fn scalar_to_hex(scalar: Scalar) -> String {
-    let byt = scalar.to_bytes();
-    hex::encode(&byt)
-}
-
-/// convert hex string to Scalar
-pub fn hex_to_scalar(hex: String) -> Option<Scalar> {
-    let byt = match hex::decode(&hex) {
-        Ok(bytes) => bytes,
-        Err(_) => return None,
-    };
-    // Try to convert the vector into an array of 32 bytes
-    let result: Result<[u8; 32], _> = byt.try_into();
-    match result {
-        Ok(bytes) => Some(Scalar::from_bytes_mod_order(bytes)),
-        Err(_) => None,
-    }
-}
-
-/// convert Utxo json Object into Hex String
-pub fn get_utxo_hex_from_json(utxo_json: String) -> String {
-    let utxo: Utxo = serde_json::from_str(&utxo_json).unwrap();
-    let utxo_bytes = bincode::serialize(&utxo).unwrap();
-    let utxo_hex = hex::encode(&utxo_bytes);
-    utxo_hex
 }
