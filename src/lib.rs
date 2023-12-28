@@ -13,10 +13,11 @@ pub extern crate zkvm;
 pub mod chain;
 mod keys_management;
 pub mod programcontroller;
+pub mod relayeclientrpc;
 pub mod relayer;
+pub mod relayer_rpcclient;
 pub mod relayer_types;
 pub mod script;
 pub mod transfer;
 pub mod utxo_util;
-
 //use rand::rngs::OsRng;

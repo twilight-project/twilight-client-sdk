@@ -1,3 +1,6 @@
+use crate::relayer_rpcclient::method::*;
+use crate::relayer_rpcclient::txrequest::RELAYER_RPC_SERVER_URL;
+use crate::relayer_rpcclient::txrequest::{Resp, RpcBody, RpcRequest};
 use quisquislib::accounts::SigmaProof;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -158,6 +161,28 @@ impl CreateTraderOrderZkos {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
     }
+
+    pub fn submit_order(&self) -> Result<GetCreateTraderOrderResponse, String> {
+        let tx_send: RpcBody<ByteRec> = RpcRequest::new(
+            ByteRec {
+                data: self.encode_as_hex_string(),
+            },
+            crate::relayer_rpcclient::method::Method::CreateTraderOrder,
+        );
+        let res: Result<
+            crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send(RELAYER_RPC_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match GetCreateTraderOrderResponse::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+        response_unwrap
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -202,6 +227,27 @@ impl CreateLendOrderZkos {
     pub fn encode_as_hex_string(&self) -> String {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
+    }
+    pub fn submit_order(&self) -> Result<GetCreateLendOrderResponse, String> {
+        let tx_send: RpcBody<ByteRec> = RpcRequest::new(
+            ByteRec {
+                data: self.encode_as_hex_string(),
+            },
+            crate::relayer_rpcclient::method::Method::CreateLendOrder,
+        );
+        let res: Result<
+            crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send(RELAYER_RPC_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match GetCreateLendOrderResponse::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+        response_unwrap
     }
 }
 
@@ -265,6 +311,28 @@ impl ExecuteTraderOrderZkos {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
     }
+
+    pub fn submit_order(&self) -> Result<GetExecuteTraderOrderResponse, String> {
+        let tx_send: RpcBody<ByteRec> = RpcRequest::new(
+            ByteRec {
+                data: self.encode_as_hex_string(),
+            },
+            crate::relayer_rpcclient::method::Method::ExecuteTraderOrder,
+        );
+        let res: Result<
+            crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send(RELAYER_RPC_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match GetExecuteTraderOrderResponse::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+        response_unwrap
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -312,6 +380,28 @@ impl ExecuteLendOrderZkos {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
     }
+
+    pub fn submit_order(&self) -> Result<GetExecuteLendOrderResponse, String> {
+        let tx_send: RpcBody<ByteRec> = RpcRequest::new(
+            ByteRec {
+                data: self.encode_as_hex_string(),
+            },
+            crate::relayer_rpcclient::method::Method::ExecuteLendOrder,
+        );
+        let res: Result<
+            crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send(RELAYER_RPC_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match GetExecuteLendOrderResponse::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+        response_unwrap
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -355,6 +445,28 @@ impl CancelTraderOrderZkos {
     pub fn encode_as_hex_string(&self) -> String {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
+    }
+
+    pub fn submit_order(&self) -> Result<GetCancelTraderOrderResponse, String> {
+        let tx_send: RpcBody<ByteRec> = RpcRequest::new(
+            ByteRec {
+                data: self.encode_as_hex_string(),
+            },
+            crate::relayer_rpcclient::method::Method::CancelTraderOrder,
+        );
+        let res: Result<
+            crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send(RELAYER_RPC_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match GetCancelTraderOrderResponse::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+        response_unwrap
     }
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
