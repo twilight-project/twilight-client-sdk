@@ -1,11 +1,13 @@
 use address::{Address, AddressType};
 
+use curve25519_dalek::scalar::Scalar;
 use transaction::quisquislib::{
     keys::PublicKey,
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
 };
 
 use zkvm::zkos_types::{IOType, Input, Output, OutputCoin, Utxo};
+use zkvm::{zkos_types::OutputMemo, InputData, OutputData};
 lazy_static! {
     pub static ref ZKOS_SERVER_URL: String =
         std::env::var("ZKOS_SERVER_URL").expect("missing environment variable ZKOS_SERVER_URL");
@@ -14,12 +16,12 @@ use hex;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UtxoOutputRawWasm {
+pub struct UtxoOutputRaw {
     pub utxo_key: Vec<u8>,
     pub output: Vec<u8>,
     pub height: i64,
 }
-impl UtxoOutputRawWasm {
+impl UtxoOutputRaw {
     pub fn new(utxo_key: Vec<u8>, output: Vec<u8>, height: i64) -> Self {
         Self {
             utxo_key,
@@ -41,31 +43,18 @@ impl UtxoOutputRawWasm {
     }
 }
 
-/// Function to create Utxo type from hex string
-/// Returns Utxo as Json string.
-
-pub fn create_utxo_from_hex_string(utxo_hex: String) -> Utxo {
-    let utxo_bytes = hex::decode(&utxo_hex).unwrap();
-    let utxo: Utxo = bincode::deserialize(&utxo_bytes).unwrap();
-
-    //let j = serde_json::to_string(&utxo);
-    //let msg_to_return = j.unwrap();
-    //Ok(msg_to_return)
-    utxo
-}
-
 /// Function to check list of coin utxos against the provided secretkey
 /// Returns a list of all coin addresses that are owned by the secret key
-
+///
 pub fn coin_addrerss_monitoring(
     vector_utxo_output_str: String,
     sk: RistrettoSecretKey,
 ) -> Vec<String> {
     // recieves a vector of outputs as a hex string
-    // recreate Vec<UtxoOutputRawWasm> from hex string
+    // recreate Vec<UtxoOutputRaw> from hex string
     // get vector bytes from hex
     let vector_utxo_bytes = hex::decode(&vector_utxo_output_str).unwrap();
-    let vector_utxo_output_raw: Vec<UtxoOutputRawWasm> =
+    let vector_utxo_output_raw: Vec<UtxoOutputRaw> =
         bincode::deserialize(&vector_utxo_bytes).unwrap();
 
     // create secret key from seed
@@ -93,20 +82,7 @@ pub fn coin_addrerss_monitoring(
             _ => {}
         }
     }
-    // convert vector of addresses to Json string
-    // let j = serde_json::to_string(&vector_addresses);
-    // let msg_to_return = j.unwrap();
-    // Ok(msg_to_return)
     vector_addresses
-}
-
-/// Utility function to convert TxId into hex string
-/// Returns TxId as hex string
-
-pub fn tx_id_to_hex_string(utxo: String) -> String {
-    let utxo: Utxo = serde_json::from_str(&utxo).unwrap();
-    let tx_id_hex = utxo.tx_id_to_hex();
-    tx_id_hex
 }
 
 /// Function to select anonymity accounts from the set of utxos provided
@@ -114,16 +90,13 @@ pub fn tx_id_to_hex_string(utxo: String) -> String {
 
 pub fn select_anonymity_accounts(
     vector_utxo_output_str: String,
-    sender_input: String,
+    sender_input: Input,
 ) -> Vec<Input> {
-    // recreate Vec<UtxoOutputRawWasm> from hex string
+    // recreate Vec<UtxoOutputRaw> from hex string
     // get vector bytes from hex
     let vector_utxo_bytes = hex::decode(&vector_utxo_output_str).unwrap();
-    let vector_utxo_output_raw: Vec<UtxoOutputRawWasm> =
+    let vector_utxo_output_raw: Vec<UtxoOutputRaw> =
         bincode::deserialize(&vector_utxo_bytes).unwrap();
-
-    // get the input from json string
-    let input_sender: Input = serde_json::from_str(&sender_input).unwrap();
 
     // create vector of inputs
     let mut inputs_anonymity_vector: Vec<Input> = Vec::with_capacity(7);
@@ -145,7 +118,7 @@ pub fn select_anonymity_accounts(
         let inp = OutputCoin::to_input(&out, utx, 0);
 
         // check if the input is not the sender input
-        if inp != input_sender {
+        if inp != sender_input {
             // add the input to the vector of inputs
             inputs_anonymity_vector.push(inp);
             counter += 1;
@@ -163,3 +136,81 @@ pub fn select_anonymity_accounts(
     // Ok(msg_to_return)
     inputs_anonymity_vector
 }
+
+/// create Output for Memo
+///     
+pub fn create_output_for_memo(
+    script_address: String, // Hex address string
+    owner_address: String,  // Hex address string
+    balance: u64,
+    order_size: u64,
+    scalar: String, // Hex string of Scalar
+) -> Output {
+    // recreate scalar bytes from hex string
+    let scalar_bytes = hex::decode(&scalar).unwrap();
+    let scalar = Scalar::from_bytes_mod_order(scalar_bytes.try_into().unwrap());
+
+    let output_memo =
+        OutputMemo::new_from_wasm(script_address, owner_address, balance, order_size, scalar);
+
+    let output: Output = Output::memo(OutputData::memo(output_memo));
+    output
+}
+
+/// create input coin from from output coin
+///
+pub fn create_input_coin_from_output_coin(
+    out: Output,
+    utxo: String,
+) -> Result<Input, &'static str> {
+    let utxo_bytes = match hex::decode(&utxo) {
+        Ok(bytes) => bytes,
+        Err(_) => return Err("Invalid Utxo:: Hex Decode Error "),
+    };
+    let utxo: Utxo = match bincode::deserialize(&utxo_bytes) {
+        Ok(utxo) => utxo,
+        Err(_) => return Err("Invalid Utxo::Bincode Decode Error"),
+    };
+
+    let out_coin = match out.as_out_coin() {
+        Some(coin) => coin,
+        None => return Err("Invalid Output:: Not a Coin Output"),
+    };
+    let inp = Input::coin(InputData::coin(utxo, out_coin.clone(), 0));
+
+    Ok(inp)
+}
+///create input memo from output memo
+///
+pub fn create_input_memo_from_output_memo(
+    out: Output,
+    utxo: String,
+    withdraw_amount: u64,
+) -> Result<Input, &'static str> {
+    let utxo_bytes = match hex::decode(&utxo) {
+        Ok(bytes) => bytes,
+        Err(_) => return Err("Invalid Utxo:: Hex Decode Error "),
+    };
+    let utxo: Utxo = match bincode::deserialize(&utxo_bytes) {
+        Ok(utxo) => utxo,
+        Err(_) => return Err("Invalid Utxo::Bincode Decode Error"),
+    };
+    // get memo output from output
+    let out_memo = match out.as_out_memo() {
+        Some(memo) => memo,
+        None => return Err("Invalid Output:: Not a Memo Output"),
+    };
+
+    let inp = Input::memo(InputData::memo(
+        utxo,
+        out_memo.clone(),
+        0,
+        Some(zkvm::Commitment::blinded(withdraw_amount)),
+    ));
+
+    Ok(inp)
+}
+
+/// create input state from output state
+///
+pub fn create_input_state_type() {}

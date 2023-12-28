@@ -40,36 +40,6 @@ pub fn broadcast_contract_deploy_transaction(
     )?;
     tx_commit_broadcast_transaction(tx)
 }
-pub fn get_transaction_memo_input_from_address(
-    address_hex: String,
-    withdraw_amount: u64,
-) -> Result<Input, String> {
-    let coin_utxo_vec_result = get_memo_utxo_by_address_hex(address_hex);
-    match coin_utxo_vec_result {
-        Ok(utxo_vec_hex) => {
-            if utxo_vec_hex.len() > 0 {
-                let coin_output_result = get_memo_output_by_utxo_id_hex(utxo_vec_hex[0].clone());
-                match coin_output_result {
-                    Ok(coin_output) => {
-                        let input_result = crate::relayer::create_input_from_output(
-                            coin_output,
-                            utxo_vec_hex[0].clone(),
-                            withdraw_amount,
-                        );
-                        match input_result {
-                            Ok(input) => Ok(input),
-                            Err(_) => return Err("create_input_from_output error".to_string()),
-                        }
-                    }
-                    Err(_) => return Err("No output found for given utxo".to_string()),
-                }
-            } else {
-                return Err("No utxo found".to_string());
-            }
-        }
-        Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
-    }
-}
 
 /// Creates a contract deploy transaction
 /// @param sk: RistrettoSecretKey of the coin owner
