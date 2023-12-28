@@ -154,7 +154,7 @@ mod tests {
                 .roll(2)
                 .commit()
                 .expr()
-                .roll(1)
+                .roll(2)
                 .commit()
                 .expr()
                 .neg()

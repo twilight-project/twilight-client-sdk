@@ -132,6 +132,7 @@ pub fn create_contract_deploy_transaction(
         &output,
         None,
         true,
+        5u64,
     );
     match script_tx {
         Ok(tx) => {
@@ -296,6 +297,8 @@ mod test {
             state_variables,
             program_tag,
         );
+        let verify = tx.clone().unwrap().verify();
+        println!("verify:{:?}", verify);
         //convert tx to hex
         let tx_bin = bincode::serialize(&tx.unwrap()).unwrap();
         let tx_hex = hex::encode(&tx_bin);
