@@ -268,6 +268,7 @@ mod test {
         let sk: quisquislib::ristretto::RistrettoSecretKey =
             quisquislib::keys::SecretKey::from_bytes(seed.as_bytes());
         println!("sk {:?}", sk);
+        dotenv::dotenv().expect("Failed loading dotenv");
 
         // data for contract initialization
         let value_sats: u64 = 1000;
@@ -279,7 +280,7 @@ mod test {
             scalar_bytes.try_into().unwrap(),
         );
         //let ecryption_commitment_scalar = curve25519_dalek::scalar::Scalar::random(&mut OsRng);
-        let program_json_path: &str = "src/relayerprogram.json";
+        let program_json_path: &str = "./relayerprogram.json";
         let chain_net = address::Network::default();
         let state_variables: Vec<u64> = vec![1000];
         let program_tag: String = "RelayerInitializer".to_string();
