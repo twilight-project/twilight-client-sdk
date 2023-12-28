@@ -1,6 +1,8 @@
+use crate::utxo_util::create_input_coin_from_output_coin;
 use hex;
 use transactionapi::rpcclient::{method::*, txrequest::*};
-use zkvm::zkos_types::{IOType, Input, Output, OutputCoin, Utxo};
+use zkvm::zkos_types::{Input, Output, Utxo};
+
 lazy_static! {
     pub static ref ZKOS_SERVER_URL: String =
         std::env::var("ZKOS_SERVER_URL").expect("missing environment variable ZKOS_SERVER_URL");
@@ -14,10 +16,9 @@ pub fn get_transaction_coin_input_from_address(address_hex: String) -> Result<In
                 let coin_output_result = get_coin_output_by_utxo_id_hex(utxo_vec_hex[0].clone());
                 match coin_output_result {
                     Ok(coin_output) => {
-                        let input_result = crate::relayer::create_input_from_output(
+                        let input_result = create_input_coin_from_output_coin(
                             coin_output,
                             utxo_vec_hex[0].clone(),
-                            0,
                         );
                         match input_result {
                             Ok(input) => Ok(input),
@@ -33,7 +34,61 @@ pub fn get_transaction_coin_input_from_address(address_hex: String) -> Result<In
         Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
     }
 }
-
+pub fn get_transaction_memo_input_from_address(
+    address_hex: String,
+    withdraw_amount: u64,
+) -> Result<Input, String> {
+    let coin_utxo_vec_result = get_memo_utxo_by_address_hex(address_hex);
+    match coin_utxo_vec_result {
+        Ok(utxo_vec_hex) => {
+            if utxo_vec_hex.len() > 0 {
+                let coin_output_result = get_memo_output_by_utxo_id_hex(utxo_vec_hex[0].clone());
+                match coin_output_result {
+                    Ok(coin_output) => {
+                        let input_result = crate::utxo_util::create_input_memo_from_output_memo(
+                            coin_output,
+                            utxo_vec_hex[0].clone(),
+                            withdraw_amount,
+                        );
+                        match input_result {
+                            Ok(input) => Ok(input),
+                            Err(_) => return Err("create_input_from_output error".to_string()),
+                        }
+                    }
+                    Err(_) => return Err("No output found for given utxo".to_string()),
+                }
+            } else {
+                return Err("No utxo found".to_string());
+            }
+        }
+        Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+    }
+}
+// /// get transaction state input from chain based on address_hex
+// ///
+// pub fn get_transaction_state_input_from_address(address_hex: String) -> Result<Input, String> {
+//     let state_utxo_vec_result = get_state_utxo_by_address_hex(address_hex);
+//     match state_utxo_vec_result {
+//         Ok(utxo_vec_hex) => {
+//             if utxo_vec_hex.len() > 0 {
+//                 let state_output_result = get_state_output_by_utxo_id_hex(utxo_vec_hex[0].clone());
+//                 match state_output_result {
+//                     Ok(state_output) => {
+//                         crate::utxo_util::create_input_state_type();
+//                         // match input_result {
+//                         //     Ok(input) => Ok(input),
+//                         //     Err(_) => return Err("create_input_from_output error")?,
+//                         // }
+//                     }
+//                     Err(_) => return Err("No output found for given utxo")?,
+//                 }
+//             } else {
+//                 return Err("No utxo found")?;
+//             }
+//         }
+//         Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+//     }
+// }
 pub fn get_coin_utxo_by_address_hex(address_hex: String) -> Result<Vec<String>, String> {
     let tx_send: RpcBody<Vec<String>> = RpcRequest::new(vec![address_hex], Method::getUtxos);
     let res = tx_send.send(ZKOS_SERVER_URL.clone());
