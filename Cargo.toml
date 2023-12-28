@@ -36,6 +36,10 @@ block-modes = "0.8"
 block-padding = "0.2"
 lazy_static = "1.4.0"
 dotenv = "0.15.0"
+jsonrpc = "0.12.1"
+jsonrpc-http-server = "18.0"
+jsonrpc-core = "18.0.0"
+reqwest = { version = "0.11", features = ["blocking", "json"] }
 
 [dependencies.zkvm]
 git = "ssh://github.com/twilight-project/ZkOS.git"
