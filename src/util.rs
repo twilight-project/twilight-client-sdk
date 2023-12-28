@@ -6,8 +6,11 @@ use transaction::quisquislib::{
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
 };
 
-use zkvm::zkos_types::{IOType, Input, Output, OutputCoin, Utxo};
 use zkvm::{zkos_types::OutputMemo, InputData, OutputData};
+use zkvm::{
+    zkos_types::{IOType, Input, Output, OutputCoin, Utxo},
+    Commitment, String as ZkvmString,
+};
 lazy_static! {
     pub static ref ZKOS_SERVER_URL: String =
         std::env::var("ZKOS_SERVER_URL").expect("missing environment variable ZKOS_SERVER_URL");
@@ -136,25 +139,37 @@ pub fn select_anonymity_accounts(
     // Ok(msg_to_return)
     inputs_anonymity_vector
 }
-
 /// create Output for Memo
 ///     
-pub fn create_output_for_memo(
+pub fn create_output_memo_for_trader(
     script_address: String, // Hex address string
     owner_address: String,  // Hex address string
-    balance: u64,
-    order_size: u64,
-    scalar: String, // Hex string of Scalar
-) -> Output {
+    initial_margin: u64,    // Initial Margin
+    position_size: u64,     // Position Size
+    leverage: u64,          // Leverage
+    entry_price: u64,       // Entry Price
+    scalar: String,         // Hex string of Scalar
+) -> Option<Output> {
     // recreate scalar bytes from hex string
-    let scalar_bytes = hex::decode(&scalar).unwrap();
-    let scalar = Scalar::from_bytes_mod_order(scalar_bytes.try_into().unwrap());
-
-    let output_memo =
-        OutputMemo::new_from_wasm(script_address, owner_address, balance, order_size, scalar);
+    let scalar = match hex_to_scalar(scalar) {
+        Some(scalar) => scalar,
+        None => return None,
+    };
+    // create prover commitment on initial margin
+    let commitment = Commitment::blinded_with_factor(initial_margin, scalar);
+    // create Memo data for trader
+    // Position Size, Leverage, Entry Price
+    let leverage_commitment = Commitment::blinded_with_factor(leverage, scalar);
+    let data: Vec<ZkvmString> = vec![
+        ZkvmString::U64(position_size),
+        ZkvmString::Commitment(Box::new(leverage_commitment)),
+        ZkvmString::U64(entry_price),
+    ];
+    // create OutputMemo
+    let output_memo = OutputMemo::new(script_address, owner_address, commitment, Some(data), 0u32);
 
     let output: Output = Output::memo(OutputData::memo(output_memo));
-    output
+    Some(output)
 }
 
 /// create input coin from from output coin
@@ -214,3 +229,31 @@ pub fn create_input_memo_from_output_memo(
 /// create input state from output state
 ///
 pub fn create_input_state_type() {}
+
+/// convert hex string to Scalar
+pub fn hex_to_scalar(hex: String) -> Option<Scalar> {
+    let byt = match hex::decode(&hex) {
+        Ok(bytes) => bytes,
+        Err(_) => return None,
+    };
+    // Try to convert the vector into an array of 32 bytes
+    let result: Result<[u8; 32], _> = byt.try_into();
+    match result {
+        Ok(bytes) => Some(Scalar::from_bytes_mod_order(bytes)),
+        Err(_) => None,
+    }
+}
+
+/// convert Utxo json Object into Hex String
+pub fn get_utxo_hex_from_json(utxo_json: String) -> String {
+    let utxo: Utxo = serde_json::from_str(&utxo_json).unwrap();
+    let utxo_bytes = bincode::serialize(&utxo).unwrap();
+    let utxo_hex = hex::encode(&utxo_bytes);
+    utxo_hex
+}
+
+/// scalar to hex
+pub fn scalar_to_hex(scalar: Scalar) -> String {
+    let byt = scalar.to_bytes();
+    hex::encode(&byt)
+}
