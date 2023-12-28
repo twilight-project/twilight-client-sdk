@@ -1,4 +1,3 @@
-use crate::relayer_rpcclient::method::*;
 use crate::{
     relayer_types::{CreateLendOrder, CreateLendOrderZkos, ZkosCreateOrder},
     *,
@@ -215,7 +214,7 @@ pub fn create_trader_order_zkos(
     order_status: String,
     entryprice: f64,
     execution_price: f64,
-) -> Result<GetCreateTraderOrderResponse, String> {
+) -> String {
     //prepare data for signature and same value proof
     let input: Input = serde_json::from_str(&input_coin).unwrap();
     let output: Output = serde_json::from_str(&output_memo).unwrap();
@@ -237,14 +236,12 @@ pub fn create_trader_order_zkos(
     );
     let create_zkos_order_full: CreateTraderOrderZkos =
         CreateTraderOrderZkos::new(create_order, zkos_order);
-    let order_result = create_zkos_order_full.submit_order();
-    // let order_hex: String = create_zkos_order_full.encode_as_hex_string();
+    let order_hex: String = create_zkos_order_full.encode_as_hex_string();
     //println!("order_hex: {}", order_hex);
     //let j = serde_json::to_string(&order_hex);
     //let msg_to_return = j.unwrap();
     //Ok(msg_to_return)
-    // order_hex
-    order_result
+    order_hex
 }
 
 /// ExecuteOrderZkos. Used to settle trade or lend orders
