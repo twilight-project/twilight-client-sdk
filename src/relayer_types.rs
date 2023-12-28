@@ -162,11 +162,9 @@ impl CreateTraderOrderZkos {
         hex::encode(&byt)
     }
 
-    pub fn submit_order(&self) -> Result<GetCreateTraderOrderResponse, String> {
+    pub fn submit_order(order_msg: String) -> Result<GetCreateTraderOrderResponse, String> {
         let tx_send: RpcBody<ByteRec> = RpcRequest::new(
-            ByteRec {
-                data: self.encode_as_hex_string(),
-            },
+            ByteRec { data: order_msg },
             crate::relayer_rpcclient::method::Method::CreateTraderOrder,
         );
         let res: Result<
@@ -228,11 +226,9 @@ impl CreateLendOrderZkos {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
     }
-    pub fn submit_order(&self) -> Result<GetCreateLendOrderResponse, String> {
+    pub fn submit_order(order_msg: String) -> Result<GetCreateLendOrderResponse, String> {
         let tx_send: RpcBody<ByteRec> = RpcRequest::new(
-            ByteRec {
-                data: self.encode_as_hex_string(),
-            },
+            ByteRec { data: order_msg },
             crate::relayer_rpcclient::method::Method::CreateLendOrder,
         );
         let res: Result<
@@ -312,11 +308,9 @@ impl ExecuteTraderOrderZkos {
         hex::encode(&byt)
     }
 
-    pub fn submit_order(&self) -> Result<GetExecuteTraderOrderResponse, String> {
+    pub fn submit_order(order_msg: String) -> Result<GetExecuteTraderOrderResponse, String> {
         let tx_send: RpcBody<ByteRec> = RpcRequest::new(
-            ByteRec {
-                data: self.encode_as_hex_string(),
-            },
+            ByteRec { data: order_msg },
             crate::relayer_rpcclient::method::Method::ExecuteTraderOrder,
         );
         let res: Result<
@@ -381,11 +375,9 @@ impl ExecuteLendOrderZkos {
         hex::encode(&byt)
     }
 
-    pub fn submit_order(&self) -> Result<GetExecuteLendOrderResponse, String> {
+    pub fn submit_order(order_msg: String) -> Result<GetExecuteLendOrderResponse, String> {
         let tx_send: RpcBody<ByteRec> = RpcRequest::new(
-            ByteRec {
-                data: self.encode_as_hex_string(),
-            },
+            ByteRec { data: order_msg },
             crate::relayer_rpcclient::method::Method::ExecuteLendOrder,
         );
         let res: Result<
@@ -447,11 +439,9 @@ impl CancelTraderOrderZkos {
         hex::encode(&byt)
     }
 
-    pub fn submit_order(&self) -> Result<GetCancelTraderOrderResponse, String> {
+    pub fn submit_order(order_msg: String) -> Result<GetCancelTraderOrderResponse, String> {
         let tx_send: RpcBody<ByteRec> = RpcRequest::new(
-            ByteRec {
-                data: self.encode_as_hex_string(),
-            },
+            ByteRec { data: order_msg },
             crate::relayer_rpcclient::method::Method::CancelTraderOrder,
         );
         let res: Result<
