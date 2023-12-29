@@ -1,6 +1,7 @@
 use address::{Address, AddressType};
 
 use curve25519_dalek::scalar::Scalar;
+use quisquislib::elgamal::ElGamalCommitment;
 use transaction::quisquislib::{
     keys::PublicKey,
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
@@ -199,6 +200,34 @@ pub fn create_output_memo_for_lender(
     Some(output)
 }
 
+/// create OutputCoin for Coin
+///
+pub fn create_output_coin_for_trader(
+    owner_address: String, // Hex address string
+    amount: u64,           // Amount
+    scalar: String,        // Hex string of Scalar
+) -> Option<Output> {
+    // recreate scalar bytes from hex string
+    let scalar = match hex_to_scalar(scalar) {
+        Some(scalar) => scalar,
+        None => return None,
+    };
+    // get public key from owner address
+    let address = match Address::from_hex(&owner_address, AddressType::default()) {
+        Ok(address) => address,
+        Err(_) => return None,
+    };
+    let client_pk: RistrettoPublicKey = address.into();
+
+    // create elgamal encryption on amount using scalar as blinding factor and the clients pk
+    let client_encryption =
+        ElGamalCommitment::generate_commitment(&client_pk, scalar, Scalar::from(amount));
+    // create OutputCoin
+    let output_coin = OutputCoin::new(client_encryption, owner_address);
+
+    let output: Output = Output::coin(OutputData::coin(output_coin));
+    Some(output)
+}
 /// create input coin from from output coin
 ///
 pub fn create_input_coin_from_output_coin(
