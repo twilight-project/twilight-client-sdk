@@ -172,6 +172,33 @@ pub fn create_output_memo_for_trader(
     Some(output)
 }
 
+/// create Output for Memo for Lender
+///     
+pub fn create_output_memo_for_lender(
+    script_address: String, // Hex address string
+    owner_address: String,  // Hex address string
+    deposit: u64,           // Deposit
+    pool_share: u64,        // Pool Share
+    scalar: String,         // Hex string of Scalar
+) -> Option<Output> {
+    // recreate scalar bytes from hex string
+    let scalar = match hex_to_scalar(scalar) {
+        Some(scalar) => scalar,
+        None => return None,
+    };
+    // create prover commitment on deposit
+    let commitment = Commitment::blinded_with_factor(deposit, scalar);
+    // create Memo data for lender
+    // Pool Share
+    let pool_share_commitment = Commitment::blinded_with_factor(pool_share, scalar);
+    let data: Vec<ZkvmString> = vec![ZkvmString::Commitment(Box::new(pool_share_commitment))];
+    // create OutputMemo
+    let output_memo = OutputMemo::new(script_address, owner_address, commitment, Some(data), 0u32);
+
+    let output: Output = Output::memo(OutputData::memo(output_memo));
+    Some(output)
+}
+
 /// create input coin from from output coin
 ///
 pub fn create_input_coin_from_output_coin(
