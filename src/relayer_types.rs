@@ -247,7 +247,7 @@ impl CreateLendOrderZkos {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ZkosSettleMsg {
     pub output: Output,       //memo type output
     pub signature: Signature, //quisquis signature
@@ -287,7 +287,7 @@ impl ExecuteTraderOrder {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ExecuteTraderOrderZkos {
     pub execute_trader_order: ExecuteTraderOrder,
     pub msg: ZkosSettleMsg,
@@ -329,7 +329,7 @@ impl ExecuteTraderOrderZkos {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ExecuteLendOrder {
     pub account_id: String,
     pub uuid: Uuid,
@@ -358,7 +358,7 @@ impl ExecuteLendOrder {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ExecuteLendOrderZkos {
     pub execute_lend_order: ExecuteLendOrder,
     pub msg: ZkosSettleMsg,
@@ -419,7 +419,7 @@ impl CancelTraderOrder {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CancelTraderOrderZkos {
     pub cancel_trader_order: CancelTraderOrder,
     pub msg: ZkosCancelMsg,
@@ -459,7 +459,7 @@ impl CancelTraderOrderZkos {
         response_unwrap
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ZkosCancelMsg {
     pub public_key: String, //This is Account hex address identified as public_key. Do not mistake it for public key of input
     pub signature: Signature, //quisquis signature  //canceltradeorder sign
@@ -471,9 +471,12 @@ impl ZkosCancelMsg {
             signature,
         }
     }
+    pub fn convert_cancel_to_query(&self) -> ZkosQueryMsg {
+        ZkosQueryMsg::new(self.public_key.clone(), self.signature.clone())
+    }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ZkosQueryMsg {
     pub public_key: String, //This is Account hex address identified as public_key. Do not mistake it for public key of input
     pub signature: Signature, //quisquis signature  //canceltradeorder sign
@@ -487,7 +490,7 @@ impl ZkosQueryMsg {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueryTraderOrder {
     pub account_id: String,
     pub order_status: OrderStatus,
@@ -501,7 +504,7 @@ impl QueryTraderOrder {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueryTraderOrderZkos {
     pub query_trader_order: QueryTraderOrder,
     pub msg: ZkosQueryMsg,
@@ -518,7 +521,7 @@ impl QueryTraderOrderZkos {
         hex::encode(&byt)
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueryLendOrder {
     pub account_id: String,
     pub order_status: OrderStatus,
@@ -533,7 +536,7 @@ impl QueryLendOrder {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueryLendOrderZkos {
     pub query_lend_order: QueryLendOrder,
     pub msg: ZkosQueryMsg,
