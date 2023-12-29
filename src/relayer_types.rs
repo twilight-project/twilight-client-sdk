@@ -550,3 +550,82 @@ impl QueryLendOrderZkos {
         hex::encode(&byt)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use address::{Address, Network};
+    use curve25519_dalek::scalar::Scalar;
+    use quisquislib::{
+        accounts::Account,
+        elgamal::ElGamalCommitment,
+        keys::{PublicKey, SecretKey},
+        ristretto::{RistrettoPublicKey, RistrettoSecretKey},
+    };
+    use zkvm::{zkos_types::OutputCoin, Commitment, InputData, OutputData, Utxo, Witness};
+
+    use super::*;
+    #[test]
+    fn test_create_trader_order() {
+        let create_trader_order: CreateTraderOrder = CreateTraderOrder::new(
+            "0x1234567890".to_string(),
+            "LONG".to_string(),
+            "LIMIT".to_string(),
+            10.0,
+            100.0,
+            100.0,
+            "PENDING".to_string(),
+            100.0,
+            100.0,
+        );
+        // create input coin
+        //create InputCoin and OutputMemo
+        let mut rng = rand::thread_rng();
+        let sk_in: RistrettoSecretKey = RistrettoSecretKey::random(&mut rng);
+        let pk_in: RistrettoPublicKey = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+
+        let add: Address = Address::standard_address(Network::default(), pk_in.clone());
+        let rscalar: Scalar = Scalar::random(&mut rng);
+        // create input coin
+        let commit_in =
+            ElGamalCommitment::generate_commitment(&pk_in, rscalar, Scalar::from(10u64));
+        let enc_acc = Account::set_account(pk_in, commit_in);
+
+        let coin = OutputCoin {
+            encrypt: commit_in,
+            owner: add.as_hex(),
+        };
+        let in_data: InputData = InputData::coin(Utxo::default(), coin, 0);
+        let coin_in: Input = Input::coin(in_data.clone());
+
+        //create first Commitment Witness
+        let commit_1: Commitment = Commitment::blinded_with_factor(10u64, rscalar);
+        let (_comit_1_value, _comit_1_blind) = commit_1.witness().unwrap();
+
+        //create OutputMemo
+
+        let out_memo = zkvm::zkos_types::OutputMemo {
+            script_address: add.as_hex(),
+            owner: add.as_hex(),
+            commitment: commit_1.clone(),
+            data: None,
+            timebounds: 0,
+        };
+        let out_memo = Output::memo(OutputData::memo(out_memo));
+        let memo_commitment_point = commit_1.to_point();
+        // create InputCoin Witness
+        let witness = Witness::ValueWitness(ValueWitness::create_value_witness(
+            coin_in.clone(),
+            sk_in,
+            out_memo.clone(),
+            enc_acc,
+            pk_in.clone(),
+            memo_commitment_point.clone(),
+            10u64,
+            rscalar,
+        ));
+
+        // verify the witness
+        let value_wit = witness.to_value_witness().unwrap();
+        let zkos_create_trader_order = ZkosCreateOrder::new(coin_in, out_memo, value_wit);
+    }
+}
