@@ -554,7 +554,7 @@ impl QueryLendOrderZkos {
 #[cfg(test)]
 mod test {
     use address::{Address, Network};
-    use curve25519_dalek::scalar::Scalar;
+    use curve25519_dalek::scalar::{self, Scalar};
     use quisquislib::{
         accounts::Account,
         elgamal::ElGamalCommitment,
@@ -562,6 +562,8 @@ mod test {
         ristretto::{RistrettoPublicKey, RistrettoSecretKey},
     };
     use zkvm::{zkos_types::OutputCoin, Commitment, InputData, OutputData, Utxo, Witness};
+
+    use crate::keys_management;
 
     use super::*;
     #[test]
@@ -627,5 +629,75 @@ mod test {
         // verify the witness
         let value_wit = witness.to_value_witness().unwrap();
         let zkos_create_trader_order = ZkosCreateOrder::new(coin_in, out_memo, value_wit);
+    }
+
+    #[test]
+    pub fn test_create_trader_order_broadcast_data() {
+        // get private key from keys management
+        let sk = keys_management::load_wallet(
+            "your_password_he".as_bytes(),
+            "./wallet.txt".to_string(),
+            "your_password_he".as_bytes(),
+        )
+        .unwrap();
+        let client_address = "0c3c8d3eb1eccbf8923e344b85de74faaa71cbbddcc0ce588ac1bc8fe83ad9be4c5cf205c86b01c43431060ba4d881d1eb29a511bea7bdf6cc3f02fc62246c434b0ac67f9e";
+        // get pk from client address
+        let address = Address::from_hex(&client_address, address::AddressType::default()).unwrap();
+        let client_pk: RistrettoPublicKey = address.into();
+
+        let path = "./relayerprogram.json";
+        let programs = crate::programcontroller::ContractManager::import_program(path);
+        let contract_address = programs
+            .create_contract_address(Network::default())
+            .unwrap();
+        let input_coin =
+            crate::chain::get_transaction_coin_input_from_address(client_address.to_string())
+                .unwrap();
+
+        // get encryption from input coin
+        let enc_acc = input_coin.to_quisquis_account().unwrap();
+
+        let scalar_hex = "a11a387c557978a7b599a71af794bb4a85a0e89f897b094b32b8694420021408";
+        let rscalar = crate::util::hex_to_scalar(scalar_hex.to_string()).unwrap();
+        let output_memo = crate::util::create_output_memo_for_trader(
+            contract_address,
+            client_address.to_string(),
+            7000,
+            700000000,
+            10,
+            10000,
+            scalar_hex.to_string(),
+        )
+        .unwrap();
+        // get commitment from output memo
+        let commitment = output_memo.as_output_data().get_commitment().unwrap();
+        let memo_commitment_point = commitment.to_point();
+        // create InputCoin Witness
+        let witness = Witness::ValueWitness(ValueWitness::create_value_witness(
+            input_coin.clone(),
+            sk,
+            output_memo.clone(),
+            enc_acc,
+            client_pk.clone(),
+            memo_commitment_point.clone(),
+            7000u64,
+            rscalar,
+        ));
+        // verify the witness
+        let value_wit = witness.to_value_witness().unwrap();
+        let zkos_create_trader_order =
+            ZkosCreateOrder::new(input_coin.clone(), output_memo.clone(), value_wit);
+
+        let create_trader_order: CreateTraderOrder = CreateTraderOrder::new(
+            "0x1234567890".to_string(),
+            "LONG".to_string(),
+            "MARKET".to_string(),
+            10.0,
+            7000.0,
+            0.0,
+            "PENDING".to_string(),
+            10000.0,
+            0.0,
+        );
     }
 }
