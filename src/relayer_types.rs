@@ -570,15 +570,15 @@ mod test {
     #[test]
     fn test_create_trader_order() {
         let create_trader_order: CreateTraderOrder = CreateTraderOrder::new(
-            "0x1234567890".to_string(),
+            "account_id".to_string(),
             "LONG".to_string(),
-            "LIMIT".to_string(),
+            "MARKET".to_string(),
             10.0,
-            100.0,
-            100.0,
+            10.0,
+            10.0,
             "PENDING".to_string(),
-            100.0,
-            100.0,
+            30000.0,
+            30000.0,
         );
         // create input coin
         //create InputCoin and OutputMemo
@@ -630,5 +630,11 @@ mod test {
         // verify the witness
         let value_wit = witness.to_value_witness().unwrap();
         let zkos_create_trader_order = ZkosCreateOrder::new(coin_in, out_memo, value_wit);
+        let order_msg: CreateTraderOrderZkos = CreateTraderOrderZkos {
+            create_trader_order: create_trader_order,
+            input: zkos_create_trader_order,
+        };
+
+        println!("order_hex: {:?}", order_msg.encode_as_hex_string());
     }
 }
