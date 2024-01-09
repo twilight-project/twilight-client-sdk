@@ -247,7 +247,7 @@ impl CreateLendOrderZkos {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ZkosSettleMsg {
     pub output: Output,       //memo type output
     pub signature: Signature, //quisquis signature
@@ -287,7 +287,7 @@ impl ExecuteTraderOrder {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ExecuteTraderOrderZkos {
     pub execute_trader_order: ExecuteTraderOrder,
     pub msg: ZkosSettleMsg,
@@ -329,7 +329,7 @@ impl ExecuteTraderOrderZkos {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ExecuteLendOrder {
     pub account_id: String,
     pub uuid: Uuid,
@@ -358,7 +358,7 @@ impl ExecuteLendOrder {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ExecuteLendOrderZkos {
     pub execute_lend_order: ExecuteLendOrder,
     pub msg: ZkosSettleMsg,
@@ -419,7 +419,7 @@ impl CancelTraderOrder {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CancelTraderOrderZkos {
     pub cancel_trader_order: CancelTraderOrder,
     pub msg: ZkosCancelMsg,
@@ -459,7 +459,7 @@ impl CancelTraderOrderZkos {
         response_unwrap
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ZkosCancelMsg {
     pub public_key: String, //This is Account hex address identified as public_key. Do not mistake it for public key of input
     pub signature: Signature, //quisquis signature  //canceltradeorder sign
@@ -471,9 +471,12 @@ impl ZkosCancelMsg {
             signature,
         }
     }
+    pub fn convert_cancel_to_query(&self) -> ZkosQueryMsg {
+        ZkosQueryMsg::new(self.public_key.clone(), self.signature.clone())
+    }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ZkosQueryMsg {
     pub public_key: String, //This is Account hex address identified as public_key. Do not mistake it for public key of input
     pub signature: Signature, //quisquis signature  //canceltradeorder sign
@@ -487,7 +490,7 @@ impl ZkosQueryMsg {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueryTraderOrder {
     pub account_id: String,
     pub order_status: OrderStatus,
@@ -501,7 +504,7 @@ impl QueryTraderOrder {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueryTraderOrderZkos {
     pub query_trader_order: QueryTraderOrder,
     pub msg: ZkosQueryMsg,
@@ -518,7 +521,7 @@ impl QueryTraderOrderZkos {
         hex::encode(&byt)
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueryLendOrder {
     pub account_id: String,
     pub order_status: OrderStatus,
@@ -533,7 +536,7 @@ impl QueryLendOrder {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueryLendOrderZkos {
     pub query_lend_order: QueryLendOrder,
     pub msg: ZkosQueryMsg,
@@ -568,16 +571,17 @@ mod test {
     use super::*;
     #[test]
     fn test_create_trader_order() {
+        dotenv::dotenv().expect("Failed loading dotenv");
         let create_trader_order: CreateTraderOrder = CreateTraderOrder::new(
-            "0x1234567890".to_string(),
+            "account_id".to_string(),
             "LONG".to_string(),
-            "LIMIT".to_string(),
+            "MARKET".to_string(),
             10.0,
-            100.0,
-            100.0,
+            10.0,
+            10.0,
             "PENDING".to_string(),
-            100.0,
-            100.0,
+            30000.0,
+            30000.0,
         );
         // create input coin
         //create InputCoin and OutputMemo
@@ -629,17 +633,31 @@ mod test {
         // verify the witness
         let value_wit = witness.to_value_witness().unwrap();
         let zkos_create_trader_order = ZkosCreateOrder::new(coin_in, out_memo, value_wit);
+        let order_msg: CreateTraderOrderZkos = CreateTraderOrderZkos {
+            create_trader_order: create_trader_order,
+            input: zkos_create_trader_order,
+        };
+
+        println!("order_hex: {:?}", order_msg.encode_as_hex_string());
     }
 
     #[test]
     pub fn test_create_trader_order_broadcast_data() {
-        // get private key from keys management
-        let sk = keys_management::load_wallet(
-            "your_password_he".as_bytes(),
-            "./wallet.txt".to_string(),
-            "your_password_he".as_bytes(),
-        )
-        .unwrap();
+        dotenv::dotenv().expect("Failed loading dotenv");
+
+        // // get private key from keys management
+        // let sk = keys_management::load_wallet(
+        //     "your_password_he".as_bytes(),
+        //     "./wallet.txt".to_string(),
+        //     "your_password_he".as_bytes(),
+        // )
+        // .unwrap();
+
+        let seed =
+        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+
+        //derive private key;
+        let sk = SecretKey::from_bytes(seed.as_bytes());
         let client_address = "0c3c8d3eb1eccbf8923e344b85de74faaa71cbbddcc0ce588ac1bc8fe83ad9be4c5cf205c86b01c43431060ba4d881d1eb29a511bea7bdf6cc3f02fc62246c434b0ac67f9e";
         // get pk from client address
         let address = Address::from_hex(&client_address, address::AddressType::default()).unwrap();
@@ -656,7 +674,8 @@ mod test {
 
         // get encryption from input coin
         let enc_acc = input_coin.to_quisquis_account().unwrap();
-
+        let key = enc_acc.decrypt_account_balance(&sk, Scalar::from(7000u64));
+        println!("enc_acc:{:?}", key);
         let scalar_hex = "a11a387c557978a7b599a71af794bb4a85a0e89f897b094b32b8694420021408";
         let rscalar = crate::util::hex_to_scalar(scalar_hex.to_string()).unwrap();
         let output_memo = crate::util::create_output_memo_for_trader(
@@ -685,6 +704,7 @@ mod test {
         ));
         // verify the witness
         let value_wit = witness.to_value_witness().unwrap();
+        //  let verify= value_wit.verify_value_witness(input, output, pubkey, enc_acc, commitment)
         let zkos_create_trader_order =
             ZkosCreateOrder::new(input_coin.clone(), output_memo.clone(), value_wit);
 
@@ -699,5 +719,12 @@ mod test {
             10000.0,
             0.0,
         );
+
+        let order_msg: CreateTraderOrderZkos = CreateTraderOrderZkos {
+            create_trader_order: create_trader_order,
+            input: zkos_create_trader_order,
+        };
+
+        println!("order_hex: {:?}", order_msg.encode_as_hex_string());
     }
 }
