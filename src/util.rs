@@ -161,10 +161,12 @@ pub fn create_output_memo_for_trader(
     // create Memo data for trader
     // Position Size, Leverage, Entry Price
     let leverage_commitment = Commitment::blinded_with_factor(leverage, scalar);
+    let position = ZkvmString::from(Scalar::from(position_size));
+    let price = ZkvmString::from(Scalar::from(entry_price));
     let data: Vec<ZkvmString> = vec![
-        ZkvmString::U64(position_size),
+        position,
         ZkvmString::Commitment(Box::new(leverage_commitment)),
-        ZkvmString::U64(entry_price),
+        price,
     ];
     // create OutputMemo
     let output_memo = OutputMemo::new(script_address, owner_address, commitment, Some(data), 0u32);
