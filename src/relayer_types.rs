@@ -102,6 +102,20 @@ impl ZkosCreateOrder {
             proof: vw.get_value_proof().clone(),
         }
     }
+    pub fn encode_as_hex_string(&self) -> String {
+        let byt = bincode::serialize(&self).unwrap();
+        hex::encode(&byt)
+    }
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -160,6 +174,16 @@ impl CreateTraderOrderZkos {
     pub fn encode_as_hex_string(&self) -> String {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
+    }
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
     }
 
     pub fn submit_order(order_msg: String) -> Result<GetCreateTraderOrderResponse, String> {
@@ -226,6 +250,18 @@ impl CreateLendOrderZkos {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
     }
+
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
+
     pub fn submit_order(order_msg: String) -> Result<GetCreateLendOrderResponse, String> {
         let tx_send: RpcBody<ByteRec> = RpcRequest::new(
             ByteRec { data: order_msg },
@@ -255,6 +291,20 @@ pub struct ZkosSettleMsg {
 impl ZkosSettleMsg {
     pub fn new(output: Output, signature: Signature) -> ZkosSettleMsg {
         ZkosSettleMsg { output, signature }
+    }
+    pub fn encode_as_hex_string(&self) -> String {
+        let byt = bincode::serialize(&self).unwrap();
+        hex::encode(&byt)
+    }
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
     }
 }
 
@@ -306,6 +356,17 @@ impl ExecuteTraderOrderZkos {
     pub fn encode_as_hex_string(&self) -> String {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
+    }
+
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
     }
 
     pub fn submit_order(order_msg: String) -> Result<GetExecuteTraderOrderResponse, String> {
@@ -375,6 +436,17 @@ impl ExecuteLendOrderZkos {
         hex::encode(&byt)
     }
 
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
+
     pub fn submit_order(order_msg: String) -> Result<GetExecuteLendOrderResponse, String> {
         let tx_send: RpcBody<ByteRec> = RpcRequest::new(
             ByteRec { data: order_msg },
@@ -439,6 +511,17 @@ impl CancelTraderOrderZkos {
         hex::encode(&byt)
     }
 
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
+
     pub fn submit_order(order_msg: String) -> Result<GetCancelTraderOrderResponse, String> {
         let tx_send: RpcBody<ByteRec> = RpcRequest::new(
             ByteRec { data: order_msg },
@@ -474,6 +557,21 @@ impl ZkosCancelMsg {
     pub fn convert_cancel_to_query(&self) -> ZkosQueryMsg {
         ZkosQueryMsg::new(self.public_key.clone(), self.signature.clone())
     }
+    pub fn encode_as_hex_string(&self) -> String {
+        let byt = bincode::serialize(&self).unwrap();
+        hex::encode(&byt)
+    }
+
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -487,6 +585,21 @@ impl ZkosQueryMsg {
             public_key,
             signature,
         }
+    }
+    pub fn encode_as_hex_string(&self) -> String {
+        let byt = bincode::serialize(&self).unwrap();
+        hex::encode(&byt)
+    }
+
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
     }
 }
 
@@ -520,6 +633,17 @@ impl QueryTraderOrderZkos {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
     }
+
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
 }
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueryLendOrder {
@@ -551,6 +675,17 @@ impl QueryLendOrderZkos {
     pub fn encode_as_hex_string(&self) -> String {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
+    }
+
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
     }
 }
 
