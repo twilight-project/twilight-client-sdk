@@ -1,6 +1,4 @@
 use address::{Address, AddressType, Network, Script, Standard};
-use base64::{self, Engine};
-use console_error_panic_hook;
 use core::convert::TryInto;
 use curve25519_dalek::scalar::Scalar;
 use transaction::quisquislib::{
