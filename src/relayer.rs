@@ -23,7 +23,6 @@ use zkvm::{zkos_types::ValueWitness, Input, Output, Utxo};
 /// seed : Secret key
 /// rscalar: Scalar used to create Encryption and Commitment
 /// value: value of the order.  Should be equal to the balance of the input otherwise the difference might be burned
-//#[wasm_bindgen(js_name = createZkOSOrder)]
 ///Utility function used to create ZkosCreateOrder type
 pub fn create_zkos_order(
     input: Input,
@@ -101,14 +100,14 @@ pub fn create_trader_order_zkos(
 }
 
 /// ExecuteOrderZkos. Used to settle trade or lend orders
-/// Input = Memo
+/// Input = Memo(Output) with Prover view
 /// seed  = private signature to derive secret key
 /// rest of the normal settle order message
 /// tx_type = "ORDERTX" for settling trader orders
 /// tx_type = "LENDTX" for settling lend orders
 /// returns hex string of the object
 pub fn execute_order_zkos(
-    output_memo: Output, // Provides the Prover Memo Output used to create the order
+    output_memo: Output, // Provides the Prover Memo Output used to create the order. Input memo will be created by Exchange on behalf of the user
     secret_key: &RistrettoSecretKey,
     account_id: String,
     uuid: Uuid,
