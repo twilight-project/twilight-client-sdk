@@ -10,7 +10,7 @@ pub extern crate transactionapi;
 pub extern crate zkschnorr;
 pub extern crate zkvm;
 
-pub mod chain;
+//pub mod chain;
 pub mod keys_management;
 pub mod programcontroller;
 pub mod relayer;
