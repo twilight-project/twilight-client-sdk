@@ -35,9 +35,9 @@ branch = "develop"
 [dependencies.transaction]
 git = "ssh://github.com/twilight-project/ZkOS.git"
 branch = "develop"
-[dependencies.transactionapi]
-git = "ssh://github.com/twilight-project/ZkOS.git"
-branch = "develop"
+#[dependencies.transactionapi]
+#git = "ssh://github.com/twilight-project/ZkOS.git"
+#branch = "develop"
 [dependencies.address]
 git = "ssh://github.com/twilight-project/ZkOS.git"
 branch = "develop"

@@ -6,7 +6,7 @@
 extern crate lazy_static;
 pub extern crate quisquislib;
 pub extern crate transaction;
-pub extern crate transactionapi;
+//pub extern crate transactionapi;
 pub extern crate zkschnorr;
 pub extern crate zkvm;
 
