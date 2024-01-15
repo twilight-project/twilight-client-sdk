@@ -14,7 +14,7 @@ pub mod chain;
 pub mod keys_management;
 pub mod programcontroller;
 pub mod relayer;
-pub mod relayer_rpcclient;
+//pub mod relayer_rpcclient;
 pub mod relayer_types;
 pub mod script;
 pub mod transfer;
