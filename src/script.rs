@@ -219,7 +219,6 @@ mod test {
 
     use super::get_transaction_coin_input_from_address;
     use crate::util::*;
-    use block_modes::IvState;
     use rand::rngs::OsRng;
     use zkvm::{program, Commitment};
 
