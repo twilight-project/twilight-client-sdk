@@ -31,18 +31,18 @@ lazy_static = "1.4.0"
 #reqwest = { version = "0.11", features = ["blocking", "json"] }
 [dependencies.zkvm]
 git = "ssh://github.com/twilight-project/ZkOS.git"
-branch = "develop"
+branch = "paralleldarktx"
 [dependencies.transaction]
 git = "ssh://github.com/twilight-project/ZkOS.git"
-branch = "develop"
+branch = "paralleldarktx"
 #[dependencies.transactionapi]
 #git = "ssh://github.com/twilight-project/ZkOS.git"
-#branch = "develop"
+#branch = "paralleldarktx"
 [dependencies.address]
 git = "ssh://github.com/twilight-project/ZkOS.git"
-branch = "develop"
+branch = "paralleldarktx"
 [dependencies.zkschnorr]
 git = "ssh://github.com/twilight-project/ZkSchnorr.git"
 [dependencies.quisquis-rust]
 git = "ssh://github.com/twilight-project/quisquis-rust.git"
-branch = "develop"
+branch = "parallelproof"

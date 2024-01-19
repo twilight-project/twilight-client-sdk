@@ -251,6 +251,7 @@ pub fn create_quisquis_transaction_single(
     address_input: bool,
     updated_sender_balance: u64,
     anonymity_set: String,
+    fee: u64,
 ) -> String {
     let updated_sender_balance = vec![updated_sender_balance];
     let updated_reciever_value = vec![amount];
@@ -313,6 +314,7 @@ pub fn create_quisquis_transaction_single(
                 receiver_count,
                 diff,
                 Some(&scalar_vector),
+                fee,
             );
         }
         true => {
@@ -330,6 +332,7 @@ pub fn create_quisquis_transaction_single(
                 receiver_count,
                 diff,
                 None,
+                fee,
             );
         }
     }
@@ -372,154 +375,157 @@ fn compute_address_input(address_input: bool, reciever: String) -> (Account, Sca
 // address_input = Flag
 //  0 ->  reciever is address
 // 1  ->  reciever is input
-pub fn create_dark_tx_single(
-    sk: RistrettoSecretKey,
-    sender: String,
-    reciever: String,
-    amount: u64,
-    address_input: bool,
-    updated_sender_balance: u64,
-) -> TransferTxWallet {
-    let updated_sender_balance = vec![updated_sender_balance];
-    let updated_reciever_balance = vec![amount];
-    //let sk: RistrettoSecretKey = hex_str_to_secret_key(seed);
-    let sk_vector = vec![sk];
+// pub fn create_private_tx_single(
+//     sk: RistrettoSecretKey,
+//     sender: String,
+//     reciever: String,
+//     amount: u64,
+//     address_input: bool,
+//     updated_sender_balance: u64,
+//     fee: u64,
+// ) -> TransferTxWallet {
+//     let updated_sender_balance = vec![updated_sender_balance];
+//     let updated_reciever_balance = vec![amount];
+//     //let sk: RistrettoSecretKey = hex_str_to_secret_key(seed);
+//     let sk_vector = vec![sk];
 
-    let (rec_acc, rec_comm_scalar) = compute_address_input(address_input, reciever.clone());
+//     let (rec_acc, rec_comm_scalar) = compute_address_input(address_input, reciever.clone());
 
-    let sender_inp: Input = serde_json::from_str(&sender).unwrap();
-    let sender_acc = sender_inp.to_quisquis_account().unwrap();
+//     let sender_inp: Input = serde_json::from_str(&sender).unwrap();
+//     let sender_acc = sender_inp.to_quisquis_account().unwrap();
 
-    let sender_array = vec![Sender::set_sender(
-        -1 * (amount as i64),
-        sender_acc.clone(),
-        vec![Receiver::set_receiver(amount as i64, rec_acc.clone())],
-    )];
-    let (value_vector, account_vector, sender_count, receiver_count) =
-        Sender::generate_value_and_account_vector(sender_array).unwrap();
-    let transfer: Result<(TransferTransaction, Option<Scalar>), &'static str>;
-    let scalar_vector: Vec<Scalar> = vec![rec_comm_scalar];
-    let mut input_vector = vec![sender_inp];
-    match address_input {
-        false => {
-            let rec_input: Input = Input::input_from_quisquis_account(
-                &rec_acc,
-                Utxo::default(),
-                0,
-                Network::default(),
-            );
-            input_vector.push(rec_input);
-            transfer = TransferTransaction::create_dark_transaction(
-                &value_vector,
-                &account_vector,
-                &updated_sender_balance,
-                &updated_reciever_balance,
-                &input_vector,
-                &sk_vector,
-                sender_count,
-                receiver_count,
-                Some(&scalar_vector),
-            );
-        }
-        true => {
-            let rec_inp: Input = serde_json::from_str(&reciever).unwrap();
-            input_vector.push(rec_inp);
-            transfer = TransferTransaction::create_dark_transaction(
-                &value_vector,
-                &account_vector,
-                &updated_sender_balance,
-                &updated_reciever_balance,
-                &input_vector,
-                &sk_vector,
-                sender_count,
-                receiver_count,
-                None,
-            );
-        }
-    }
-    //create quisquis dark transfer transaction
-    let (transfer_tx, final_comm_scalar) = transfer.unwrap();
-    // create dark transaction
-    let transaction: Transaction = Transaction::transaction_transfer(
-        transaction::TransactionData::TransactionTransfer(transfer_tx),
-    );
-    let tx_bin = bincode::serialize(&transaction).unwrap();
-    let tx_hex = hex::encode(&tx_bin);
+//     let sender_array = vec![Sender::set_sender(
+//         -1 * (amount as i64),
+//         sender_acc.clone(),
+//         vec![Receiver::set_receiver(amount as i64, rec_acc.clone())],
+//     )];
+//     let (value_vector, account_vector, sender_count, receiver_count) =
+//         Sender::generate_value_and_account_vector(sender_array).unwrap();
+//     let transfer: Result<(TransferTransaction, Option<Scalar>), &'static str>;
+//     let scalar_vector: Vec<Scalar> = vec![rec_comm_scalar];
+//     let mut input_vector = vec![sender_inp];
+//     match address_input {
+//         false => {
+//             let rec_input: Input = Input::input_from_quisquis_account(
+//                 &rec_acc,
+//                 Utxo::default(),
+//                 0,
+//                 Network::default(),
+//             );
+//             input_vector.push(rec_input);
+//             transfer = TransferTransaction::create_private_transaction(
+//                 &value_vector,
+//                 &account_vector,
+//                 &updated_sender_balance,
+//                 &updated_reciever_balance,
+//                 &input_vector,
+//                 &sk_vector,
+//                 sender_count,
+//                 receiver_count,
+//                 Some(&scalar_vector),
+//                 fee,
+//             );
+//         }
+//         true => {
+//             let rec_inp: Input = serde_json::from_str(&reciever).unwrap();
+//             input_vector.push(rec_inp);
+//             transfer = TransferTransaction::create_private_transaction(
+//                 &value_vector,
+//                 &account_vector,
+//                 &updated_sender_balance,
+//                 &updated_reciever_balance,
+//                 &input_vector,
+//                 &sk_vector,
+//                 sender_count,
+//                 receiver_count,
+//                 None,
+//                 fee,
+//             );
+//         }
+//     }
+//     //create quisquis dark transfer transaction
+//     let (transfer_tx, final_comm_scalar) = transfer.unwrap();
+//     // create dark transaction
+//     let transaction: Transaction = Transaction::transaction_transfer(
+//         transaction::TransactionData::TransactionTransfer(transfer_tx),
+//     );
+//     let tx_bin = bincode::serialize(&transaction).unwrap();
+//     let tx_hex = hex::encode(&tx_bin);
 
-    let comm_scalar = match final_comm_scalar {
-        Some(x) => x,
-        None => Scalar::zero(),
-    };
-    //convert scalar to hex string
-    let scalar_hex = hex::encode(comm_scalar.to_bytes());
-    let tx_dark_wallet = TransferTxWallet {
-        tx_hex,
-        encrypt_scalar_hex: scalar_hex,
-    };
-    //let msg_to_return = serde_json::to_string(&msg_to_return).unwrap();
-    //returns hex encoded tx string
-    //return Ok(msg_to_return);
-    tx_dark_wallet
-}
-///Create Quisquis Dark Transaction.
-///Returns Transaction
-pub fn create_dark_transfer_transaction(
-    tx_vec: String,
-    sk: RistrettoSecretKey,
-    updated_sender_balance_ser: String,
-    updated_balance_reciever_ser: String,
-) -> String {
-    let (updated_sender_balance, updated_reciever_balance, sk_vector, sender_array, inputs_sender) =
-        preprocess_tx_request_frontend(
-            tx_vec,
-            sk,
-            updated_sender_balance_ser,
-            updated_balance_reciever_ser,
-        );
+//     let comm_scalar = match final_comm_scalar {
+//         Some(x) => x,
+//         None => Scalar::zero(),
+//     };
+//     //convert scalar to hex string
+//     let scalar_hex = hex::encode(comm_scalar.to_bytes());
+//     let tx_dark_wallet = TransferTxWallet {
+//         tx_hex,
+//         encrypt_scalar_hex: scalar_hex,
+//     };
+//     //let msg_to_return = serde_json::to_string(&msg_to_return).unwrap();
+//     //returns hex encoded tx string
+//     //return Ok(msg_to_return);
+//     tx_dark_wallet
+// }
+//Create Quisquis Dark Transaction.
+//Returns Transaction
+// pub fn create_private_transfer_transaction(
+//     tx_vec: String,
+//     sk: RistrettoSecretKey,
+//     updated_sender_balance_ser: String,
+//     updated_balance_reciever_ser: String,
+// ) -> String {
+//     let (updated_sender_balance, updated_reciever_balance, sk_vector, sender_array, inputs_sender) =
+//         preprocess_tx_request_frontend(
+//             tx_vec,
+//             sk,
+//             updated_sender_balance_ser,
+//             updated_balance_reciever_ser,
+//         );
 
-    let (value_vector, account_vector, sender_count, receiver_count) =
-        Sender::generate_value_and_account_vector(sender_array).unwrap();
+//     let (value_vector, account_vector, sender_count, receiver_count) =
+//         Sender::generate_value_and_account_vector(sender_array).unwrap();
 
-    // create Inputs for recievers with Utxo as 000000000000000000000000000, 0
-    let utxo: Utxo = Utxo::default();
+//     // create Inputs for recievers with Utxo as 000000000000000000000000000, 0
+//     let utxo: Utxo = Utxo::default();
 
-    //create vec of Reciver Inputs
-    let rec_accounts = &account_vector[sender_count..];
-    let mut input_vector = Vec::<Input>::new();
-    input_vector.append(&mut inputs_sender.clone());
-    for input in rec_accounts.iter() {
-        //create address
-        let (pk, enc) = input.get_account();
-        let out_coin = OutputCoin::new(
-            enc.clone(),
-            Address::standard_address(Network::default(), pk.clone()).as_hex(),
-        );
+//     //create vec of Reciver Inputs
+//     let rec_accounts = &account_vector[sender_count..];
+//     let mut input_vector = Vec::<Input>::new();
+//     input_vector.append(&mut inputs_sender.clone());
+//     for input in rec_accounts.iter() {
+//         //create address
+//         let (pk, enc) = input.get_account();
+//         let out_coin = OutputCoin::new(
+//             enc.clone(),
+//             Address::standard_address(Network::default(), pk.clone()).as_hex(),
+//         );
 
-        let inp = Input::coin(InputData::coin(utxo, out_coin, 0));
-        input_vector.push(inp.clone());
-    }
-    //create quisquis dark transfer transaction
-    let transfer = transaction::TransferTransaction::create_dark_transaction(
-        &value_vector,
-        &account_vector,
-        &updated_sender_balance,
-        &updated_reciever_balance,
-        &input_vector,
-        &sk_vector,
-        sender_count,
-        receiver_count,
-        None,
-    );
-    let (tx, _comm_scalar) = transfer.unwrap();
-    let transaction: transaction::Transaction = transaction::Transaction::transaction_transfer(
-        transaction::TransactionData::TransactionTransfer(tx),
-    );
+//         let inp = Input::coin(InputData::coin(utxo, out_coin, 0));
+//         input_vector.push(inp.clone());
+//     }
+//     //create quisquis dark transfer transaction
+//     let transfer = transaction::TransferTransaction::create_dark_transaction(
+//         &value_vector,
+//         &account_vector,
+//         &updated_sender_balance,
+//         &updated_reciever_balance,
+//         &input_vector,
+//         &sk_vector,
+//         sender_count,
+//         receiver_count,
+//         None,
+//     );
+//     let (tx, _comm_scalar) = transfer.unwrap();
+//     let transaction: transaction::Transaction = transaction::Transaction::transaction_transfer(
+//         transaction::TransactionData::TransactionTransfer(tx),
+//     );
 
-    let tx_bin = bincode::serialize(&transaction).unwrap();
-    let msg_to_return = hex::encode(&tx_bin);
-    //returns hex encoded tx string
-    msg_to_return
-}
+//     let tx_bin = bincode::serialize(&transaction).unwrap();
+//     let msg_to_return = hex::encode(&tx_bin);
+//     //returns hex encoded tx string
+//     msg_to_return
+// }
 
 ///Verify Quisquis and Dark Transaction.
 pub fn verify_quisquis_tx(tx: String) -> Result<(), &'static str> {
