@@ -806,7 +806,7 @@ mod test {
         let input_coin =
             crate::chain::get_transaction_coin_input_from_address(client_address.to_string())
                 .unwrap();
-
+ 
         // get encryption from input coin
         let enc_acc = input_coin.to_quisquis_account().unwrap();
         let key = enc_acc.decrypt_account_balance(&sk, Scalar::from(7000u64));
