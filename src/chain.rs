@@ -1,3 +1,4 @@
+use curve25519_dalek::scalar::Scalar;
 use hex;
 use transactionapi::rpcclient::{method::*, txrequest::*};
 use zkvm::{
@@ -40,7 +41,7 @@ pub fn get_transaction_memo_input_from_address(
     address_hex: String,
     memo_output: Output,
     withdraw_amount: u64,
-) -> Result<Input, String> {
+) -> Result<(Input,Scalar), String> {
     let coin_utxo_vec_result = get_memo_utxo_by_address_hex(address_hex);
     match coin_utxo_vec_result {
         Ok(utxo_vec_hex) => {
