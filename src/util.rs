@@ -207,13 +207,8 @@ pub fn create_output_memo_for_lender(
 pub fn create_output_coin_for_trader(
     owner_address: String, // Hex address string
     amount: u64,           // Amount
-    scalar: String,        // Hex string of Scalar
+    scalar: Scalar,        // rScalar used for blinding
 ) -> Option<Output> {
-    // recreate scalar bytes from hex string
-    let scalar = match hex_to_scalar(scalar) {
-        Some(scalar) => scalar,
-        None => return None,
-    };
     // get public key from owner address
     let address = match Address::from_hex(&owner_address, AddressType::default()) {
         Ok(address) => address,
@@ -225,10 +220,9 @@ pub fn create_output_coin_for_trader(
     let client_encryption =
         ElGamalCommitment::generate_commitment(&client_pk, scalar, Scalar::from(amount));
     // create OutputCoin
-    let output_coin = OutputCoin::new(client_encryption, owner_address);
+    let output_coin: OutputCoin = OutputCoin::new(client_encryption, owner_address);
 
-    let output: Output = Output::coin(OutputData::coin(output_coin));
-    Some(output)
+    Some(Output::from(output_coin))
 }
 /// create input coin from from output coin
 ///
@@ -259,7 +253,7 @@ pub fn create_input_memo_from_output_memo(
     out: Output,
     utxo: String,
     withdraw_amount: u64,
-) -> Result<Input, &'static str> {
+) -> Result<(Input, Scalar), &'static str> {
     let utxo_bytes = match hex::decode(&utxo) {
         Ok(bytes) => bytes,
         Err(_) => return Err("Invalid Utxo:: Hex Decode Error "),
@@ -273,15 +267,15 @@ pub fn create_input_memo_from_output_memo(
         Some(memo) => memo,
         None => return Err("Invalid Output:: Not a Memo Output"),
     };
-
+    let blinding = Scalar::random(&mut rand::thread_rng());
     let inp = Input::memo(InputData::memo(
         utxo,
         out_memo.clone(),
         0,
-        Some(zkvm::Commitment::blinded(withdraw_amount)),
+        Some(zkvm::Commitment::blinded_with_factor(withdraw_amount, blinding)),
     ));
 
-    Ok(inp)
+    Ok((inp, blinding))
 }
 
 /// create input state from given output state
@@ -313,6 +307,34 @@ pub fn create_input_state_from_output_state(
     ));
 
     Ok(inp)
+}
+
+/// create Output State for the Lend/Trade Order
+///
+pub fn create_output_state_for_trade_lend_order(
+    nonce: u32,
+    script_address: String,
+    owner_address: String,
+    tlv: u64,
+    tps: u64,
+    timebounds: u32,
+) -> Output {
+
+    // create commitment for tlv using scalar
+    let tlv_commitment = Commitment::blinded(tlv);
+    let tps_commitment = Commitment::blinded(tps);
+    // create state variables
+    let state_variables: Vec<zkvm::String> = vec![zkvm::String::from(tps_commitment)];
+    let output_state = zkvm::zkos_types::OutputState {
+        nonce,
+        script_address,
+        owner: owner_address,
+        commitment: tlv_commitment,
+        state_variables: Some(state_variables),
+        timebounds,
+    };
+    // create output
+    Output::from(output_state)
 }
 /// convert hex string to Scalar
 pub fn hex_to_scalar(hex: String) -> Option<Scalar> {
