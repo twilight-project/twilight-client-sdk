@@ -1,4 +1,5 @@
-use getrandom::getrandom;
+use rand::RngCore;
+//use getrandom::getrandom;
 use uuid::Uuid;
 
 // use crate::prelude::*;
@@ -7,13 +8,9 @@ use uuid::Uuid;
 ///
 /// Panics if random number generation fails.
 pub fn uuid_str() -> String {
-    let mut bytes = [0; 16];
-    getrandom(&mut bytes).expect("RNG failure!");
+    let mut bytes = [0u8; 16];
+    rand::thread_rng().fill_bytes(&mut bytes);
 
-    let uuid = uuid::Builder::from_bytes(bytes)
-        .set_variant(uuid::Variant::RFC4122)
-        .set_version(uuid::Version::Random)
-        .build();
-
+    let uuid = Uuid::new_v4();
     uuid.to_string()
 }

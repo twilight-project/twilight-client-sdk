@@ -1,16 +1,13 @@
 use aes::Aes128;
 use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, Cbc};
-use hex;
 use quisquislib::keys::PublicKey;
 use quisquislib::keys::SecretKey;
 use quisquislib::ristretto::RistrettoPublicKey;
 use quisquislib::ristretto::RistrettoSecretKey;
-use rand::distributions::Alphanumeric;
 use rand::rngs::OsRng;
-use rand::{thread_rng, Rng};
-use serde::{Deserialize, Serialize};
-use std::fs::{self, File};
+
+use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::Path;
 
