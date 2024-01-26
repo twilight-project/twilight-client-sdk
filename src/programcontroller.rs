@@ -167,7 +167,8 @@ mod tests {
 
     pub fn get_trader_order_program() -> Program {
         let order_prog = Program::build(|p| {
-            p.roll(3) // Get IM to top of stack
+            p.drop() // drop the order_side from stack. Not needed in the proof
+                .roll(3) // Get IM to top of stack
                 .commit()
                 .expr()
                 .roll(1) // Get EntryPrice to top of stack
@@ -179,7 +180,7 @@ mod tests {
                 .mul() // Leverage * EntryPrice * IM
                 .roll(1)
                 .scalar()
-                .eq()
+                .eq() // Leverage * EntryPrice * IM == PositionSize
                 .verify();
         });
         return order_prog;
