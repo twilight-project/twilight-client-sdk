@@ -54,6 +54,7 @@ use zkvm::{
 pub fn create_contract_deploy_transaction(
     sk: RistrettoSecretKey,
     value_sats: u64,
+    pool_share: u64,
     coin_address: String,
     ecryption_commitment_scalar: Scalar,
     program_json_path: &str,
@@ -73,6 +74,7 @@ pub fn create_contract_deploy_transaction(
     //create OutputMemo corresponding to InputCoin
     let memo_output = create_memo_for_deployment(
         value_sats,
+        pool_share,
         contract_address.clone(),
         coin_address.clone(),
         ecryption_commitment_scalar,
@@ -196,6 +198,7 @@ pub fn create_state_for_deployment(
 /// @return output memo
 pub fn create_memo_for_deployment(
     initial_deposit: u64,
+    pool_share: u64,
     contract_address: String,
     coin_address: String,
     scalar_commitment: Scalar, // commitment scalar for encryption and commitment
@@ -203,7 +206,7 @@ pub fn create_memo_for_deployment(
     // create output memo
     let script_address = contract_address.clone();
     let commit_memo = Commitment::blinded_with_factor(initial_deposit, scalar_commitment);
-    let pool_share = Commitment::blinded(initial_deposit);
+    let pool_share = Commitment::blinded_with_factor(pool_share, scalar_commitment);
     let data = vec![ZkvmString::from(pool_share)];
     let memo_out = OutputMemo {
         script_address: script_address.clone(),
@@ -224,8 +227,15 @@ mod test {
     use super::get_transaction_coin_input_from_address;
     use crate::util::*;
     use rand::rngs::OsRng;
-    use zkvm::{program, Commitment};
-
+    use zkvm::{program::Program, Commitment};
+    use address::{Address, Network};
+    use zkvm::{Input, Output,zkos_types::{OutputCoin, OutputMemo, OutputState, Utxo, InputData}};
+    use quisquislib::keys::{PublicKey,SecretKey};
+    use curve25519_dalek::scalar::Scalar;
+    use quisquislib::ristretto::{RistrettoPublicKey, RistrettoSecretKey};
+    use quisquislib::elgamal::ElGamalCommitment;
+    use quisquislib::accounts::Account;
+    use transaction::vm_run::{Prover, Verifier};
     #[test]
     fn get_transaction_coin_input_from_address_test() {
         dotenv::dotenv().expect("Failed loading dotenv");
@@ -235,20 +245,91 @@ mod test {
             get_transaction_coin_input_from_address(address)
         );
     }
-
+    #[test]
+    fn deploy_program_test(){
+        let prog = Program::build(|p| {
+            // TVL 0 and TPS0 are not pushed on stack. Zero value proof provided in witness
+            p.commit()
+            .expr() // TPS added to constraint
+            .roll(2) // get PoolShare to top of stack
+                .commit()
+                .expr()
+                .eq() // PoolShare == TPS
+                .roll(1) //get TLV to top of stack
+                .commit()
+                .expr()
+                .roll(2) //get Deposit to top of stack
+                .commit()
+                .expr()
+                .eq() // Deposit == TLV
+                .and()// PoolShare == TPS && Deposit == TLV
+                .verify();
+        });
+        // create input coin 
+        let mut rng = rand::thread_rng();
+        let sk_in: RistrettoSecretKey = SecretKey::random(&mut rng);
+        let pk_in = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+        let rscalar = Scalar::random(&mut rng);
+        let commit_in = ElGamalCommitment::generate_commitment(
+            &pk_in,
+            rscalar.clone(),
+            Scalar::from(100000000u64),
+        );
+        let coin_acc  = Account::set_account(pk_in.clone(), commit_in.clone());
+        let add: Address = Address::standard_address(Network::default(), pk_in.clone());
+        let out_coin = OutputCoin {
+            encrypt: commit_in.clone(),
+            owner: add.as_hex(),
+        };
+        let in_data: InputData = InputData::coin(Utxo::default(), out_coin, 0);
+        let coin_input: Input = Input::coin(in_data);
+        //create OutputMemo corresponding to InputCoin
+        let memo_output = crate::script::create_memo_for_deployment(
+            100000000u64,
+            10u64,
+            add.as_hex(), // Should be contract address. Does not matter for this contract_address.clone(),
+            add.as_hex().clone(),
+            rscalar,
+        );
+        let state_variables: Vec<u64> = vec![10]; // TPS
+        // create input state and output state
+        let (input_state, output_state) = crate::script::create_state_for_deployment(
+            100000000u64,
+            state_variables,
+            add.as_hex().clone(),
+            add.as_hex().clone(),
+        //state_blinding,
+        );
+    // create input and output vectors
+    let input: Vec<Input> = vec![coin_input, input_state];
+    let output: Vec<Output> = vec![memo_output, output_state.clone()];
+    //cretae unsigned Tx with program proof
+    let result = Prover::build_proof(
+        prog,
+        &input,
+        &output,
+        true,
+        None,
+    );
+    println!("{:?}", result);
+    let (prog_bytes, proof) = result.unwrap();
+    let verify =
+        Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, true, None);
+    println!("{:?}", verify);
+    }
     #[test]
     fn create_chain_deploy_tx() {
-        let seed = "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+        let seed = "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY33S8ZYMoVzj8tybCB/Okwt+cblM0l3a8/eEJtfBpPcJwfZw++";
         let sk: quisquislib::ristretto::RistrettoSecretKey =
             quisquislib::keys::SecretKey::from_bytes(seed.as_bytes());
         println!("sk {:?}", sk);
         dotenv::dotenv().expect("Failed loading dotenv");
 
         // data for contract initialization
-        let value_sats: u64 = 1000;
-        let coin_address: String = "0c9ee2f0ef12a12745c0ad1111363f82134c426964ea2e985e6c3c3f7a0ee6d72b867e73d765be00ff4c8866ca142b3e3aa82dd75079b5ee514baf4e2ac7fc7e75f2daabc9".to_string();
+        let value_sats: u64 = 100000000u64;
+        let coin_address: String = "0ccca16b5c06074564fbb3cf1b33682eb1fc09f11332f933001cf8846b88864566b6c511056b44ce71a42cb6975bd24ba6b75a3f864f1269bfbb8fa60cc9bacf3d93399171".to_string();
         let commitment_scalar_hex =
-            "af7362b6676c96883858eebaf721e981322a9327031fb62f928f8e688ca48704";
+            "80ffbb7aa46659643a6d0b90b2ffb80e21457f05aa37f52b791c82121711c400";
         let scalar_bytes = hex::decode(&commitment_scalar_hex).unwrap();
         let ecryption_commitment_scalar = curve25519_dalek::scalar::Scalar::from_bytes_mod_order(
             scalar_bytes.try_into().unwrap(),
@@ -256,13 +337,14 @@ mod test {
         //let ecryption_commitment_scalar = curve25519_dalek::scalar::Scalar::random(&mut OsRng);
         let program_json_path: &str = "./relayerprogram.json";
         let chain_net = address::Network::default();
-        let state_variables: Vec<u64> = vec![1000];
+        let state_variables: Vec<u64> = vec![10];
         let program_tag: String = "RelayerInitializer".to_string();
-
+        let pool_share = 10u64;
         // create tx
         let tx = crate::script::create_contract_deploy_transaction(
             sk,
             value_sats,
+            pool_share,
             coin_address,
             ecryption_commitment_scalar,
             program_json_path,
@@ -278,7 +360,5 @@ mod test {
         let tx_bin = bincode::serialize(&tx).unwrap();
         let tx_hex = hex::encode(&tx_bin);
         println!("tx_hex {:?}", tx_hex);
-    }
-
-    
+   } 
 }
