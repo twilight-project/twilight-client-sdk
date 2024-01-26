@@ -813,7 +813,6 @@ mod test {
         println!("enc_acc:{:?}", key);
         let scalar_hex = "a11a387c557978a7b599a71af794bb4a85a0e89f897b094b32b8694420021408";
         let rscalar = crate::util::hex_to_scalar(scalar_hex.to_string()).unwrap();
-        let rscalar = crate::util::hex_to_scalar(scalar_hex.to_string()).unwrap();
         let output_memo = crate::util::create_output_memo_for_trader(
             contract_address,
             client_address.to_string(),
