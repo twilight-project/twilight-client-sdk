@@ -355,11 +355,17 @@ mod test {
             1u64,
         );
         let (tx, out_state) = tx.unwrap();
+
         let verify = tx.clone().verify();
         println!("Verify Tx:{:?}", verify.is_ok());
         //convert tx to hex
         let tx_bin = bincode::serialize(&tx).unwrap();
         let tx_hex = hex::encode(&tx_bin);
-        println!("tx_hex {:?}", tx_hex);
+        // convert output state to hex for broadcasting
+        let out_state_bin = bincode::serialize(&out_state).unwrap();
+        let out_state_hex = hex::encode(&out_state_bin);
+
+        println!("tx_hex {:?}\n", tx_hex);
+        println!( "out_state_hex {:?}\n", out_state_hex);
    } 
 }
