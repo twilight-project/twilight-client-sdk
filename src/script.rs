@@ -311,11 +311,11 @@ mod test {
         true,
         None,
     );
-    println!("{:?}", result);
+   //i println!("{:?}", result);
     let (prog_bytes, proof) = result.unwrap();
     let verify =
         Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, true, None);
-    println!("{:?}", verify);
+    println!("Final Verify Result{:?}", verify);
     }
     #[test]
     fn create_chain_deploy_tx() {
@@ -326,14 +326,15 @@ mod test {
         dotenv::dotenv().expect("Failed loading dotenv");
 
         // data for contract initialization
-        let value_sats: u64 = 100000000u64;
+        let value_sats: u64 = 1000000000u64;
         let coin_address: String = "0ccca16b5c06074564fbb3cf1b33682eb1fc09f11332f933001cf8846b88864566b6c511056b44ce71a42cb6975bd24ba6b75a3f864f1269bfbb8fa60cc9bacf3d93399171".to_string();
         let commitment_scalar_hex =
             "80ffbb7aa46659643a6d0b90b2ffb80e21457f05aa37f52b791c82121711c400";
-        let scalar_bytes = hex::decode(&commitment_scalar_hex).unwrap();
-        let ecryption_commitment_scalar = curve25519_dalek::scalar::Scalar::from_bytes_mod_order(
-            scalar_bytes.try_into().unwrap(),
-        );
+       // let scalar_bytes = hex::decode(&commitment_scalar_hex).unwrap();
+       // let ecryption_commitment_scalar = curve25519_dalek::scalar::Scalar::from_bytes_mod_order(
+       //     scalar_bytes.try_into().unwrap(),
+       // );
+       let encryption_commitment_scalar = crate::util::hex_to_scalar(commitment_scalar_hex.to_string()).unwrap();
         //let ecryption_commitment_scalar = curve25519_dalek::scalar::Scalar::random(&mut OsRng);
         let program_json_path: &str = "./relayerprogram.json";
         let chain_net = address::Network::default();
@@ -346,7 +347,7 @@ mod test {
             value_sats,
             pool_share,
             coin_address,
-            ecryption_commitment_scalar,
+            encryption_commitment_scalar,
             program_json_path,
             chain_net,
             state_variables,
@@ -355,7 +356,7 @@ mod test {
         );
         let (tx, out_state) = tx.unwrap();
         let verify = tx.clone().verify();
-        println!("verify:{:?}", verify);
+        println!("Verify Tx:{:?}", verify.is_ok());
         //convert tx to hex
         let tx_bin = bincode::serialize(&tx).unwrap();
         let tx_hex = hex::encode(&tx_bin);
