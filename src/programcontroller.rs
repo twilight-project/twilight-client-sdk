@@ -140,26 +140,25 @@ mod tests {
     use std::io::prelude::*;
     use zkvm::encoding::Encodable;
     use zkvm::Program;
-
-    fn contract_initialize_program_with_stack() -> Program {
+    //Stack = Deposit in Sats -> Poolshare as whole number -> TLV0 = 0 -> TLV1 = Deposit -> TPS0 = 0 -> TPS1 = Poolshare
+    // This program only works for PS as whole numbers
+    fn relayer_contract_initialize_program() -> Program {
         let prog = Program::build(|p| {
-            p.dup(2)
+            // TVL 0 and TPS0 are not pushed on stack. Zero value proof provided in witness
+            p.commit()
+            .expr() // TPS added to constraint
+            .roll(2) // get PoolShare to top of stack
                 .commit()
                 .expr()
-                .roll(1)
+                .eq() // PoolShare == TPS
+                .roll(1) //get TLV to top of stack
                 .commit()
                 .expr()
-                .neg()
-                .add()
-                .roll(2)
+                .roll(2) //get Deposit to top of stack
                 .commit()
                 .expr()
-                .roll(2)
-                .commit()
-                .expr()
-                .neg()
-                .add()
-                .eq()
+                .eq() // Deposit == TLV
+                .and()// PoolShare == TPS && Deposit == TLV
                 .verify();
         });
         return prog;
@@ -362,7 +361,7 @@ mod tests {
         let path = "./relayerprogram.json";
         contract_manager.add_program(
             "RelayerInitializer",
-            contract_initialize_program_with_stack(),
+            relayer_contract_initialize_program(),
         );
 
         contract_manager.add_program("CreateTraderOrder", get_trader_order_program());
@@ -376,7 +375,7 @@ mod tests {
     fn add_program_test() {
         let path = "./relayerprogram.json";
         let tag = "Tag4";
-        let program_code = contract_initialize_program_with_stack();
+        let program_code = relayer_contract_initialize_program();
         let mut programs = ContractManager::import_program(path);
         programs.add_program(tag, program_code).unwrap();
         programs.export_program(path);
@@ -389,7 +388,7 @@ mod tests {
     }
     #[test]
     fn encode_program_test() {
-        let program_data = contract_initialize_program_with_stack();
+        let program_data = relayer_contract_initialize_program();
         // let mut writer: Vec<u8>;
         let mut encoded_program_data = program_data.encode_to_vec();
         let program_hex = hex::encode(encoded_program_data);
