@@ -8,38 +8,38 @@ use zkvm::{
     zkos_types::{Input, Output, OutputMemo, OutputState, Utxo},
     Commitment, InputData, OutputData, String as ZkvmString,
 };
-/// Broadcasts a contract deploy transaction to the ZKOS Server on chain.
-/// @param sk: RistrettoSecretKey of the coin owner
-/// @param value_sats: value in sats to be deposited in the contract
-/// @param coin_address: on-chain address of the coin owner
-/// @param ecryption_commitment_scalar: commitment scalar used for Elgamal encryption of QQ Account and memo commitment
-/// @param program_json_path: path to the json file containing the contract program
-/// @param chain_net: Network address indicator i.e., Main or TestNet
-/// @param state_variables: vector of state variables to be initialized
-/// @param program_tag: tag of the program to be deployed   
-/// @return transaction id
-pub fn broadcast_contract_deploy_transaction(
-    sk: RistrettoSecretKey,
-    value_sats: u64,
-    coin_address: String,
-    ecryption_commitment_scalar: Scalar,
-    program_json_path: &str,
-    chain_net: Network, // Main / TestNet
-    state_variables: Vec<u64>,
-    program_tag: String,
-) -> Result<String, String> {
-    let tx = create_contract_deploy_transaction(
-        sk,
-        value_sats,
-        coin_address,
-        ecryption_commitment_scalar,
-        program_json_path,
-        chain_net,
-        state_variables,
-        program_tag,
-    )?;
-    tx_commit_broadcast_transaction(tx)
-}
+// Broadcasts a contract deploy transaction to the ZKOS Server on chain.
+// @param sk: RistrettoSecretKey of the coin owner
+// @param value_sats: value in sats to be deposited in the contract
+// @param coin_address: on-chain address of the coin owner
+// @param ecryption_commitment_scalar: commitment scalar used for Elgamal encryption of QQ Account and memo commitment
+// @param program_json_path: path to the json file containing the contract program
+// @param chain_net: Network address indicator i.e., Main or TestNet
+// @param state_variables: vector of state variables to be initialized
+// @param program_tag: tag of the program to be deployed   
+// @return transaction id
+// pub fn broadcast_contract_deploy_transaction(
+//     sk: RistrettoSecretKey,
+//     value_sats: u64,
+//     coin_address: String,
+//     ecryption_commitment_scalar: Scalar,
+//     program_json_path: &str,
+//     chain_net: Network, // Main / TestNet
+//     state_variables: Vec<u64>,
+//     program_tag: String,
+// ) -> Result<(String,Output), String> {
+//     let (tx, out) = create_contract_deploy_transaction(
+//         sk,
+//         value_sats,
+//         coin_address,
+//         ecryption_commitment_scalar,
+//         program_json_path,
+//         chain_net,
+//         state_variables,
+//         program_tag,
+//     )?;
+//     tx_commit_broadcast_transaction(tx)
+// }
 
 /// Creates a contract deploy transaction
 /// @param sk: RistrettoSecretKey of the coin owner
@@ -50,7 +50,7 @@ pub fn broadcast_contract_deploy_transaction(
 /// @param chain_net: Network address indicator i.e., Main or TestNet
 /// @param state_variables: vector of state variables to be initialized
 /// @param program_tag: tag of the program to be deployed
-/// @return transaction
+/// @return transaction and the newly created output state
 pub fn create_contract_deploy_transaction(
     sk: RistrettoSecretKey,
     value_sats: u64,
@@ -60,7 +60,8 @@ pub fn create_contract_deploy_transaction(
     chain_net: Network, // Main / TestNet
     state_variables: Vec<u64>,
     program_tag: String,
-) -> Result<Transaction, String> {
+    fee: u64,
+) -> Result<(Transaction, Output), String> {
     // get the coin account from chain using coin address and create input coin
     let coin_input = get_transaction_coin_input_from_address(coin_address.clone())?;
 
@@ -76,16 +77,18 @@ pub fn create_contract_deploy_transaction(
         coin_address.clone(),
         ecryption_commitment_scalar,
     );
+   
     // create input state and output state
     let (input_state, output_state) = create_state_for_deployment(
         value_sats,
         state_variables,
         contract_address.clone(),
         coin_address.clone(),
+        //state_blinding,
     );
     // create input and output vectors
     let input: Vec<Input> = vec![coin_input, input_state];
-    let output: Vec<Output> = vec![memo_output, output_state];
+    let output: Vec<Output> = vec![memo_output, output_state.clone()];
     //create call proof for the contract initialization program
     // get the initialization program
     let initialization_program = contract_manager.get_program_by_tag(&program_tag)?;
@@ -102,12 +105,12 @@ pub fn create_contract_deploy_transaction(
         &output,
         None,
         true,
-        5u64,
+        fee,
     );
     match script_tx {
         Ok(tx) => {
             let tx = Transaction::transaction_script(TransactionData::TransactionScript(tx));
-            Ok(tx)
+            Ok((tx, output_state))
         }
         Err(e) => Err(format!("Error at creating script transaction :{:?}", e).into()),
     }
@@ -125,6 +128,7 @@ pub fn create_state_for_deployment(
     state_variables: Vec<u64>,
     contract_address: String,
     coin_address: String,
+   // blinding : Scalar, //blinding for TVL and TPS commitments
 ) -> (Input, Output) {
     // create input state
     // Input state will be zero at initialization.
@@ -161,12 +165,12 @@ pub fn create_state_for_deployment(
 
     // create output state using values from client
     // create value commitment
-    let value_commitment = Commitment::blinded(value_sats);
+    let value_commitment = Commitment::blinded(value_sats);//, blinding.clone());
     // create state variable commitments
     let mut s_var_vec: Vec<ZkvmString> = Vec::new();
     for i in 0..state_variables.len() {
         let s_var =
-            ZkvmString::Commitment(Box::new(Commitment::blinded(state_variables[i].clone())));
+            ZkvmString::Commitment(Box::new(Commitment::blinded(state_variables[i].clone())));//, blinding.clone())));
         s_var_vec.push(s_var);
     }
     // create Output state
@@ -265,12 +269,16 @@ mod test {
             chain_net,
             state_variables,
             program_tag,
+            1u64,
         );
-        let verify = tx.clone().unwrap().verify();
+        let (tx, out_state) = tx.unwrap();
+        let verify = tx.clone().verify();
         println!("verify:{:?}", verify);
         //convert tx to hex
-        let tx_bin = bincode::serialize(&tx.unwrap()).unwrap();
+        let tx_bin = bincode::serialize(&tx).unwrap();
         let tx_hex = hex::encode(&tx_bin);
         println!("tx_hex {:?}", tx_hex);
     }
+
+    
 }
