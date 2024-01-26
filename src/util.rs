@@ -1,3 +1,5 @@
+use core::time;
+
 use address::{Address, AddressType};
 
 use curve25519_dalek::scalar::Scalar;
@@ -149,13 +151,10 @@ pub fn create_output_memo_for_trader(
     position_size: u64,     // Position Size
     leverage: u64,          // Leverage
     entry_price: u64,       // Entry Price
-    scalar: String,         // Hex string of Scalar
+    order_side: u8,         // Buy/Sell 
+    scalar: Scalar,         // Scalar for blinding commitment
+    timebounds: u32,        // Timebounds
 ) -> Option<Output> {
-    // recreate scalar bytes from hex string
-    let scalar = match hex_to_scalar(scalar) {
-        Some(scalar) => scalar,
-        None => return None,
-    };
     // create prover commitment on initial margin
     let commitment = Commitment::blinded_with_factor(initial_margin, scalar);
     // create Memo data for trader
@@ -163,13 +162,15 @@ pub fn create_output_memo_for_trader(
     let leverage_commitment = Commitment::blinded_with_factor(leverage, scalar);
     let position = ZkvmString::from(Scalar::from(position_size));
     let price = ZkvmString::from(Scalar::from(entry_price));
+    let side = ZkvmString::from(Scalar::from(order_side));
     let data: Vec<ZkvmString> = vec![
         position,
         ZkvmString::Commitment(Box::new(leverage_commitment)),
         price,
+        side,
     ];
     // create OutputMemo
-    let output_memo = OutputMemo::new(script_address, owner_address, commitment, Some(data), 0u32);
+    let output_memo = OutputMemo::new(script_address, owner_address, commitment, Some(data), timebounds);
 
     let output: Output = Output::memo(OutputData::memo(output_memo));
     Some(output)
@@ -181,8 +182,9 @@ pub fn create_output_memo_for_lender(
     script_address: String, // Hex address string
     owner_address: String,  // Hex address string
     deposit: u64,           // Deposit
-    pool_share: u64,        // Pool Share
+    pool_share: u64,        // nPool Share
     scalar: String,         // Hex string of Scalar
+    timebounds: u32,        // Timebounds
 ) -> Option<Output> {
     // recreate scalar bytes from hex string
     let scalar = match hex_to_scalar(scalar) {
@@ -196,7 +198,7 @@ pub fn create_output_memo_for_lender(
     let pool_share_commitment = Commitment::blinded_with_factor(pool_share, scalar);
     let data: Vec<ZkvmString> = vec![ZkvmString::Commitment(Box::new(pool_share_commitment))];
     // create OutputMemo
-    let output_memo = OutputMemo::new(script_address, owner_address, commitment, Some(data), 0u32);
+    let output_memo = OutputMemo::new(script_address, owner_address, commitment, Some(data), timebounds);
 
     let output: Output = Output::memo(OutputData::memo(output_memo));
     Some(output)
