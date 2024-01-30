@@ -47,7 +47,7 @@ pub fn create_zkos_order(
     let witness = ValueWitness::create_value_witness(
         input.clone(),
         secret_key,
-        output.clone(),
+        //output.clone(),
         enc_acc,
         pubkey.clone(),
         pedersen_commitment.clone(),
