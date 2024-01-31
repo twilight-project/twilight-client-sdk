@@ -9,7 +9,7 @@ use transaction::quisquislib::{
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
 };
 
-use zkvm::{zkos_types::OutputMemo, InputData, OutputData};
+use zkvm::{merkle::Position, zkos_types::OutputMemo, InputData, OutputData};
 use zkvm::{
     zkos_types::{IOType, Input, Output, OutputCoin, Utxo},
     Commitment, String as ZkvmString,
@@ -20,6 +20,8 @@ lazy_static! {
 }
 use hex;
 use serde::{Deserialize, Serialize};
+
+use crate::{relayer, relayer_types};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UtxoOutputRaw {
@@ -151,7 +153,7 @@ pub fn create_output_memo_for_trader(
     position_size: u64,     // Position Size
     leverage: u64,          // Leverage
     entry_price: u64,       // Entry Price
-    order_side: u8,         // Buy/Sell 
+    order_side: String,     // Buy/Sell 
     scalar: Scalar,         // Scalar for blinding commitment
     timebounds: u32,        // Timebounds
 ) -> Option<Output> {
@@ -162,7 +164,18 @@ pub fn create_output_memo_for_trader(
     let leverage_commitment = Commitment::blinded_with_factor(leverage, scalar);
     let position = ZkvmString::from(Scalar::from(position_size));
     let price = ZkvmString::from(Scalar::from(entry_price));
-    let side = ZkvmString::from(Scalar::from(order_side));
+    //check if side is long or short
+    let position_type = match relayer_types::PositionType::from_str(&order_side){
+        Some(position_type) => position_type,
+        None => return None,
+    };
+    let side_scalar = match position_type {
+        relayer_types::PositionType::LONG => Scalar::from(1u8),
+        relayer_types::PositionType::SHORT => {
+            Scalar::zero() - Scalar::from(1u8)
+        },
+    };
+    let side = ZkvmString::from(side_scalar);
     let data: Vec<ZkvmString> = vec![
         position,
         ZkvmString::Commitment(Box::new(leverage_commitment)),
