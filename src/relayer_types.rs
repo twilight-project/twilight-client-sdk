@@ -1,6 +1,4 @@
-//use crate::relayer_rpcclient::method::*;
-//use crate::relayer_rpcclient::txrequest::RELAYER_RPC_SERVER_URL;
-//use crate::relayer_rpcclient::txrequest::{Resp, RpcBody, RpcRequest};
+use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::SigmaProof;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -59,6 +57,18 @@ impl PositionType {
             "LONG" => Some(PositionType::LONG),
             "SHORT" => Some(PositionType::SHORT),
             _ => None,
+        }
+    }
+    pub fn to_scalar(&self) -> Scalar {
+        match self {
+            PositionType::LONG => Scalar::zero() - Scalar::from(1u64),
+            PositionType::SHORT => Scalar::from(1u64),
+        }
+    }
+    pub fn to_str(&self) -> String {
+        match self {
+            PositionType::LONG => "LONG".to_string(),
+            PositionType::SHORT => "SHORT".to_string(),
         }
     }
 }

@@ -147,16 +147,16 @@ pub fn select_anonymity_accounts(
 /// create Output for Memo
 ///     
 pub fn create_output_memo_for_trader(
-    script_address: String, // Hex address string
-    owner_address: String,  // Hex address string
-    initial_margin: u64,    // Initial Margin
-    position_size: u64,     // Position Size
-    leverage: u64,          // Leverage
-    entry_price: u64,       // Entry Price
-    order_side: String,     // Buy/Sell 
-    scalar: Scalar,         // Scalar for blinding commitment
-    timebounds: u32,        // Timebounds
-) -> Option<Output> {
+    script_address: String,                         // Hex address string
+    owner_address: String,                          // Hex address string
+    initial_margin: u64,                            // Initial Margin
+    position_size: u64,                             // Position Size
+    leverage: u64,                                  // Leverage
+    entry_price: u64,                               // Entry Price
+    order_side: crate::relayer_types::PositionType, // LONG / SHORT
+    scalar: Scalar,                                 // Scalar for blinding
+    timebounds: u32,                                // Timebounds
+) -> Output {
     // create prover commitment on initial margin
     let commitment = Commitment::blinded_with_factor(initial_margin, scalar);
     // create Memo data for trader
@@ -164,17 +164,7 @@ pub fn create_output_memo_for_trader(
     let leverage_commitment = Commitment::blinded_with_factor(leverage, scalar);
     let position = ZkvmString::from(Scalar::from(position_size));
     let price = ZkvmString::from(Scalar::from(entry_price));
-    //check if side is long or short
-    let position_type = match relayer_types::PositionType::from_str(&order_side){
-        Some(position_type) => position_type,
-        None => return None,
-    };
-    let side_scalar = match position_type {
-        relayer_types::PositionType::LONG => Scalar::from(1u8),
-        relayer_types::PositionType::SHORT => {
-            Scalar::zero() - Scalar::from(1u8)
-        },
-    };
+    let side_scalar = order_side.to_scalar();
     let side = ZkvmString::from(side_scalar);
     let data: Vec<ZkvmString> = vec![
         position,
@@ -183,10 +173,16 @@ pub fn create_output_memo_for_trader(
         side,
     ];
     // create OutputMemo
-    let output_memo = OutputMemo::new(script_address, owner_address, commitment, Some(data), timebounds);
+    let output_memo = OutputMemo::new(
+        script_address,
+        owner_address,
+        commitment,
+        Some(data),
+        timebounds,
+    );
 
     let output: Output = Output::memo(OutputData::memo(output_memo));
-    Some(output)
+    output
 }
 
 /// create Output for Memo for Lender
@@ -195,15 +191,10 @@ pub fn create_output_memo_for_lender(
     script_address: String, // Hex address string
     owner_address: String,  // Hex address string
     deposit: u64,           // Deposit
-    pool_share: u64,        // nPool Share
-    scalar: String,         // Hex string of Scalar
-    timebounds: u32,        // Timebounds
-) -> Option<Output> {
-    // recreate scalar bytes from hex string
-    let scalar = match hex_to_scalar(scalar) {
-        Some(scalar) => scalar,
-        None => return None,
-    };
+    pool_share: u64,        // Noirmalized Pool Share
+    scalar: Scalar,         // Scalar for blinding
+    timebounds: u32,
+) -> Output {
     // create prover commitment on deposit
     let commitment = Commitment::blinded_with_factor(deposit, scalar);
     // create Memo data for lender
@@ -211,10 +202,16 @@ pub fn create_output_memo_for_lender(
     let pool_share_commitment = Commitment::blinded_with_factor(pool_share, scalar);
     let data: Vec<ZkvmString> = vec![ZkvmString::Commitment(Box::new(pool_share_commitment))];
     // create OutputMemo
-    let output_memo = OutputMemo::new(script_address, owner_address, commitment, Some(data), timebounds);
+    let output_memo = OutputMemo::new(
+        script_address,
+        owner_address,
+        commitment,
+        Some(data),
+        timebounds,
+    );
 
     let output: Output = Output::memo(OutputData::memo(output_memo));
-    Some(output)
+    output
 }
 
 /// create OutputCoin for Coin
@@ -328,6 +325,33 @@ pub fn create_input_state_from_output_state(
     ));
 
     Ok(inp)
+}
+
+/// create Output State for the Lend/Trade Order
+///
+pub fn create_output_state_for_trade_lend_order(
+    nonce: u32,
+    script_address: String,
+    owner_address: String,
+    tlv: u64,
+    tps: u64,
+    timebounds: u32,
+) -> Output {
+    // create commitment for tlv using scalar
+    let tlv_commitment = Commitment::blinded(tlv);
+    let tps_commitment = Commitment::blinded(tps);
+    // create state variables
+    let state_variables: Vec<zkvm::String> = vec![zkvm::String::from(tps_commitment)];
+    let output_state = zkvm::zkos_types::OutputState {
+        nonce,
+        script_address,
+        owner: owner_address,
+        commitment: tlv_commitment,
+        state_variables: Some(state_variables),
+        timebounds,
+    };
+    // create output
+    Output::from(output_state)
 }
 /// convert hex string to Scalar
 pub fn hex_to_scalar(hex: String) -> Option<Scalar> {

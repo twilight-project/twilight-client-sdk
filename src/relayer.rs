@@ -48,6 +48,7 @@ pub fn create_zkos_order(
         input.clone(),
         secret_key,
         //output.clone(),
+        // output.clone(),
         enc_acc,
         pubkey.clone(),
         pedersen_commitment.clone(),
@@ -272,4 +273,127 @@ pub fn query_lend_order_zkos(
     let query_lend_zkos: QueryLendOrderZkos = QueryLendOrderZkos::new(query_lend, query_lend_msg);
     let order_hex: String = query_lend_zkos.encode_as_hex_string();
     order_hex
+}
+
+#[cfg(test)]
+mod test {
+    use std::f32::MIN_POSITIVE;
+
+    use address::{Address, Network};
+    use curve25519_dalek::scalar::{self, Scalar};
+    use quisquislib::{
+        accounts::Account,
+        elgamal::ElGamalCommitment,
+        keys::{PublicKey, SecretKey},
+        ristretto::{RistrettoPublicKey, RistrettoSecretKey},
+    };
+    use zkvm::{zkos_types::OutputCoin, Commitment, InputData, OutputData, Utxo, Witness};
+
+    use crate::{keys_management, relayer_types};
+
+    use super::*;
+    #[test]
+    fn test_create_trader_order() {
+        let create_trader_order: CreateTraderOrder = CreateTraderOrder::new(
+            "account_id".to_string(),
+            "LONG".to_string(),
+            "MARKET".to_string(),
+            10.0,
+            10.0,
+            10.0,
+            "PENDING".to_string(),
+            30000.0,
+            30000.0,
+        );
+        // create input coin
+        //create InputCoin and OutputMemo
+        let mut rng = rand::thread_rng();
+        let sk_in: RistrettoSecretKey = RistrettoSecretKey::random(&mut rng);
+        let pk_in: RistrettoPublicKey = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+
+        let add: Address = Address::standard_address(Network::default(), pk_in.clone());
+        let rscalar: Scalar = Scalar::random(&mut rng);
+        // create input coin
+        let commit_in =
+            ElGamalCommitment::generate_commitment(&pk_in, rscalar, Scalar::from(10u64));
+        let enc_acc = Account::set_account(pk_in, commit_in);
+
+        let coin = OutputCoin {
+            encrypt: commit_in,
+            owner: add.as_hex(),
+        };
+        let in_data: InputData = InputData::coin(Utxo::default(), coin, 0);
+        let coin_in: Input = Input::coin(in_data.clone());
+
+        //create first Commitment Witness
+        let commit_1: Commitment = Commitment::blinded_with_factor(10u64, rscalar);
+        let (_comit_1_value, _comit_1_blind) = commit_1.witness().unwrap();
+
+        //create OutputMemo
+
+        let out_memo = zkvm::zkos_types::OutputMemo {
+            script_address: add.as_hex(),
+            owner: add.as_hex(),
+            commitment: commit_1.clone(),
+            data: None,
+            timebounds: 0,
+        };
+        let out_memo = Output::memo(OutputData::memo(out_memo));
+        let memo_commitment_point = commit_1.to_point();
+        // create InputCoin Witness
+        let witness = Witness::ValueWitness(ValueWitness::create_value_witness(
+            coin_in.clone(),
+            sk_in,
+            //  out_memo.clone(),
+            enc_acc,
+            pk_in.clone(),
+            memo_commitment_point.clone(),
+            10u64,
+            rscalar,
+        ));
+
+        // verify the witness
+        let value_wit = witness.to_value_witness().unwrap();
+        let zkos_create_trader_order = ZkosCreateOrder::new(coin_in, out_memo, value_wit);
+        let order_msg: CreateTraderOrderZkos = CreateTraderOrderZkos {
+            create_trader_order: create_trader_order,
+            input: zkos_create_trader_order,
+        };
+
+        println!("order_hex: {:?}", order_msg.encode_as_hex_string());
+    }
+
+    #[test]
+    fn test_settle_trader_order_message() {
+        // get private key for the memo
+        let seed =
+        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+
+        //derive private key;
+        let sk = SecretKey::from_bytes(seed.as_bytes());
+        let client_address = "0c7ccfc25ec0c535a8232e785ddec39972dc48e25ae570e368b9384dc6147ec639b4ea7118b0002894c9d2d9bfcaf72d47a0a49893518a4cfb30a0e81ba34a51684e2f05e9";
+        // get pk from client address
+        let address = Address::from_hex(&client_address, address::AddressType::default()).unwrap();
+        let client_pk: RistrettoPublicKey = address.into();
+
+        // get Memo to be sent to the exchange
+        // Memo should be the output of the order submitted earlier
+        let memo_hex = "01000000010000002a000000000000003138663265626461313733666663366164326533623464336133383634613936616538613666376533308a000000000000003063376363666332356563306335333561383233326537383564646563333939373264633438653235616535373065333638623933383464633631343765633633396234656137313138623030303238393463396432643962666361663732643437613061343938393335313861346366623330613065383162613334613531363834653266303565390100000000000000a0860100000000000000000000000000b899875f246706825d9a849a195da763b3718fc2bdf44cc4eccbb447fe484d010104000000000000000300000001000000003c534c1000000000000000000000000000000000000000000000000000000002000000010000000000000014000000000000000000000000000000b899875f246706825d9a849a195da763b3718fc2bdf44cc4eccbb447fe484d010300000001000000b8880000000000000000000000000000000000000000000000000000000000000300000001000000010000000000000000000000000000000000000000000000000000000000000000000000";
+        let memo_bin = hex::decode(memo_hex).unwrap();
+        let memo: Output = bincode::deserialize(&memo_bin).unwrap();
+        // UPDATE VALUES HERE
+        let settle_msg = execute_order_zkos(
+            memo.clone(),
+            &sk,
+            "account_id".to_string(),
+            Uuid::new_v4(),
+            "MARKET".to_string(),
+            100000.0,
+            "PENDING".to_string(),
+            35000.0,
+            TXType::ORDERTX,
+        );
+
+        println!("settle_msg: {:?}", settle_msg);
+    }
 }
