@@ -47,7 +47,7 @@ pub fn create_zkos_order(
     let witness = ValueWitness::create_value_witness(
         input.clone(),
         secret_key,
-       // output.clone(),
+        // output.clone(),
         enc_acc,
         pubkey.clone(),
         pedersen_commitment.clone(),
@@ -276,6 +276,8 @@ pub fn query_lend_order_zkos(
 
 #[cfg(test)]
 mod test {
+    use std::f32::MIN_POSITIVE;
+
     use address::{Address, Network};
     use curve25519_dalek::scalar::{self, Scalar};
     use quisquislib::{
@@ -286,7 +288,7 @@ mod test {
     };
     use zkvm::{zkos_types::OutputCoin, Commitment, InputData, OutputData, Utxo, Witness};
 
-    use crate::keys_management;
+    use crate::{keys_management, relayer_types};
 
     use super::*;
     #[test]
@@ -342,7 +344,7 @@ mod test {
         let witness = Witness::ValueWitness(ValueWitness::create_value_witness(
             coin_in.clone(),
             sk_in,
-          //  out_memo.clone(),
+            //  out_memo.clone(),
             enc_acc,
             pk_in.clone(),
             memo_commitment_point.clone(),
@@ -380,8 +382,8 @@ mod test {
         let sk = SecretKey::from_bytes(seed.as_bytes());
         let client_address = "0c7ccfc25ec0c535a8232e785ddec39972dc48e25ae570e368b9384dc6147ec639b4ea7118b0002894c9d2d9bfcaf72d47a0a49893518a4cfb30a0e81ba34a51684e2f05e9";
         // get pk from client address
-       // let address = Address::from_hex(&client_address, address::AddressType::default()).unwrap();
-       // let client_pk: RistrettoPublicKey = address.into();
+        // let address = Address::from_hex(&client_address, address::AddressType::default()).unwrap();
+        // let client_pk: RistrettoPublicKey = address.into();
 
         let path = "./relayerprogram.json";
         let programs = crate::programcontroller::ContractManager::import_program(path);
@@ -391,13 +393,15 @@ mod test {
         let input_coin =
             crate::chain::get_transaction_coin_input_from_address(client_address.to_string())
                 .unwrap();
- 
+
         // get encryption from input coin to check if we got the correct input coin
         let enc_acc = input_coin.to_quisquis_account().unwrap();
         let key = enc_acc.decrypt_account_balance(&sk, Scalar::from(100000u64));
         println!("G ^ balance :{:?}", key);
         let scalar_hex = "b899875f246706825d9a849a195da763b3718fc2bdf44cc4eccbb447fe484d01";
         let rscalar = crate::util::hex_to_scalar(scalar_hex.to_string()).unwrap();
+
+        let position_side = relayer_types::PositionType::SHORT;
         let output_memo = crate::util::create_output_memo_for_trader(
             contract_address,
             client_address.to_string(),
@@ -405,12 +409,12 @@ mod test {
             70000000000,
             20,
             35000,
-            1u8,
+            position_side.clone(),
             rscalar,
-            0u32
+            0u32,
         );
         //convert output_memo to hex to be reused for settlement
-        let output_memo_bin =  bincode::serialize(&output_memo.clone()).unwrap();
+        let output_memo_bin = bincode::serialize(&output_memo.clone()).unwrap();
         let output_memo_hex = hex::encode(&output_memo_bin);
         println!("\n output_memo_hex: {:?} \n", output_memo_hex);
 
@@ -429,10 +433,10 @@ mod test {
         //     rscalar,
         // ));
         // verify the witness
-       // let value_wit = witness.to_value_witness().unwrap();
+        // let value_wit = witness.to_value_witness().unwrap();
         //  let verify= value_wit.verify_value_witness(input, output, pubkey, enc_acc, commitment)
-       // let zkos_create_trader_order =
-         //   ZkosCreateOrder::new(input_coin.clone(), output_memo.clone(), value_wit);
+        // let zkos_create_trader_order =
+        //   ZkosCreateOrder::new(input_coin.clone(), output_memo.clone(), value_wit);
 
         // let create_trader_order: CreateTraderOrder = CreateTraderOrder::new(
         //     "account_id".to_string(),
@@ -446,10 +450,10 @@ mod test {
         //     35000.0,
         // );
 
-       // let order_msg: CreateTraderOrderZkos = CreateTraderOrderZkos {
-         //   create_trader_order,
-           // input: zkos_create_trader_order,
-       // };
+        // let order_msg: CreateTraderOrderZkos = CreateTraderOrderZkos {
+        //   create_trader_order,
+        // input: zkos_create_trader_order,
+        // };
         let order_message = create_trader_order_zkos(
             input_coin.clone(),
             output_memo.clone(),
@@ -457,7 +461,7 @@ mod test {
             scalar_hex.to_string(),
             100000u64,
             "account_id".to_string(),
-            "LONG".to_string(),
+            position_side.to_str(),
             "MARKET".to_string(),
             20.0,
             100000.0,
@@ -467,11 +471,11 @@ mod test {
             35000.0,
         );
         println!("order_hex: {:?}", order_message);
-       // println!("order_hex: {:?}", order_msg.encode_as_hex_string());
+        // println!("order_hex: {:?}", order_msg.encode_as_hex_string());
     }
 
     #[test]
-    fn test_settle_trader_order_message(){
+    fn test_settle_trader_order_message() {
         dotenv::dotenv().expect("Failed loading dotenv");
 
         // get private key for the memo
@@ -487,10 +491,10 @@ mod test {
 
         // get Memo to be sent to the exchange
         // Memo should be the output of the order submitted earlier
-        let memo_hex = "01000000010000002a000000000000003138663265626461313733666663366164326533623464336133383634613936616538613666376533308a000000000000003063376363666332356563306335333561383233326537383564646563333939373264633438653235616535373065333638623933383464633631343765633633396234656137313138623030303238393463396432643962666361663732643437613061343938393335313861346366623330613065383162613334613531363834653266303565390100000000000000a0860100000000000000000000000000b899875f246706825d9a849a195da763b3718fc2bdf44cc4eccbb447fe484d010104000000000000000300000001000000003c534c1000000000000000000000000000000000000000000000000000000002000000010000000000000014000000000000000000000000000000b899875f246706825d9a849a195da763b3718fc2bdf44cc4eccbb447fe484d010300000001000000b8880000000000000000000000000000000000000000000000000000000000000300000001000000010000000000000000000000000000000000000000000000000000000000000000000000"; 
+        let memo_hex = "01000000010000002a000000000000003138663265626461313733666663366164326533623464336133383634613936616538613666376533308a000000000000003063376363666332356563306335333561383233326537383564646563333939373264633438653235616535373065333638623933383464633631343765633633396234656137313138623030303238393463396432643962666361663732643437613061343938393335313861346366623330613065383162613334613531363834653266303565390100000000000000a0860100000000000000000000000000b899875f246706825d9a849a195da763b3718fc2bdf44cc4eccbb447fe484d010104000000000000000300000001000000003c534c1000000000000000000000000000000000000000000000000000000002000000010000000000000014000000000000000000000000000000b899875f246706825d9a849a195da763b3718fc2bdf44cc4eccbb447fe484d010300000001000000b8880000000000000000000000000000000000000000000000000000000000000300000001000000010000000000000000000000000000000000000000000000000000000000000000000000";
         let memo_bin = hex::decode(memo_hex).unwrap();
         let memo: Output = bincode::deserialize(&memo_bin).unwrap();
-       // UPDATE VALUES HERE
+        // UPDATE VALUES HERE
         let settle_msg = execute_order_zkos(
             memo.clone(),
             &sk,
@@ -504,6 +508,5 @@ mod test {
         );
 
         println!("settle_msg: {:?}", settle_msg);
-       
     }
 }
