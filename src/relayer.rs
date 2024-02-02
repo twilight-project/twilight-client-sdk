@@ -396,4 +396,85 @@ mod test {
 
         println!("settle_msg: {:?}", settle_msg);
     }
+
+    #[test]
+    pub fn test_create_lend_order_broadcast_data() {
+        let seed =
+        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+
+        //derive private key;
+        let sk = SecretKey::from_bytes(seed.as_bytes());
+        let client_address = "0c7ccfc25ec0c535a8232e785ddec39972dc48e25ae570e368b9384dc6147ec639b4ea7118b0002894c9d2d9bfcaf72d47a0a49893518a4cfb30a0e81ba34a51684e2f05e9";
+
+        let path = "./relayerprogram.json";
+        let programs = crate::programcontroller::ContractManager::import_program(path);
+        let contract_address = programs
+            .create_contract_address(Network::default())
+            .unwrap();
+        let input_coin =
+            crate::chain::get_transaction_coin_input_from_address(client_address.to_string())
+                .unwrap();
+
+        let scalar_hex = "b899875f246706825d9a849a195da763b3718fc2bdf44cc4eccbb447fe484d01";
+        let rscalar = crate::util::hex_to_scalar(scalar_hex.to_string()).unwrap();
+        let deposit = 1000000u64;
+        let pool_share = 1000000u64;
+        let output_memo = crate::util::create_output_memo_for_lender(
+            contract_address,
+            client_address.to_string(),
+            deposit,
+            pool_share,
+            rscalar,
+            0u32,
+        );
+        //convert output_memo to hex to be reused for settlement
+        let output_memo_bin = bincode::serialize(&output_memo.clone()).unwrap();
+        let output_memo_hex = hex::encode(&output_memo_bin);
+        println!("\n output_memo_hex: {:?} \n", output_memo_hex);
+
+        let order_message = create_lend_order_zkos(
+            input_coin.clone(),
+            output_memo.clone(),
+            sk,
+            scalar_hex.to_string(),
+            deposit,
+            "account_id".to_string(),
+            deposit as f64,
+            "LEND".to_string(),
+            "PENDING".to_string(),
+            deposit as f64,
+        );
+        println!("order_hex: {:?}", order_message);
+        // println!("order_hex: {:?}", order_msg.encode_as_hex_string());
+    }
+
+    #[test]
+    fn test_settle_lend_order_message() {
+        // get private key for the memo
+        let seed =
+        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+
+        //derive private key;
+        let sk = SecretKey::from_bytes(seed.as_bytes());
+
+        // get Memo to be sent to the exchange
+        // Memo should be the output of the order submitted earlier
+        let memo_hex = "01000000010000002a000000000000003138663265626461313733666663366164326533623464336133383634613936616538613666376533308a000000000000003063376363666332356563306335333561383233326537383564646563333939373264633438653235616535373065333638623933383464633631343765633633396234656137313138623030303238393463396432643962666361663732643437613061343938393335313861346366623330613065383162613334613531363834653266303565390100000000000000a0860100000000000000000000000000b899875f246706825d9a849a195da763b3718fc2bdf44cc4eccbb447fe484d010104000000000000000300000001000000003c534c1000000000000000000000000000000000000000000000000000000002000000010000000000000014000000000000000000000000000000b899875f246706825d9a849a195da763b3718fc2bdf44cc4eccbb447fe484d010300000001000000b8880000000000000000000000000000000000000000000000000000000000000300000001000000010000000000000000000000000000000000000000000000000000000000000000000000";
+        let memo_bin = hex::decode(memo_hex).unwrap();
+        let memo: Output = bincode::deserialize(&memo_bin).unwrap();
+        // UPDATE VALUES HERE
+        let settle_msg = execute_order_zkos(
+            memo.clone(),
+            &sk,
+            "account_id".to_string(),
+            Uuid::new_v4(),
+            "MARKET".to_string(),
+            100000.0,
+            "PENDING".to_string(),
+            35000.0,
+            TXType::ORDERTX,
+        );
+
+        println!("settle_msg: {:?}", settle_msg);
+    }
 }
