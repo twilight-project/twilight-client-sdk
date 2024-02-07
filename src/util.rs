@@ -328,18 +328,20 @@ pub fn create_input_state_from_output_state(
 }
 
 /// create Output State for the Lend/Trade Order
-///
-pub fn create_output_state_for_trade_lend_order(
+/// using scalar provided by the client
+pub fn create_output_state_for_trade_lend_order_with_scalar(
     nonce: u32,
     script_address: String,
     owner_address: String,
     tlv: u64,
+    tlv_blinfding: Scalar,
     tps: u64,
+    tps_blinfding: Scalar,
     timebounds: u32,
 ) -> Output {
     // create commitment for tlv using scalar
-    let tlv_commitment = Commitment::blinded(tlv);
-    let tps_commitment = Commitment::blinded(tps);
+    let tlv_commitment = Commitment::blinded_with_factor(tlv, tlv_blinfding);
+    let tps_commitment = Commitment::blinded_with_factor(tps, tps_blinfding);
     // create state variables
     let state_variables: Vec<zkvm::String> = vec![zkvm::String::from(tps_commitment)];
     let output_state = zkvm::zkos_types::OutputState {
