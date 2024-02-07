@@ -9,7 +9,7 @@ use transaction::quisquislib::{
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
 };
 
-use zkvm::{zkos_types::OutputMemo, InputData, OutputData};
+use zkvm::{zkos_types::OutputMemo, InputData, OutputData, ScalarWitness};
 use zkvm::{
     zkos_types::{IOType, Input, Output, OutputCoin, Utxo},
     Commitment, String as ZkvmString,
@@ -323,20 +323,46 @@ pub fn create_input_state_from_output_state(
 }
 
 /// create Output State for the Lend/Trade Order
+///
+pub fn create_output_state_for_trade_lend_order(
+    nonce: u32,
+    script_address: String,
+    owner_address: String,
+    tlv: u64,
+    tps: u64,
+    timebounds: u32,
+) -> Output {
+    // create commitment for tlv using scalar
+    let tlv_commitment = Commitment::blinded(tlv);
+    let tps_commitment = Commitment::blinded(tps);
+    // create state variables
+    let state_variables: Vec<zkvm::String> = vec![zkvm::String::from(tps_commitment)];
+    let output_state = zkvm::zkos_types::OutputState {
+        nonce,
+        script_address,
+        owner: owner_address,
+        commitment: tlv_commitment,
+        state_variables: Some(state_variables),
+        timebounds,
+    };
+    // create output
+    Output::from(output_state)
+}
+/// create Output State for the Lend/Trade Order
 /// using scalar provided by the client
 pub fn create_output_state_for_trade_lend_order_with_scalar(
     nonce: u32,
     script_address: String,
     owner_address: String,
     tlv: u64,
-    tlv_blinfding: Scalar,
+    tlv_blinding: Scalar,
     tps: u64,
-    tps_blinfding: Scalar,
+    tps_blinding: Scalar,
     timebounds: u32,
 ) -> Output {
     // create commitment for tlv using scalar
-    let tlv_commitment = Commitment::blinded_with_factor(tlv, tlv_blinfding);
-    let tps_commitment = Commitment::blinded_with_factor(tps, tps_blinfding);
+    let tlv_commitment = Commitment::blinded_with_factor(tlv, tlv_blinding);
+    let tps_commitment = Commitment::blinded_with_factor(tps, tps_blinding);
     // create state variables
     let state_variables: Vec<zkvm::String> = vec![zkvm::String::from(tps_commitment)];
     let output_state = zkvm::zkos_types::OutputState {
@@ -364,6 +390,51 @@ pub fn hex_to_scalar(hex: String) -> Option<Scalar> {
     }
 }
 
+/// Get State info from Output hex string
+/// Returns a tuple of (nonce, script_address, owner_address, commitment, state_variables, timebounds)
+pub fn get_state_info_from_output_hex(
+    output_hex: String,
+) -> Result<(u32, u64, Scalar, u64, Scalar), &'static str> {
+    let output_bytes = match hex::decode(&output_hex) {
+        Ok(bytes) => bytes,
+        Err(_) => return Err("Invalid Output:: Hex Decode Error "),
+    };
+    let output: Output = match bincode::deserialize(&output_bytes) {
+        Ok(output) => output,
+        Err(_) => return Err("Invalid Output::Bincode Decode Error"),
+    };
+    let out_state = match output.as_out_state() {
+        Some(state) => state.clone(),
+        None => return Err("Invalid Output:: Not a State Output"),
+    };
+    let nonce = out_state.nonce;
+
+    let (tlv_witness, tlv_blinding) = match out_state.commitment.witness() {
+        Some(witness) => witness,
+        None => return Err("Invalid Commitment"),
+    };
+
+    let state_variables = match out_state.state_variables {
+        Some(vars) => vars[0].clone(),
+        None => return Err("Invalid Output:: State Variables not found"),
+    };
+    let tps_commitment = match state_variables.to_commitment() {
+        Ok(commitment) => commitment,
+        Err(_) => return Err("Invalid Commitment"),
+    };
+    let (tps_witness, tps_blinding) = match tps_commitment.witness() {
+        Some(witness) => witness,
+        None => return Err("Invalid Commitment"),
+    };
+
+    Ok((
+        nonce,
+        tlv_witness.to_integer().unwrap().to_u64().unwrap(),
+        tlv_blinding,
+        tps_witness.to_integer().unwrap().to_u64().unwrap(),
+        tps_blinding,
+    ))
+}
 /// convert Utxo json Object into Hex String
 pub fn get_utxo_hex_from_json(utxo_json: String) -> String {
     let utxo: Utxo = serde_json::from_str(&utxo_json).unwrap();
