@@ -16,7 +16,7 @@ use zkvm::{
 // @param program_json_path: path to the json file containing the contract program
 // @param chain_net: Network address indicator i.e., Main or TestNet
 // @param state_variables: vector of state variables to be initialized
-// @param program_tag: tag of the program to be deployed   
+// @param program_tag: tag of the program to be deployed
 // @return transaction id
 // pub fn broadcast_contract_deploy_transaction(
 //     sk: RistrettoSecretKey,
@@ -79,7 +79,7 @@ pub fn create_contract_deploy_transaction(
         coin_address.clone(),
         ecryption_commitment_scalar,
     );
-   
+
     // create input state and output state
     let (input_state, output_state) = create_state_for_deployment(
         value_sats,
@@ -130,7 +130,7 @@ pub fn create_state_for_deployment(
     state_variables: Vec<u64>,
     contract_address: String,
     coin_address: String,
-   // blinding : Scalar, //blinding for TVL and TPS commitments
+    // blinding : Scalar, //blinding for TVL and TPS commitments
 ) -> (Input, Output) {
     // create input state
     // Input state will be zero at initialization.
@@ -167,12 +167,12 @@ pub fn create_state_for_deployment(
 
     // create output state using values from client
     // create value commitment
-    let value_commitment = Commitment::blinded(value_sats);//, blinding.clone());
-    // create state variable commitments
+    let value_commitment = Commitment::blinded(value_sats); //, blinding.clone());
+                                                            // create state variable commitments
     let mut s_var_vec: Vec<ZkvmString> = Vec::new();
     for i in 0..state_variables.len() {
         let s_var =
-            ZkvmString::Commitment(Box::new(Commitment::blinded(state_variables[i].clone())));//, blinding.clone())));
+            ZkvmString::Commitment(Box::new(Commitment::blinded(state_variables[i].clone()))); //, blinding.clone())));
         s_var_vec.push(s_var);
     }
     // create Output state
@@ -226,16 +226,19 @@ mod test {
 
     use super::get_transaction_coin_input_from_address;
     use crate::util::*;
-    use rand::rngs::OsRng;
-    use zkvm::{program::Program, Commitment};
     use address::{Address, Network};
-    use zkvm::{Input, Output,zkos_types::{OutputCoin, OutputMemo, OutputState, Utxo, InputData}};
-    use quisquislib::keys::{PublicKey,SecretKey};
     use curve25519_dalek::scalar::Scalar;
-    use quisquislib::ristretto::{RistrettoPublicKey, RistrettoSecretKey};
-    use quisquislib::elgamal::ElGamalCommitment;
     use quisquislib::accounts::Account;
+    use quisquislib::elgamal::ElGamalCommitment;
+    use quisquislib::keys::{PublicKey, SecretKey};
+    use quisquislib::ristretto::{RistrettoPublicKey, RistrettoSecretKey};
+    use rand::rngs::OsRng;
     use transaction::vm_run::{Prover, Verifier};
+    use zkvm::{program::Program, Commitment};
+    use zkvm::{
+        zkos_types::{InputData, OutputCoin, OutputMemo, OutputState, Utxo},
+        Input, Output,
+    };
     #[test]
     fn get_transaction_coin_input_from_address_test() {
         dotenv::dotenv().expect("Failed loading dotenv");
@@ -246,12 +249,12 @@ mod test {
         );
     }
     #[test]
-    fn deploy_program_test(){
+    fn deploy_program_test() {
         let prog = Program::build(|p| {
             // TVL 0 and TPS0 are not pushed on stack. Zero value proof provided in witness
             p.commit()
-            .expr() // TPS added to constraint
-            .roll(2) // get PoolShare to top of stack
+                .expr() // TPS added to constraint
+                .roll(2) // get PoolShare to top of stack
                 .commit()
                 .expr()
                 .eq() // PoolShare == TPS
@@ -262,10 +265,10 @@ mod test {
                 .commit()
                 .expr()
                 .eq() // Deposit == TLV
-                .and()// PoolShare == TPS && Deposit == TLV
+                .and() // PoolShare == TPS && Deposit == TLV
                 .verify();
         });
-        // create input coin 
+        // create input coin
         let mut rng = rand::thread_rng();
         let sk_in: RistrettoSecretKey = SecretKey::random(&mut rng);
         let pk_in = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
@@ -275,7 +278,7 @@ mod test {
             rscalar.clone(),
             Scalar::from(100000000u64),
         );
-        let coin_acc  = Account::set_account(pk_in.clone(), commit_in.clone());
+        let coin_acc = Account::set_account(pk_in.clone(), commit_in.clone());
         let add: Address = Address::standard_address(Network::default(), pk_in.clone());
         let out_coin = OutputCoin {
             encrypt: commit_in.clone(),
@@ -292,30 +295,23 @@ mod test {
             rscalar,
         );
         let state_variables: Vec<u64> = vec![10]; // TPS
-        // create input state and output state
+                                                  // create input state and output state
         let (input_state, output_state) = crate::script::create_state_for_deployment(
             100000000u64,
             state_variables,
             add.as_hex().clone(),
             add.as_hex().clone(),
-        //state_blinding,
+            //state_blinding,
         );
-    // create input and output vectors
-    let input: Vec<Input> = vec![coin_input, input_state];
-    let output: Vec<Output> = vec![memo_output, output_state.clone()];
-    //cretae unsigned Tx with program proof
-    let result = Prover::build_proof(
-        prog,
-        &input,
-        &output,
-        true,
-        None,
-    );
-   //i println!("{:?}", result);
-    let (prog_bytes, proof) = result.unwrap();
-    let verify =
-        Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, true, None);
-    println!("Final Verify Result{:?}", verify);
+        // create input and output vectors
+        let input: Vec<Input> = vec![coin_input, input_state];
+        let output: Vec<Output> = vec![memo_output, output_state.clone()];
+        //cretae unsigned Tx with program proof
+        let result = Prover::build_proof(prog, &input, &output, true, None);
+        //i println!("{:?}", result);
+        let (prog_bytes, proof) = result.unwrap();
+        let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, true, None);
+        println!("Final Verify Result{:?}", verify);
     }
     #[test]
     fn create_chain_deploy_tx() {
@@ -326,21 +322,22 @@ mod test {
         dotenv::dotenv().expect("Failed loading dotenv");
 
         // data for contract initialization
-        let value_sats: u64 = 1000000000u64;
-        let coin_address: String = "0ccca16b5c06074564fbb3cf1b33682eb1fc09f11332f933001cf8846b88864566b6c511056b44ce71a42cb6975bd24ba6b75a3f864f1269bfbb8fa60cc9bacf3d93399171".to_string();
-        let commitment_scalar_hex =
-            "80ffbb7aa46659643a6d0b90b2ffb80e21457f05aa37f52b791c82121711c400";
-       // let scalar_bytes = hex::decode(&commitment_scalar_hex).unwrap();
-       // let ecryption_commitment_scalar = curve25519_dalek::scalar::Scalar::from_bytes_mod_order(
-       //     scalar_bytes.try_into().unwrap(),
-       // );
-       let encryption_commitment_scalar = crate::util::hex_to_scalar(commitment_scalar_hex.to_string()).unwrap();
+        let value_sats: u64 = 20000000000u64;
+        let coin_address: String = "0ca01385e8e9cea89a187e0b0ab2b1caaf713df527acdb88f764358d8d657db34ca2df7eb6c3673d2c7b34c836e5c5bb4fc1d91df3185a576084134bd8ff120d1b9e2eebef".to_string();
+        let commitment_scalar_hex: &str =
+            "2398cadb6f3f9fa7314b1d0192fd66998541c77b9e2029aa3e6ffea9b340ce0b";
+        // let scalar_bytes = hex::decode(&commitment_scalar_hex).unwrap();
+        // let ecryption_commitment_scalar = curve25519_dalek::scalar::Scalar::from_bytes_mod_order(
+        //     scalar_bytes.try_into().unwrap(),
+        // );
+        let encryption_commitment_scalar =
+            crate::util::hex_to_scalar(commitment_scalar_hex.to_string()).unwrap();
         //let ecryption_commitment_scalar = curve25519_dalek::scalar::Scalar::random(&mut OsRng);
         let program_json_path: &str = "./relayerprogram.json";
         let chain_net = address::Network::default();
-        let state_variables: Vec<u64> = vec![10];
+        let state_variables: Vec<u64> = vec![2000000];
         let program_tag: String = "RelayerInitializer".to_string();
-        let pool_share = 10u64;
+        let pool_share = 2000000u64;
         // create tx
         let tx = crate::script::create_contract_deploy_transaction(
             sk,
@@ -366,6 +363,6 @@ mod test {
         let out_state_hex = hex::encode(&out_state_bin);
 
         println!("tx_hex {:?}\n", tx_hex);
-        println!( "out_state_hex {:?}\n", out_state_hex);
-   } 
+        println!("out_state_hex {:?}\n", out_state_hex);
+    }
 }
