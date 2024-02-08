@@ -55,16 +55,13 @@ impl UtxoOutputRaw {
 pub fn coin_addrerss_monitoring(
     vector_utxo_output_str: String,
     sk: RistrettoSecretKey,
-) -> Vec<String> {
+) -> Result<Vec<String>, &'static str> {
     // recieves a vector of outputs as a hex string
     // recreate Vec<UtxoOutputRaw> from hex string
     // get vector bytes from hex
-    let vector_utxo_bytes = hex::decode(&vector_utxo_output_str).unwrap();
+    let vector_utxo_bytes = hex::decode(&vector_utxo_output_str).map_err(|e| e.to_string())?;
     let vector_utxo_output_raw: Vec<UtxoOutputRaw> =
-        bincode::deserialize(&vector_utxo_bytes).unwrap();
-
-    // create secret key from seed
-    //let sk: RistrettoSecretKey = hex_str_to_secret_key(&seed);
+        bincode::deserialize(&vector_utxo_bytes).map_err(|e| e.to_string())?;
 
     // create vector of addresses
     let mut vector_addresses: Vec<String> = Vec::new();
@@ -72,7 +69,6 @@ pub fn coin_addrerss_monitoring(
     //Iterate over vector of UtxoOutputRawWasm to check if the output is owned by the secret key
     for utxo_output_raw in vector_utxo_output_raw {
         let output = utxo_output_raw.get_output();
-        //let height = utxo_output_raw.get_height();
         match output.out_type {
             IOType::Coin => {
                 // get owner address of the coin
