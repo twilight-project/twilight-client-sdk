@@ -3,8 +3,8 @@
     "CreateTraderOrder": 1,
     "RelayerInitializer": 0,
     "SettleTraderOrder": 2,
-    "SettleLendOrder": 4,
-    "CreateLendOrder": 3
+    "CreateLendOrder": 3,
+    "SettleLendOrder": 4
   },
   "program": [
     "060a0402000000060a0e0401000000060a0402000000060a0e1013",
