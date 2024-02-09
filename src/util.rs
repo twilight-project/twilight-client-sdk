@@ -37,8 +37,11 @@ impl UtxoOutputRaw {
             height,
         }
     }
-    pub fn get_output(&self) -> Output {
-        bincode::deserialize(&self.output).unwrap()
+    pub fn get_output(&self) -> Result<Output, &'static str> {
+        match bincode::deserialize(&self.output) {
+            Ok(output) => Ok(output),
+            Err(_) => Err("Invalid Output::Bincode Decode Error"),
+        }
     }
     pub fn get_height(&self) -> i64 {
         self.height
@@ -46,8 +49,11 @@ impl UtxoOutputRaw {
     pub fn get_utxo_key(&self) -> Vec<u8> {
         self.utxo_key.clone()
     }
-    pub fn get_utxo(&self) -> Utxo {
-        bincode::deserialize(&self.utxo_key).unwrap()
+    pub fn get_utxo(&self) -> Result<Utxo, &'static str> {
+        match bincode::deserialize(&self.utxo_key) {
+            Ok(utxo) => Ok(utxo),
+            Err(_) => Err("Invalid Utxo::Bincode Decode Error"),
+        }
     }
 }
 
@@ -55,25 +61,28 @@ impl UtxoOutputRaw {
 /// Returns a list of all coin addresses that are owned by the secret key
 ///
 pub fn coin_addrerss_monitoring(
-    vector_utxo_output_str: String,
+    vector_utxo_output_str: String, // hex string from chain db
     sk: RistrettoSecretKey,
-) -> Vec<String> {
+) -> Result<Vec<String>, &'static str> {
     // recieves a vector of outputs as a hex string
     // recreate Vec<UtxoOutputRaw> from hex string
     // get vector bytes from hex
-    let vector_utxo_bytes = hex::decode(&vector_utxo_output_str).unwrap();
-    let vector_utxo_output_raw: Vec<UtxoOutputRaw> =
-        bincode::deserialize(&vector_utxo_bytes).unwrap();
-
-    // create secret key from seed
-    //let sk: RistrettoSecretKey = hex_str_to_secret_key(&seed);
+    let vector_utxo_bytes = match hex::decode(&vector_utxo_output_str) {
+        Ok(bytes) => bytes,
+        Err(_) => return Err("Invalid Utxo:: Hex Decode Error "),
+    };
+    let vector_utxo_output_raw: Vec<UtxoOutputRaw> = match bincode::deserialize(&vector_utxo_bytes)
+    {
+        Ok(utxo) => utxo,
+        Err(_) => return Err("Invalid Utxo::Bincode Decode Error"),
+    };
 
     // create vector of addresses
     let mut vector_addresses: Vec<String> = Vec::new();
 
     //Iterate over vector of UtxoOutputRawWasm to check if the output is owned by the secret key
     for utxo_output_raw in vector_utxo_output_raw {
-        let output = utxo_output_raw.get_output();
+        let output = utxo_output_raw.get_output()?;
         //let height = utxo_output_raw.get_height();
         match output.out_type {
             IOType::Coin => {
@@ -90,7 +99,7 @@ pub fn coin_addrerss_monitoring(
             _ => {}
         }
     }
-    vector_addresses
+    Ok(vector_addresses)
 }
 
 /// Function to select anonymity accounts from the set of utxos provided
@@ -121,8 +130,9 @@ pub fn select_anonymity_accounts(
         // get the utxo at the random index
         let raw_output = vector_utxo_output_raw[random_index as usize].clone();
         // convert the output into input
-        let out = raw_output.get_output().as_out_coin().unwrap().to_owned();
-        let utx = raw_output.get_utxo();
+        let output = raw_output.get_output().unwrap();
+        let out = output.as_out_coin().unwrap().to_owned();
+        let utx = raw_output.get_utxo().unwrap();
         let inp = OutputCoin::to_input(&out, utx, 0);
 
         // check if the input is not the sender input
