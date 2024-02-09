@@ -711,8 +711,6 @@ mod test {
     };
     use zkvm::{zkos_types::OutputCoin, Commitment, InputData, OutputData, Utxo, Witness};
 
-    use crate::keys_management;
-
     use super::*;
     // #[test]
     // fn test_create_trader_order() {

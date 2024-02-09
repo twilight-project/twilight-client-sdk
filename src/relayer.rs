@@ -277,10 +277,9 @@ pub fn query_lend_order_zkos(
 
 #[cfg(test)]
 mod test {
-    use std::f32::MIN_POSITIVE;
 
     use address::{Address, Network};
-    use curve25519_dalek::scalar::{self, Scalar};
+    use curve25519_dalek::scalar::Scalar;
     use quisquislib::{
         accounts::Account,
         elgamal::ElGamalCommitment,
@@ -289,7 +288,7 @@ mod test {
     };
     use zkvm::{zkos_types::OutputCoin, Commitment, InputData, OutputData, Utxo, Witness};
 
-    use crate::{keys_management, relayer_types};
+    use crate::util;
 
     use super::*;
     #[test]
@@ -398,7 +397,7 @@ mod test {
     }
 
     #[test]
-    pub fn test_create_lend_order_broadcast_data() {
+    pub fn test_create_lend_order_data() {
         let seed =
         "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
 
@@ -411,13 +410,23 @@ mod test {
         let contract_address = programs
             .create_contract_address(Network::default())
             .unwrap();
-        let input_coin =
-            crate::chain::get_transaction_coin_input_from_address(client_address.to_string())
-                .unwrap();
 
         let scalar_hex = "b899875f246706825d9a849a195da763b3718fc2bdf44cc4eccbb447fe484d01";
         let rscalar = crate::util::hex_to_scalar(scalar_hex.to_string()).unwrap();
         let deposit = 1000000u64;
+
+        let out_coin = util::create_output_coin_for_trader(
+            client_address.to_string(),
+            deposit,
+            scalar_hex.to_string(),
+        )
+        .unwrap();
+        let input_coin = util::create_input_coin_from_output_coin(
+            out_coin,
+            serde_json::to_string(&Utxo::default()).unwrap(),
+        )
+        .unwrap();
+
         let pool_share = 1000000u64;
         let output_memo = crate::util::create_output_memo_for_lender(
             contract_address,
