@@ -60,7 +60,7 @@ impl UtxoOutputRaw {
 /// Function to check list of coin utxos against the provided secretkey
 /// Returns a list of all coin addresses that are owned by the secret key
 ///
-pub fn coin_addrerss_monitoring(
+pub fn coin_address_monitoring(
     vector_utxo_output_str: String, // hex string from chain db
     sk: RistrettoSecretKey,
 ) -> Result<Vec<String>, &'static str> {
