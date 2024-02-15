@@ -45,4 +45,4 @@ branch = "parallelshuffletx"
 git = "ssh://github.com/twilight-project/ZkSchnorr.git"
 [dependencies.quisquis-rust]
 git = "ssh://github.com/twilight-project/quisquis-rust.git"
-branch = "parallelproof"
+branch = "parallelshuffleproof"
