@@ -1,10 +1,10 @@
 {
   "program_index": {
-    "CreateTraderOrder": 1,
-    "RelayerInitializer": 0,
+    "SettleLendOrder": 4,
     "SettleTraderOrder": 2,
+    "RelayerInitializer": 0,
     "CreateLendOrder": 3,
-    "SettleLendOrder": 4
+    "CreateTraderOrder": 1
   },
   "program": [
     "060a0402000000060a0e0401000000060a0402000000060a0e1013",
