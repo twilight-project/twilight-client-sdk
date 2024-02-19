@@ -422,7 +422,32 @@ mod tests {
         });
         return lend_settle_prog;
     }
-
+      pub fn get_liquidate_order_program() -> Program {
+        let prog = Program::build(|p| {
+                p.drop() //drop settle_price
+                .drop()   //drop mD
+                .drop() //error
+                .drop() //TPS1
+                .drop( ) //drop TPS0
+                .commit() //commit on TVL1
+                .expr()
+                .roll(1) //get TVL0
+                .commit()
+                .expr()
+                .roll(7) // Get IM to top of stack
+                .commit()
+                .expr()
+                .add( ) //TVL0 + IM
+                .eq() // TVL1 = TVL0 + IM
+                .verify()
+                .drop() // drop leverage
+                .drop()
+                .drop()
+                .drop()
+                .drop();
+        });
+        prog
+    }
         
     #[test]
     fn load_relayer_contract_program_into_json() {
@@ -437,6 +462,8 @@ mod tests {
         contract_manager.add_program("SettleTraderOrder", get_settle_trader_order_program());
         contract_manager.add_program("CreateLendOrder", lend_order_deposit_program());
         contract_manager.add_program("SettleLendOrder", lend_order_settle_program());
+        contract_manager.add_program("LiquidateOrder", get_liquidate_order_program());
+        contract_manager.add_program("SettleTraderOrderNegativeMarginDifference", get_settle_trader_order_negative_margin_difference_program());
         contract_manager.export_program(path);
     }
 
