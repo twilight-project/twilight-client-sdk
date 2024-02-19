@@ -252,6 +252,74 @@ mod tests {
         return settle_prog;
     }
 
+     pub fn get_settle_trader_order_negative_margin_difference_program() -> Program {
+        let settle_prog = Program::build(|p| {
+            p.roll(3) //drop TPS1
+                .drop()
+                .roll(3)
+                .drop() //drop TPS0
+                .roll(10) // Get IM to top of stack
+                .commit()
+                .dup(0) // duplicate IM
+                .expr()
+                .neg() // -IM
+                .roll(7) // Get AM to top of stack
+                .commit()
+                .dup(0) // duplicate AM
+                .expr()
+                .roll(2) // get -IM to top
+                .add() // AM - IM = Payment
+                .roll(2) // get IM
+                .expr()
+                .neg() // -IM
+                .roll(2) //get AM
+                .expr()
+                .add() //AM -IM
+                .roll(4) //marginDifference
+                .commit()
+                .expr()
+                //.neg() // -mD
+                .add() // AM - IM + mD
+                .dup(2) //duplicate  SettlePrice
+                .scalar()
+                .mul() // SettlePrice * (AM - IM + mD)
+                .dup(7) //duplicate entryprice
+                .scalar()
+                .mul() // EntryPrice * SettlePrice * (AM - IM + mD)
+                .roll(7) // get EntryPrice
+                .scalar()
+                .roll(3) //get SettlePrice
+                .scalar()
+                .neg() //-settlePrice
+                .add() // entryPrice - settlePrice
+                .roll(6) // get Order Side (-1 for Long / 1 for short)
+                .scalar()
+                .mul() // OrderSide * (EntryPrice - SettlePrice)
+                .roll(7) // get PositionSize
+                .scalar()
+                .mul() // PositionSize * OrderSide * (EntryPrice - SettlePrice)
+                .roll(3) //get Error
+                .scalar()
+                .add() // Error + PositionSize * OrderSide * (EntryPrice - SettlePrice)
+                .eq() //(Payment - marginDifference)*EntryPrice*SettlePrice = Error + PositionSize * OrderSide * (EntryPrice - SettlePrice)
+                .roll(1) // get Payment = AM - IM as expression
+                .neg()
+                .roll(3) //get TVL0
+                .commit()
+                .expr()
+                .add() //TVL0 - Payment
+                .roll(2) // get TVL1
+                .commit()
+                .expr()
+                .eq() // TVL1 = TVL0 - Payment
+                .and() // Bind both constraints
+                .verify()
+                .drop(); // drop leverage
+        });
+        return settle_prog;
+    }
+
+
     pub fn lend_order_deposit_program() -> Program {
         let lend_order_prog = Program::build(|p| {
             // TPS1 - TPS0 = PS or TPS1 = PS + TPS0
@@ -355,6 +423,7 @@ mod tests {
         return lend_settle_prog;
     }
 
+        
     #[test]
     fn load_relayer_contract_program_into_json() {
         let mut contract_manager = ContractManager::new();
