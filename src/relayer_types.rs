@@ -4,6 +4,7 @@ use crate::relayer_rpcclient::txrequest::{Resp, RpcBody, RpcRequest};
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::SigmaProof;
 use serde::{Deserialize, Serialize};
+use transaction::Transaction;
 use uuid::Uuid;
 use zkschnorr::Signature;
 use zkvm::{
@@ -295,7 +296,36 @@ impl CreateLendOrderZkos {
         response_unwrap
     }
 }
-
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateTraderOrderClientZkos {
+    pub create_trader_order: CreateTraderOrder,
+    pub tx: Transaction,
+}
+impl CreateTraderOrderClientZkos {
+    pub fn new(
+        create_trader_order: CreateTraderOrder,
+        tx: Transaction,
+    ) -> Self {
+        Self {
+            create_trader_order,
+            tx,
+        }
+    }
+    pub fn encode_as_hex_string(&self) -> Result<String, String> {
+        let byt = bincode::serialize(&self).map_err(|e| format!("Error:{:?}", e))?;
+        Ok(hex::encode(&byt))
+    }
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
+}
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ZkosSettleMsg {
     pub output: Output,       //memo type output
