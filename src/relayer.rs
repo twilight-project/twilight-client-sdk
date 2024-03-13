@@ -77,9 +77,15 @@ pub fn create_trader_order_zkos(
     contract_path: String,   
     timebounds: u32,    
 ) -> Result<String, &'static str> {
+     // extract owner address from input
+    let owner_address = match input_coin.as_owner_address() {
+        Some(owner_address) => owner_address.clone(),
+        None => return Err("Error extracting owner address"),
+    };
+    
     // create TraderOrder type for relayer
     let create_order: CreateTraderOrder = CreateTraderOrder::new(
-        account_id,
+        owner_address.clone(),
         position_type,
         order_type,
         leverage,
@@ -95,11 +101,7 @@ pub fn create_trader_order_zkos(
     let programs = crate::programcontroller::ContractManager::import_program(&contract_path);
     let contract_address = programs
         .create_contract_address(address::Network::default())?;
-     // extract owner address from input
-    let owner_address = match input_coin.as_owner_address() {
-        Some(owner_address) => owner_address.clone(),
-        None => return Err("Error extracting owner address"),
-    };
+    
 
     // create memo output
     let memo = crate::util::create_output_memo_for_trader(
