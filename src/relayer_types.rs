@@ -234,19 +234,23 @@ impl CreateTraderOrderClientZkos {
             tx,
         }
     }
-    pub fn encode_as_hex_string(&self) -> Result<String, String> {
-        let byt = bincode::serialize(&self).map_err(|e| format!("Error:{:?}", e))?;
+    pub fn encode_as_hex_string(&self) -> Result<String, &'static str> {
+        let byt = match bincode::serialize(&self){
+            Ok(byt) => byt,
+            Err(_) => {return Err("Error at serialization")}
+        };
         Ok(hex::encode(&byt))
     }
-    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, &'static str> {
         let hex_decode = match hex::decode(hex_string) {
-            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
-                Ok(zkos_data) => Ok(zkos_data),
-                Err(arg) => Err(format!("Error:{:?}", arg)),
-            },
-            Err(arg) => Err(format!("Error:{:?}", arg)),
+                Ok(bytes_data) => bytes_data,
+                Err(_) => return Err("Error at Hex decoding"),
+            };
+        let client_order:Self = match bincode::deserialize(&hex_decode) {
+            Ok(zkos_data) => zkos_data,
+            Err(_) => return Err("Error at deserialization"),
         };
-        hex_decode
+        Ok(client_order)
     }
 }
 

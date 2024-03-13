@@ -392,3 +392,9 @@ pub fn scalar_to_hex(scalar: Scalar) -> String {
     let byt = scalar.to_bytes();
     hex::encode(&byt)
 }
+
+/// convert u64 value to ZkvmString
+pub fn u64_commitment_to_zkvm_string(value: u64) -> ZkvmString {
+    let commitment = Commitment::blinded(value);
+    ZkvmString::from(commitment)
+}
