@@ -62,7 +62,6 @@ pub fn create_trader_order_zkos(
     secret_key: RistrettoSecretKey,
     rscalar: Scalar, // Hex string of Scalar
     value: u64,
-    account_id: String,
     position_type: String,
     order_type: String,
     leverage: f64,
@@ -348,6 +347,7 @@ pub fn create_trade_order_client_transaction(
     let order_tag = "CreateTraderOrder";
 
     let single_program = contract_manager.get_program_by_tag(order_tag);
+    println!("single_program: {:?}", single_program);
 
     // create positionValue as String
     let position_value_string: ZkvmString = crate::util::u64_commitment_to_zkvm_string(position_value);
@@ -641,7 +641,6 @@ mod test {
             sk_in,
             rscalar,
             value,
-            "account_id".to_string(),
             order_side.to_str(),
             "MARKET".to_string(),
             leverage,
