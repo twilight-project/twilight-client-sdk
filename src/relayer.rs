@@ -360,6 +360,8 @@ pub fn create_trade_order_client_transaction(
         Some(position_value_string),
     );
 
+    println!("program_proof: {:?}", program_proof );
+
     let (program, proof) = match program_proof {
         Ok((program, proof)) => (program, proof),
         Err(_) => return Err("Error in creating program proof"),
@@ -599,5 +601,62 @@ mod test {
         );
 
         println!("settle_msg: {:?}", settle_msg);
+    }
+    
+    #[test]
+    pub fn test_create_trader_order_client_tx() {
+
+        let mut rng = rand::thread_rng();
+        let seed =
+        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+        let sk_in = SecretKey::from_bytes(seed.as_bytes());
+
+        let pk_in: RistrettoPublicKey = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+
+        let add: Address = Address::standard_address(Network::default(), pk_in.clone());
+        let rscalar: Scalar = Scalar::random(&mut rng);
+        // create input coin
+        let commit_in =
+            ElGamalCommitment::generate_commitment(&pk_in, rscalar, Scalar::from(10u64));
+        let enc_acc = Account::set_account(pk_in, commit_in);
+
+        let coin = OutputCoin {
+            encrypt: commit_in,
+            owner: add.as_hex(),
+        };
+        let in_data: InputData = InputData::coin(Utxo::default(), coin, 0);
+        let coin_in: Input = Input::coin(in_data.clone());
+        let value = 100000u64;
+        let leverage = 10.0;
+        let position_value = value * leverage as u64;
+        let entry_price = 56436u64;
+        let position_size = position_value * entry_price;
+        let order_side = PositionType::LONG;
+        let contract_path = "./relayerprogram.json";
+        
+        
+
+        let order_tx_message = create_trader_order_zkos(
+            coin_in.clone(),
+            sk_in,
+            rscalar,
+            value,
+            "account_id".to_string(),
+            order_side.to_str(),
+            "MARKET".to_string(),
+            leverage,
+            value as f64,
+            value as f64,
+            "PENDING".to_string(),
+            entry_price as f64,
+            35000.0,
+            position_value,
+            position_size,
+            order_side,
+            contract_path.to_string(),
+            0u32,
+        );
+        println!("order_hex: {:?}", order_tx_message);
+        // println!("order_hex: {:?}", order_msg.encode_as_hex_string());
     }
 }
