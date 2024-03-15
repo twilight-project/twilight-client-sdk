@@ -1,3 +1,4 @@
+use crate::script;
 use crate::transaction::{self, ScriptTransaction, Transaction};
 use crate::relayer_types::{
     CancelTraderOrder, CancelTraderOrderZkos, CreateLendOrder, CreateLendOrderZkos, CreateTraderOrder, CreateTraderOrderClientZkos, CreateTraderOrderZkos, ExecuteLendOrder, ExecuteLendOrderZkos, ExecuteTraderOrder, ExecuteTraderOrderZkos, PositionType, QueryLendOrder, QueryLendOrderZkos, QueryTraderOrder, QueryTraderOrderZkos, TXType, ZkosCancelMsg, ZkosCreateOrder, ZkosQueryMsg, ZkosSettleMsg
@@ -46,12 +47,17 @@ pub fn create_zkos_order(
         secret_key,
         //output.clone(),
         // output.clone(),
-        enc_acc,
+        enc_acc.clone(),
         pubkey.clone(),
         pedersen_commitment.clone(),
         value,
         rscalar,
     );
+
+    //verify the witness 
+  
+    let verify_witness = witness.verify_value_witness(input.clone(), pubkey.clone(), enc_acc.clone(), pedersen_commitment);
+    println!("verify_witness: {:?}", verify_witness);
     ZkosCreateOrder::new(input, output, witness)
 }
 
@@ -347,17 +353,18 @@ pub fn create_trade_order_client_transaction(
     let order_tag = "CreateTraderOrder";
 
     let single_program = contract_manager.get_program_by_tag(order_tag);
-    println!("single_program: {:?}", single_program);
+   // println!("single_program: {:?}", single_program);
 
     // create positionValue as String
     let position_value_string: ZkvmString = crate::util::u64_commitment_to_zkvm_string(position_value);
+    let tx_data = Some(position_value_string);
     // execute the program and create a proof for computations
     let program_proof = transaction::vm_run::Prover::build_proof(
         single_program.unwrap(),
         &inputs,
         &outputs,
         false,
-        Some(position_value_string.clone()),
+        tx_data.clone(),
     );
 
     println!("program_proof: {:?}", program_proof );
@@ -368,10 +375,21 @@ pub fn create_trade_order_client_transaction(
     };
 
     // converts inputs and outputs to hide the encrypted data using verifier view and update witness index
-   let (inputs, outputs, _) = ScriptTransaction::create_verifier_view(&inputs, &outputs, Some(position_value_string));
+   //let (inputs, outputs, tx_data) = ScriptTransaction::create_verifier_view(&inputs, &outputs, Some(position_value_string));
 
     // create callproof for the program
     let call_proof = contract_manager.create_call_proof(chain_network, order_tag)?;
+
+         // verify the r1cs proof
+        // let verify = transaction::vm_run::Verifier::verify_r1cs_proof(
+        //     &proof,
+        //     &program,
+        //     &inputs,
+        //     &outputs,
+        //     false,
+        //     tx_data.clone(),
+        // );
+        // println!("verify Program proof: {:?}", verify);
 
     let script_tx = ScriptTransaction::set_script_transaction(
         0u64,
@@ -386,8 +404,13 @@ pub fn create_trade_order_client_transaction(
         call_proof,
         proof,
         witness_vec.to_vec(),
-        None,
+        tx_data.clone(),
     );
+
+    // let verify_call_proof = script_tx.verify_call_proof();
+    // println!("verify_call_proof: {:?}", verify_call_proof);
+
+   
     Ok(Transaction::from(script_tx))
 }
 
@@ -615,9 +638,11 @@ mod test {
 
         let add: Address = Address::standard_address(Network::default(), pk_in.clone());
         let rscalar: Scalar = Scalar::random(&mut rng);
+        let value = 100000u64;
+        
         // create input coin
         let commit_in =
-            ElGamalCommitment::generate_commitment(&pk_in, rscalar, Scalar::from(10u64));
+            ElGamalCommitment::generate_commitment(&pk_in, rscalar, Scalar::from(value));
         let enc_acc = Account::set_account(pk_in, commit_in);
 
         let coin = OutputCoin {
@@ -626,7 +651,7 @@ mod test {
         };
         let in_data: InputData = InputData::coin(Utxo::default(), coin, 0);
         let coin_in: Input = Input::coin(in_data.clone());
-        let value = 100000u64;
+        
         let leverage = 10.0;
         let position_value = value * leverage as u64;
         let entry_price = 56436u64;
