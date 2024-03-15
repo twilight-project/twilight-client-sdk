@@ -357,7 +357,7 @@ pub fn create_trade_order_client_transaction(
         &inputs,
         &outputs,
         false,
-        Some(position_value_string),
+        Some(position_value_string.clone()),
     );
 
     println!("program_proof: {:?}", program_proof );
@@ -368,7 +368,7 @@ pub fn create_trade_order_client_transaction(
     };
 
     // converts inputs and outputs to hide the encrypted data using verifier view and update witness index
-   // let (inputs, outputs, _) = ScriptTransaction::create_verifier_view(&inputs, &outputs, None);
+   let (inputs, outputs, _) = ScriptTransaction::create_verifier_view(&inputs, &outputs, Some(position_value_string));
 
     // create callproof for the program
     let call_proof = contract_manager.create_call_proof(chain_network, order_tag)?;
@@ -656,6 +656,13 @@ mod test {
             0u32,
         );
         println!("order_hex: {:?}", order_tx_message);
+
+        // recreate clientZkos struct
+        let client_zkos = CreateTraderOrderClientZkos::decode_from_hex_string(order_tx_message.unwrap()).unwrap();
+        let order_tx = client_zkos.tx;
+        // verify the transaction
+        let verify_tx = order_tx.verify();
+        println!("verify_tx: {:?}", verify_tx);
         // println!("order_hex: {:?}", order_msg.encode_as_hex_string());
     }
 }
