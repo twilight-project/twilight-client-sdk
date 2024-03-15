@@ -99,6 +99,28 @@ impl OrderStatus {
         }
     }
 }
+/// type defined for Realyer to use in case of client Orders
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientMemoTx {
+    pub tx: Transaction,
+    pub output: Output,
+}
+impl ClientMemoTx {
+    pub fn new(tx: Transaction, output: Output) -> Self {
+        Self { tx, output }
+    }
+    pub fn get_tx(&self) -> Transaction {
+        self.tx.clone()
+    }
+    pub fn get_output(&self) -> Output {
+        self.output.clone()
+    }
+    pub fn encode_as_hex_string(&self) -> String {
+        let byt = bincode::serialize(&self).unwrap();
+        hex::encode(&byt)
+    }
+}
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ZkosCreateOrder {
