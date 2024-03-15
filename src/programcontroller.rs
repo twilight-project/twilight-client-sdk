@@ -189,9 +189,7 @@ mod tests {
     // Stack -> C(IM) -> PositionSize-> C(Leverage) -> EntryPrice -> OrderSide -> tx_Data(C(PositionValue))
       pub fn get_trader_order_program() -> Program {
         let order_prog = Program::build(|p| {
-            p.commit()
-                .expr() // convert positionvalue to expression
-                .roll(3) // Get Leverage to top of stack
+            p.roll(3) // Get Leverage to top of stack
                 .commit()
                 .expr()
                 .roll(5) // Get IM to top of stack
