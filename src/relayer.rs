@@ -1,3 +1,4 @@
+use crate::programcontroller::ContractManager;
 use crate::script;
 use crate::transaction::{self, ScriptTransaction, Transaction};
 use crate::relayer_types::{
@@ -79,7 +80,7 @@ pub fn create_trader_order_zkos(
     position_value: u64,
     position_size: u64,
     order_side: PositionType,
-    contract_path: String,   
+    programs: &ContractManager,   
     timebounds: u32,    
 ) -> Result<String, &'static str> {
      // extract owner address from input
@@ -103,7 +104,7 @@ pub fn create_trader_order_zkos(
     // create Trader Order transaction
     
     // load the contract_manager
-    let programs = crate::programcontroller::ContractManager::import_program(&contract_path);
+    //let programs = crate::programcontroller::ContractManager::import_program(&contract_path);
     let contract_address = programs
         .create_contract_address(address::Network::default())?;
     
@@ -131,7 +132,7 @@ pub fn create_trader_order_zkos(
         position_value,
         address::Network::default(),
         1u64,
-        programs,
+        programs.clone(),
     )?;
     
     let create_zkos_order_full: CreateTraderOrderClientZkos =
@@ -659,7 +660,7 @@ mod test {
         let order_side = PositionType::LONG;
         let contract_path = "./relayerprogram.json";
         
-        
+        let programs = crate::programcontroller::ContractManager::import_program(&contract_path);
 
         let order_tx_message = create_trader_order_zkos(
             coin_in.clone(),
@@ -677,7 +678,7 @@ mod test {
             position_value,
             position_size,
             order_side,
-            contract_path.to_string(),
+            &programs,
             0u32,
         );
         println!("order_hex: {:?}", order_tx_message);
