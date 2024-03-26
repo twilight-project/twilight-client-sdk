@@ -1,6 +1,7 @@
 use std::process::Output;
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Serialized as the "method" field of JSON-RPC/HTTP requests.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
@@ -131,6 +132,31 @@ pub struct RequestResponse {
 }
 impl RequestResponse {
     pub fn new(msg: String, id_key: String) -> Self {
-        RequestResponse { msg, id_key }
+        RequestResponse {
+            msg,
+            id_key: RequestID::new(id_key).get_id(),
+        }
+    }
+    pub fn get_id(&self) -> String {
+        self.id_key.clone()
+    }
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RequestID {
+    uuid: Uuid,
+    public_key: String,
+}
+impl RequestID {
+    pub fn new(public_key: String) -> RequestID {
+        RequestID {
+            uuid: Uuid::new_v4(),
+            public_key: public_key,
+        }
+    }
+    pub fn get_id(&self) -> String {
+        let Ok(bytes) = bincode::serialize(&self) else {
+            return Uuid::new_v4().into();
+        };
+        return hex::encode(bytes);
     }
 }
