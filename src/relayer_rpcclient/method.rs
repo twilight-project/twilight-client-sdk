@@ -142,7 +142,7 @@ impl RequestResponse {
     }
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct RequestID {
+struct RequestID {
     uuid: Uuid,
     public_key: String,
 }
