@@ -99,6 +99,44 @@ impl OrderStatus {
         }
     }
 }
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum RequestStatus {
+    SETTLED,
+    LENDED,
+    LIQUIDATE,
+    CANCELLED,
+    PENDING, // change it to New
+    FILLED,
+    DuplicateOrder,
+    UtxoError,
+    Error,
+    NoResponseFromChain,
+    BincodeError,
+    HexCodeError,
+    SerializationError,
+    RequestSubmitted,
+}
+impl RequestStatus {
+    //from string
+    pub fn from_str(s: &str) -> Option<RequestStatus> {
+        match s {
+            "SETTLED" => Some(RequestStatus::SETTLED),
+            "LENDED" => Some(RequestStatus::LENDED),
+            "LIQUIDATE" => Some(RequestStatus::LIQUIDATE),
+            "CANCELLED" => Some(RequestStatus::CANCELLED),
+            "PENDING" => Some(RequestStatus::PENDING),
+            "FILLED" => Some(RequestStatus::FILLED),
+            "DuplicateError" => Some(RequestStatus::DuplicateOrder),
+            "UtxoError" => Some(RequestStatus::UtxoError),
+            "Error" => Some(RequestStatus::Error),
+            "NoResponseFromChain" => Some(RequestStatus::NoResponseFromChain),
+            "BincodeError" => Some(RequestStatus::BincodeError),
+            "HexCodeError" => Some(RequestStatus::HexCodeError),
+            "SerializationError" => Some(RequestStatus::SerializationError),
+            _ => None,
+        }
+    }
+}
 /// type defined for Realyer to use in case of client Orders
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClientMemoTx {
@@ -120,7 +158,6 @@ impl ClientMemoTx {
         hex::encode(&byt)
     }
 }
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ZkosCreateOrder {
@@ -324,10 +361,7 @@ pub struct CreateTraderOrderClientZkos {
     pub tx: Transaction,
 }
 impl CreateTraderOrderClientZkos {
-    pub fn new(
-        create_trader_order: CreateTraderOrder,
-        tx: Transaction,
-    ) -> Self {
+    pub fn new(create_trader_order: CreateTraderOrder, tx: Transaction) -> Self {
         Self {
             create_trader_order,
             tx,
