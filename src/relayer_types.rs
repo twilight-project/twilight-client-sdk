@@ -88,6 +88,7 @@ pub enum OrderStatus {
     UtxoError,
     Error,
     NoResponseFromChain,
+    RejectedFromChain,
     BincodeError,
     HexCodeError,
     SerializationError,
@@ -112,6 +113,7 @@ impl OrderStatus {
             "HexCodeError" => Some(OrderStatus::HexCodeError),
             "SerializationError" => Some(OrderStatus::SerializationError),
             "OrderNotFound" => Some(OrderStatus::OrderNotFound),
+            "RejectedFromChain" => Some(OrderStatus::RejectedFromChain),
             _ => None,
         }
     }
@@ -133,6 +135,7 @@ pub enum RequestStatus {
     SerializationError,
     RequestSubmitted,
     OrderNotFound,
+    RejectedFromChain,
 }
 impl RequestStatus {
     //from string
@@ -152,6 +155,7 @@ impl RequestStatus {
             "HexCodeError" => Some(RequestStatus::HexCodeError),
             "SerializationError" => Some(RequestStatus::SerializationError),
             "OrderNotFound" => Some(RequestStatus::OrderNotFound),
+            "RejectedFromChain" => Some(RequestStatus::RejectedFromChain),
             _ => None,
         }
     }
