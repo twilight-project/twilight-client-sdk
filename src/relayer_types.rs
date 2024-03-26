@@ -92,6 +92,7 @@ pub enum OrderStatus {
     HexCodeError,
     SerializationError,
     RequestSubmitted,
+    OrderNotFound,
 }
 impl OrderStatus {
     //from string
@@ -110,6 +111,7 @@ impl OrderStatus {
             "BincodeError" => Some(OrderStatus::BincodeError),
             "HexCodeError" => Some(OrderStatus::HexCodeError),
             "SerializationError" => Some(OrderStatus::SerializationError),
+            "OrderNotFound" => Some(OrderStatus::OrderNotFound),
             _ => None,
         }
     }
@@ -130,6 +132,7 @@ pub enum RequestStatus {
     HexCodeError,
     SerializationError,
     RequestSubmitted,
+    OrderNotFound,
 }
 impl RequestStatus {
     //from string
@@ -148,6 +151,7 @@ impl RequestStatus {
             "BincodeError" => Some(RequestStatus::BincodeError),
             "HexCodeError" => Some(RequestStatus::HexCodeError),
             "SerializationError" => Some(RequestStatus::SerializationError),
+            "OrderNotFound" => Some(RequestStatus::OrderNotFound),
             _ => None,
         }
     }
