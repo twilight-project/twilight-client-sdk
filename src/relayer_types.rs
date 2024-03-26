@@ -84,6 +84,14 @@ pub enum OrderStatus {
     CANCELLED,
     PENDING, // change it to New
     FILLED,  //executed on price ticker
+    DuplicateOrder,
+    UtxoError,
+    Error,
+    NoResponseFromChain,
+    BincodeError,
+    HexCodeError,
+    SerializationError,
+    RequestSubmitted,
 }
 impl OrderStatus {
     //from string
@@ -95,6 +103,13 @@ impl OrderStatus {
             "CANCELLED" => Some(OrderStatus::CANCELLED),
             "PENDING" => Some(OrderStatus::PENDING),
             "FILLED" => Some(OrderStatus::FILLED),
+            "DuplicateError" => Some(OrderStatus::DuplicateOrder),
+            "UtxoError" => Some(OrderStatus::UtxoError),
+            "Error" => Some(OrderStatus::Error),
+            "NoResponseFromChain" => Some(OrderStatus::NoResponseFromChain),
+            "BincodeError" => Some(OrderStatus::BincodeError),
+            "HexCodeError" => Some(OrderStatus::HexCodeError),
+            "SerializationError" => Some(OrderStatus::SerializationError),
             _ => None,
         }
     }
