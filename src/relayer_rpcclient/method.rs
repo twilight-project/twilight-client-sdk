@@ -140,10 +140,7 @@ impl RequestResponse {
         }
     }
     pub fn get_id(&self) -> String {
-        let mut sha256 = Sha256::new();
-        sha256.update(self.id_key.clone());
-        let result: String = format!("REQID{:X}", sha256.finalize());
-        result
+        self.id_key.clone()
     }
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -168,7 +165,10 @@ impl RequestID {
         let Ok(bytes) = bincode::serialize(&self) else {
             return Uuid::new_v4().into();
         };
-        return hex::encode(bytes);
+        let mut sha256 = Sha256::new();
+        sha256.update(hex::encode(bytes));
+        let result: String = format!("REQID{:X}", sha256.finalize());
+        result
     }
 }
 
