@@ -693,4 +693,34 @@ mod test {
             hex::encode(bincode::serialize(&derser_utxo).unwrap())
         );
     }
+
+    #[test]
+    pub fn test_query_trader_order_broadcast_data() {
+        dotenv::dotenv().expect("Failed loading dotenv");
+
+        let seed = "8vKfd6kCrttU4n17u5OKUVbJqIXyCqZc/9f7t8a8tEJwm0ATbL96mtPjW79f6cH/8FtF/KrjeMKUfndchD74tg==";
+        //derive private key;
+        let hex = "01000000010000002a000000000000003138323237323664346265336336623333623166333434633734333263626530343230333861663162388a00000000000000306330636366626533393137366561663638343561383764306339306464343534663562383166313934623864353135383137636234333465643338346535363266383865323837376161623931346164333236353562323138626666306637363936343930646131323664353530323965633534373665663265343466643134356365616532393537010000000000000010270000000000000000000000000000cdd6dc70759962997c8861a4a70a65c008f6c47e21070a475d423d212505d2020104000000000000000300000001000000000af963020000000000000000000000000000000000000000000000000000000200000001000000000000000f000000000000000000000000000000cdd6dc70759962997c8861a4a70a65c008f6c47e21070a475d423d212505d2020300000001000000600b0100000000000000000000000000000000000000000000000000000000000300000001000000ecd3f55c1a631258d69cf7a2def9de140000000000000000000000000000001000000000".to_string();
+        let hex_decode = hex::decode(hex).unwrap();
+        let last_state_output: Output = bincode::deserialize(&hex_decode).unwrap();
+
+        let sk = SecretKey::from_bytes(seed.as_bytes());
+        let client_address = "0ce2ee74e7f8e5f258dc82cc8dfd99f010cb39ded29a62de20f23d2f05f558e74b54959cd1380ad6a67210481e8a7b4cadd8637af520015908033a49ffe63dc57736d77f1a";
+        let contract_owner_address = last_state_output
+            .as_output_data()
+            .get_owner_address()
+            .unwrap()
+            .clone();
+        println!("contract_owner_address:{:?}", contract_owner_address);
+        let owner_address: Address =
+            Address::from_hex(&contract_owner_address, AddressType::Standard).unwrap();
+        let order_message = query_trader_order_zkos(
+            contract_owner_address.clone(), //hex address string
+            &sk,
+            contract_owner_address,
+            "PENDING".to_string(),
+        );
+        println!("order_hex: {:?}", order_message);
+        // println!("order_hex: {:?}", order_msg.encode_as_hex_string());
+    }
 }
