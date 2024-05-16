@@ -359,16 +359,57 @@ mod test {
     }
 
     #[test]
+    fn query_trader_order_test() {
+        dotenv::dotenv().expect("Failed loading dotenv");
+
+        let query_string = query_test_string();
+
+        let tx_send: RpcBody<ByteRec> = RpcRequest::new(
+            ByteRec { data: query_string },
+            crate::relayer_rpcclient::method::Method::trader_order_info,
+        );
+        let res: Result<
+            crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match GetTraderOrderInfoResponse::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+
+        println!("order response : {:#?}", response_unwrap);
+        let mut file = File::create("foo_response.txt").unwrap();
+        match response_unwrap {
+            Ok(res) => {
+                file.write_all(&serde_json::to_vec_pretty(&res).unwrap())
+                    .unwrap();
+            }
+            Err(arg) => {
+                file.write_all(&serde_json::to_vec_pretty(&arg).unwrap())
+                    .unwrap();
+            }
+        }
+    }
+
+    #[test]
     fn query_transaction_hash_test() {
         dotenv::dotenv().expect("Failed loading dotenv");
 
-        let tx_hash_arg = TransactionHashArgs::AccountId {
+        let tx_hash_arg1 = TransactionHashArgs::AccountId {
             id: "0cce46bfaf011e10a7ce54eb2ae0c1ced04150db04b640650d5d6b742eaf777e7c32444c7282842029780a82a715f6ecf39a627ece9e9ea5559aac0447714493675725dace".to_string(),
+            status: None,
+        };
+        let _tx_hash_arg2 = TransactionHashArgs::RequestId {
+            id: "REQIDAEF51D3147D9FD400135A13DE7ADE176F171597F2D37936C0129BB11F05B6B68".to_string(),
             status: None,
         };
 
         let tx_send: RpcBody<TransactionHashArgs> = RpcRequest::new(
-            tx_hash_arg,
+            tx_hash_arg1,
             crate::relayer_rpcclient::method::Method::transaction_hashes,
         );
         let res: Result<

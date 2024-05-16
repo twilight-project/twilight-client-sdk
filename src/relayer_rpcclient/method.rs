@@ -1,15 +1,8 @@
-use core::hash;
-use std::{hash::Hash, process::Output, time::SystemTime};
-
-
-
+use crate::relayer_types::{OrderStatus, TraderOrder, TxHash};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::{hash::Hash, time::SystemTime};
 use uuid::Uuid;
-
-use serde::{Deserialize, Deserializer, Serialize};
-
-use crate::relayer_types::{OrderStatus, OrderType};
-
 
 /// Serialized as the "method" field of JSON-RPC/HTTP requests.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
@@ -20,8 +13,11 @@ pub enum Method {
     ExecuteTraderOrder,
     ExecuteLendOrder,
     CancelTraderOrder,
+    #[allow(non_camel_case_types)]
     transaction_hashes,
+    #[allow(non_camel_case_types)]
     trader_order_info,
+    #[allow(non_camel_case_types)]
     lend_order_info,
 }
 impl Method {}
@@ -132,46 +128,24 @@ impl GetCancelTraderOrderResponse {
     }
 }
 
-// Gwt transaction hash response Vec<TxHash>
-fn null_to_default<'de, D, T>(de: D) -> Result<T, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Default + Deserialize<'de>,
-{
-    let key = Option::<T>::deserialize(de)?;
-    Ok(key.unwrap_or_default())
-}
+// Get transaction hash response Vec<TxHash>
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum TransactionHashArgs {
     TxId {
         id: String,
-        #[serde(deserialize_with = "null_to_default")]
         status: Option<OrderStatus>,
     },
     AccountId {
         id: String,
-        #[serde(deserialize_with = "null_to_default")]
         status: Option<OrderStatus>,
     },
     RequestId {
         id: String,
-        #[serde(deserialize_with = "null_to_default")]
         status: Option<OrderStatus>,
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TxHash {
-    pub id: i64,
-    pub order_id: String,
-    pub account_id: String,
-    pub tx_hash: String,
-    pub order_type: OrderType,
-    pub order_status: OrderStatus,
-    pub datetime: String,
-    pub output: Option<String>,
-    pub request_id: Option<String>,
-}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetTransactionHashResponse {
     pub result: Vec<TxHash>,
@@ -181,25 +155,40 @@ impl GetTransactionHashResponse {
         resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
     ) -> Result<GetTransactionHashResponse, String> {
         let tx_hash: Result<GetTransactionHashResponse, String> = match resp.result {
-            Ok(response) => {
-                println!("response data0 :{:?}", response);
-                match serde_json::from_value(response) {
-                    Ok(response_vec) => {
-                        println!("response data :{:?}", response_vec);
-                        Ok(GetTransactionHashResponse {
-                            result: response_vec,
-                        })
-                    }
+            Ok(response) => match serde_json::from_value(response) {
+                Ok(response_vec) => Ok(GetTransactionHashResponse {
+                    result: response_vec,
+                }),
 
-                    Err(arg) => {
-                        println!("Error arg :{:?}", arg);
-                        Err("errror".to_string())
-                    }
+                Err(arg) => Err(arg.to_string()),
+            },
+            Err(arg) => Err(arg.to_string()),
+        };
+
+        tx_hash
+    }
+}
+
+// Query trader order info Response
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetTraderOrderInfoResponse {
+    pub result: TraderOrder,
+}
+impl GetTraderOrderInfoResponse {
+    pub fn get_response(
+        resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+    ) -> Result<GetTraderOrderInfoResponse, String> {
+        let tx_hash: Result<GetTraderOrderInfoResponse, String> = match resp.result {
+            Ok(response) => {
+                println!("order : {:?}", response);
+                match serde_json::from_value(response) {
+                    Ok(response) => Ok(GetTraderOrderInfoResponse { result: response }),
+
+                    Err(arg) => Err(arg.to_string()),
                 }
             }
             Err(arg) => Err(arg.to_string()),
         };
-
         tx_hash
     }
 }
