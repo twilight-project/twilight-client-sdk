@@ -1,4 +1,4 @@
-use crate::relayer_types::{OrderStatus, TraderOrder, TxHash};
+use crate::relayer_types::{LendOrder, OrderStatus, TraderOrder, TxHash};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{hash::Hash, time::SystemTime};
@@ -183,6 +183,29 @@ impl GetTraderOrderInfoResponse {
                 println!("order : {:?}", response);
                 match serde_json::from_value(response) {
                     Ok(response) => Ok(GetTraderOrderInfoResponse { result: response }),
+
+                    Err(arg) => Err(arg.to_string()),
+                }
+            }
+            Err(arg) => Err(arg.to_string()),
+        };
+        tx_hash
+    }
+}
+// Query trader order info Response
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetLendOrderInfoResponse {
+    pub result: LendOrder,
+}
+impl GetLendOrderInfoResponse {
+    pub fn get_response(
+        resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+    ) -> Result<GetLendOrderInfoResponse, String> {
+        let tx_hash: Result<GetLendOrderInfoResponse, String> = match resp.result {
+            Ok(response) => {
+                println!("order : {:?}", response);
+                match serde_json::from_value(response) {
+                    Ok(response) => Ok(GetLendOrderInfoResponse { result: response }),
 
                     Err(arg) => Err(arg.to_string()),
                 }

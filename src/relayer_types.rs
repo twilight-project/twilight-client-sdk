@@ -867,6 +867,64 @@ impl TraderOrder {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct LendOrder {
+    pub uuid: Uuid,
+    pub account_id: String,
+    #[serde(deserialize_with = "as_f64")]
+    pub balance: f64,
+    pub order_status: OrderStatus, //lend or settle
+    pub order_type: OrderType,     // LEND
+    pub entry_nonce: usize,        // change it to u256
+    pub exit_nonce: usize,         // change it to u256
+    #[serde(deserialize_with = "as_f64")]
+    pub deposit: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub new_lend_state_amount: f64,
+    pub timestamp: String,
+    #[serde(deserialize_with = "as_f64")]
+    pub npoolshare: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub nwithdraw: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub payment: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub tlv0: f64, //total locked value before lend tx
+    #[serde(deserialize_with = "as_f64")]
+    pub tps0: f64, // total poolshare before lend tx
+    #[serde(deserialize_with = "as_f64")]
+    pub tlv1: f64, // total locked value after lend tx
+    #[serde(deserialize_with = "as_f64")]
+    pub tps1: f64, // total poolshre value after lend tx
+    #[serde(deserialize_with = "as_f64")]
+    pub tlv2: f64, // total locked value before lend payment/settlement
+    #[serde(deserialize_with = "as_f64")]
+    pub tps2: f64, // total poolshare before lend payment/settlement
+    #[serde(deserialize_with = "as_f64")]
+    pub tlv3: f64, // total locked value after lend payment/settlement
+    #[serde(deserialize_with = "as_f64")]
+    pub tps3: f64, // total poolshare after lend payment/settlement
+    pub entry_sequence: usize,
+}
+
+impl LendOrder {
+    pub fn encode_as_hex_string(&self) -> String {
+        let byt = bincode::serialize(&self).unwrap();
+        hex::encode(&byt)
+    }
+
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(trader_order) => Ok(trader_order),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TxHash {
     pub id: i64,
