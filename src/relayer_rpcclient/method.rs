@@ -1,9 +1,15 @@
 use core::hash;
 use std::{hash::Hash, process::Output, time::SystemTime};
 
-use serde::{Deserialize, Serialize};
+
+
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
+
+use serde::{Deserialize, Deserializer, Serialize};
+
+use crate::relayer_types::{OrderStatus, OrderType};
+
 
 /// Serialized as the "method" field of JSON-RPC/HTTP requests.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
@@ -14,6 +20,9 @@ pub enum Method {
     ExecuteTraderOrder,
     ExecuteLendOrder,
     CancelTraderOrder,
+    transaction_hashes,
+    trader_order_info,
+    lend_order_info,
 }
 impl Method {}
 
@@ -123,10 +132,83 @@ impl GetCancelTraderOrderResponse {
     }
 }
 
+// Gwt transaction hash response Vec<TxHash>
+fn null_to_default<'de, D, T>(de: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Default + Deserialize<'de>,
+{
+    let key = Option::<T>::deserialize(de)?;
+    Ok(key.unwrap_or_default())
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub enum TransactionHashArgs {
+    TxId {
+        id: String,
+        #[serde(deserialize_with = "null_to_default")]
+        status: Option<OrderStatus>,
+    },
+    AccountId {
+        id: String,
+        #[serde(deserialize_with = "null_to_default")]
+        status: Option<OrderStatus>,
+    },
+    RequestId {
+        id: String,
+        #[serde(deserialize_with = "null_to_default")]
+        status: Option<OrderStatus>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TxHash {
+    pub id: i64,
+    pub order_id: String,
+    pub account_id: String,
+    pub tx_hash: String,
+    pub order_type: OrderType,
+    pub order_status: OrderStatus,
+    pub datetime: String,
+    pub output: Option<String>,
+    pub request_id: Option<String>,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetTransactionHashResponse {
+    pub result: Vec<TxHash>,
+}
+impl GetTransactionHashResponse {
+    pub fn get_response(
+        resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+    ) -> Result<GetTransactionHashResponse, String> {
+        let tx_hash: Result<GetTransactionHashResponse, String> = match resp.result {
+            Ok(response) => {
+                println!("response data0 :{:?}", response);
+                match serde_json::from_value(response) {
+                    Ok(response_vec) => {
+                        println!("response data :{:?}", response_vec);
+                        Ok(GetTransactionHashResponse {
+                            result: response_vec,
+                        })
+                    }
+
+                    Err(arg) => {
+                        println!("Error arg :{:?}", arg);
+                        Err("errror".to_string())
+                    }
+                }
+            }
+            Err(arg) => Err(arg.to_string()),
+        };
+
+        tx_hash
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ByteRec {
     pub data: String,
 }
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RequestResponse {
     pub msg: String,
