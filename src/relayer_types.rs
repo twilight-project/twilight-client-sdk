@@ -4,7 +4,6 @@ use crate::relayer_rpcclient::txrequest::{Resp, RpcBody, RpcRequest};
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::SigmaProof;
 use serde::{Deserialize, Serialize};
-use transaction::Transaction;
 use uuid::Uuid;
 use zkschnorr::Signature;
 use zkvm::{
@@ -378,6 +377,7 @@ impl CreateLendOrderZkos {
         response_unwrap
     }
 }
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateTraderOrderClientZkos {
     pub create_trader_order: CreateTraderOrder,
@@ -405,6 +405,7 @@ impl CreateTraderOrderClientZkos {
         hex_decode
     }
 }
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ZkosSettleMsg {
     pub output: Output,       //memo type output
@@ -803,6 +804,48 @@ impl QueryLendOrderZkos {
         let hex_decode = match hex::decode(hex_string) {
             Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
                 Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TraderOrder {
+    pub uuid: Uuid,
+    pub account_id: String,
+    pub position_type: PositionType,
+    pub order_status: OrderStatus,
+    pub order_type: OrderType,
+    pub entryprice: f64,
+    pub execution_price: f64,
+    pub positionsize: f64,
+    pub leverage: f64,
+    pub initial_margin: f64,
+    pub available_margin: f64,
+    pub timestamp: String,
+    pub bankruptcy_price: f64,
+    pub bankruptcy_value: f64,
+    pub maintenance_margin: f64,
+    pub liquidation_price: f64,
+    pub unrealized_pnl: f64,
+    pub settlement_price: f64,
+    pub entry_nonce: usize,
+    pub exit_nonce: usize,
+    pub entry_sequence: usize,
+}
+impl TraderOrder {
+    pub fn encode_as_hex_string(&self) -> String {
+        let byt = bincode::serialize(&self).unwrap();
+        hex::encode(&byt)
+    }
+
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(trader_order) => Ok(trader_order),
                 Err(arg) => Err(format!("Error:{:?}", arg)),
             },
             Err(arg) => Err(format!("Error:{:?}", arg)),

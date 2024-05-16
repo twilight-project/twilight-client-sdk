@@ -163,48 +163,26 @@ mod tests {
         });
         return prog;
     }
-    // program to prove that IM * EntryPrice * Leverage == PositionSize
-    // pub fn get_trader_order_program() -> Program {
-    //     let order_prog = Program::build(|p| {
-    //         p.drop() // drop the order_side from stack. Not needed in the proof
-    //             .roll(3) // Get IM to top of stack
-    //             .commit()
-    //             .expr()
-    //             .roll(1) // Get EntryPrice to top of stack
-    //             .scalar()
-    //             .mul() // EntryPrice * IM
-    //             .roll(1) // Get Leverage to top of stack
-    //             .commit()
-    //             .expr()
-    //             .mul() // Leverage * EntryPrice * IM
-    //             .roll(1)
-    //             .scalar()
-    //             .eq() // Leverage * EntryPrice * IM == PositionSize
-    //             .verify();
-    //     });
-    //     return order_prog;
-    // }
 
-    // program to prove IM * Leverage = positionvalue
-    // Stack -> C(IM) -> PositionSize-> C(Leverage) -> EntryPrice -> OrderSide -> tx_Data(C(PositionValue))
-      pub fn get_trader_order_program() -> Program {
+    pub fn get_trader_order_program() -> Program {
         let order_prog = Program::build(|p| {
-            p.commit()
-                .expr() // convert positionvalue to expression
-                .roll(3) // Get Leverage to top of stack
+            p.drop() // drop the order_side from stack. Not needed in the proof
+                .roll(3) // Get IM to top of stack
                 .commit()
                 .expr()
-                .roll(5) // Get IM to top of stack
+                .roll(1) // Get EntryPrice to top of stack
+                .scalar()
+                .mul() // EntryPrice * IM
+                .roll(1) // Get Leverage to top of stack
                 .commit()
-                .expr() 
-                .mul() // IM * Leverage
-                .eq() // Leverage * IM == PositionValue
-                .verify()
-                .drop()// drop orderSide
-                .drop() // drop EntryPrice
-                .drop(); // drop PositionSize    
+                .expr()
+                .mul() // Leverage * EntryPrice * IM
+                .roll(1)
+                .scalar()
+                .eq() // Leverage * EntryPrice * IM == PositionSize
+                .verify();
         });
-        order_prog
+        return order_prog;
     }
 
     pub fn get_settle_trader_order_program() -> Program {
