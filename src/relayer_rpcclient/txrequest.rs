@@ -1,5 +1,5 @@
 use super::id::Id;
-use super::method::Method;
+use super::method::{Method, TransactionHashArgs};
 // use curve25519_dalek::digest::Output;
 use jsonrpc_core::response::{Failure, Output, Success};
 use jsonrpc_core::Response as JsonRPCResponse;
@@ -15,6 +15,8 @@ use crate::relayer_rpcclient::method::ByteRec;
 lazy_static! {
     pub static ref RELAYER_RPC_SERVER_URL: String = std::env::var("RELAYER_RPC_SERVER_URL")
         .expect("missing environment variable RELAYER_RPC_SERVER_URL");
+    pub static ref PUBLIC_API_RPC_SERVER_URL: String = std::env::var("PUBLIC_API_RPC_SERVER_URL")
+        .expect("missing environment variable PUBLIC_API_RPC_SERVER_URL");
 }
 
 fn construct_headers() -> HeaderMap {
@@ -207,6 +209,103 @@ impl RpcRequest<ByteRec> for RpcBody<ByteRec> {
 
                 return rpc_response(res);
             }
+            Method::trader_order_info => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+            Method::lend_order_info => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+            _ => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+        }
+    }
+}
+
+impl RpcRequest<TransactionHashArgs> for RpcBody<TransactionHashArgs> {
+    fn new(request: TransactionHashArgs, method: Method) -> Self {
+        Self::new_with_id(Id::uuid_v4(), request, method)
+    }
+
+    fn new_with_id(id: Id, request: TransactionHashArgs, method: Method) -> Self {
+        Self {
+            jsonrpc: Version::V2,
+            id,
+            method: method,
+            params: request,
+        }
+    }
+
+    fn id(&self) -> &Id {
+        &self.id
+    }
+
+    fn params(&self) -> &TransactionHashArgs {
+        &self.params
+    }
+    fn into_json(self) -> String {
+        let tx = serde_json::to_string(&self).unwrap();
+        let mut file = File::create("foo.txt").unwrap();
+        file.write_all(&serde_json::to_vec_pretty(&tx.clone()).unwrap())
+            .unwrap();
+        tx
+    }
+
+    fn get_method(&self) -> &Method {
+        &self.method
+    }
+
+    fn send(
+        self,
+        url: std::string::String,
+    ) -> Result<RpcResponse<serde_json::Value>, reqwest::Error> {
+        match self.method {
+            Method::transaction_hashes => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+            _ => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
         }
     }
 }
@@ -215,7 +314,9 @@ impl RpcRequest<ByteRec> for RpcBody<ByteRec> {
 mod test {
     use super::RELAYER_RPC_SERVER_URL;
     use crate::relayer_rpcclient::method::*;
-    use crate::relayer_rpcclient::txrequest::{Resp, RpcBody, RpcRequest};
+    use crate::relayer_rpcclient::txrequest::{
+        Resp, RpcBody, RpcRequest, PUBLIC_API_RPC_SERVER_URL,
+    };
     use std::fs::File;
     use std::io::prelude::*;
     // cargo test -- --nocapture --test check_allOutputs_test --test-threads 5
@@ -237,6 +338,46 @@ mod test {
 
         let response_unwrap = match res {
             Ok(rpc_response) => match GetCreateTraderOrderResponse::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+
+        println!("order response : {:#?}", response_unwrap);
+        let mut file = File::create("foo_response.txt").unwrap();
+        match response_unwrap {
+            Ok(res) => {
+                file.write_all(&serde_json::to_vec_pretty(&res).unwrap())
+                    .unwrap();
+            }
+            Err(arg) => {
+                file.write_all(&serde_json::to_vec_pretty(&arg).unwrap())
+                    .unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn query_transaction_hash_test() {
+        dotenv::dotenv().expect("Failed loading dotenv");
+
+        let tx_hash_arg = TransactionHashArgs::AccountId {
+            id: "0cce46bfaf011e10a7ce54eb2ae0c1ced04150db04b640650d5d6b742eaf777e7c32444c7282842029780a82a715f6ecf39a627ece9e9ea5559aac0447714493675725dace".to_string(),
+            status: None,
+        };
+
+        let tx_send: RpcBody<TransactionHashArgs> = RpcRequest::new(
+            tx_hash_arg,
+            crate::relayer_rpcclient::method::Method::transaction_hashes,
+        );
+        let res: Result<
+            crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match GetTransactionHashResponse::get_response(rpc_response) {
                 Ok(response) => Ok(response),
                 Err(arg) => Err(arg),
             },
