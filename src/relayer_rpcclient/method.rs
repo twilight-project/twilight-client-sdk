@@ -1,8 +1,15 @@
-use std::process::Output;
+use core::hash;
+use std::{hash::Hash, process::Output, time::SystemTime};
+
+
+
+use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::relayer_types::{OrderStatus, OrderType};
+
 
 /// Serialized as the "method" field of JSON-RPC/HTTP requests.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
@@ -209,6 +216,52 @@ pub struct RequestResponse {
 }
 impl RequestResponse {
     pub fn new(msg: String, id_key: String) -> Self {
-        RequestResponse { msg, id_key }
+        RequestResponse {
+            msg,
+            id_key: RequestID::new(id_key).get_id(),
+        }
+    }
+    pub fn get_id(&self) -> String {
+        self.id_key.clone()
+    }
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct RequestID {
+    uuid: Uuid,
+    public_key: String,
+    timestamp: String,
+}
+impl RequestID {
+    pub fn new(public_key: String) -> RequestID {
+        RequestID {
+            uuid: Uuid::new_v4(),
+            public_key: public_key,
+            timestamp: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_micros()
+                .to_string(),
+        }
+    }
+    pub fn get_id(&self) -> String {
+        let Ok(bytes) = bincode::serialize(&self) else {
+            return Uuid::new_v4().into();
+        };
+        let mut sha256 = Sha256::new();
+        sha256.update(hex::encode(bytes));
+        let result: String = format!("REQID{:X}", sha256.finalize());
+        result
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::RequestResponse;
+    // use hex_literal::hex;
+    use sha2::{Digest, Sha256};
+    #[test]
+    fn request_id_test() {
+        let id  =  RequestResponse::new("order success".to_string(), "0ce8ffc7587e8ac1c8328f44b5219834b98125c7ef176a31f3ac7201b749ad913b84b8600e6d2a6f607454a9527238f6978f31102d308f3acb3599e7b725163117df5cb11c".to_string());
+        println!("id: {:?}", id.get_id());
     }
 }
