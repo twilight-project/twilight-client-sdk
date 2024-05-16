@@ -4,13 +4,14 @@ use crate::relayer_rpcclient::txrequest::{Resp, RpcBody, RpcRequest};
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::SigmaProof;
 use serde::{Deserialize, Serialize};
+use serde_this_or_that::as_f64;
+use transaction::Transaction;
 use uuid::Uuid;
 use zkschnorr::Signature;
 use zkvm::{
     zkos_types::{Input, ValueWitness},
     Output,
 };
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum TXType {
     ORDERTX, //TraderOrder
@@ -819,18 +820,30 @@ pub struct TraderOrder {
     pub position_type: PositionType,
     pub order_status: OrderStatus,
     pub order_type: OrderType,
+    #[serde(deserialize_with = "as_f64")]
     pub entryprice: f64,
+    #[serde(deserialize_with = "as_f64")]
     pub execution_price: f64,
+    #[serde(deserialize_with = "as_f64")]
     pub positionsize: f64,
+    #[serde(deserialize_with = "as_f64")]
     pub leverage: f64,
+    #[serde(deserialize_with = "as_f64")]
     pub initial_margin: f64,
+    #[serde(deserialize_with = "as_f64")]
     pub available_margin: f64,
     pub timestamp: String,
+    #[serde(deserialize_with = "as_f64")]
     pub bankruptcy_price: f64,
+    #[serde(deserialize_with = "as_f64")]
     pub bankruptcy_value: f64,
+    #[serde(deserialize_with = "as_f64")]
     pub maintenance_margin: f64,
+    #[serde(deserialize_with = "as_f64")]
     pub liquidation_price: f64,
+    #[serde(deserialize_with = "as_f64")]
     pub unrealized_pnl: f64,
+    #[serde(deserialize_with = "as_f64")]
     pub settlement_price: f64,
     pub entry_nonce: usize,
     pub exit_nonce: usize,
@@ -852,4 +865,17 @@ impl TraderOrder {
         };
         hex_decode
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TxHash {
+    pub id: i64,
+    pub order_id: String,
+    pub account_id: String,
+    pub tx_hash: String,
+    pub order_type: OrderType,
+    pub order_status: OrderStatus,
+    pub datetime: String,
+    pub output: Option<String>,
+    pub request_id: Option<String>,
 }
