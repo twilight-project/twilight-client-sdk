@@ -179,14 +179,11 @@ impl GetTraderOrderInfoResponse {
         resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
     ) -> Result<GetTraderOrderInfoResponse, String> {
         let tx_hash: Result<GetTraderOrderInfoResponse, String> = match resp.result {
-            Ok(response) => {
-                println!("order : {:?}", response);
-                match serde_json::from_value(response) {
-                    Ok(response) => Ok(GetTraderOrderInfoResponse { result: response }),
+            Ok(response) => match serde_json::from_value(response) {
+                Ok(response) => Ok(GetTraderOrderInfoResponse { result: response }),
 
-                    Err(arg) => Err(arg.to_string()),
-                }
-            }
+                Err(arg) => Err(arg.to_string()),
+            },
             Err(arg) => Err(arg.to_string()),
         };
         tx_hash
@@ -202,14 +199,11 @@ impl GetLendOrderInfoResponse {
         resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
     ) -> Result<GetLendOrderInfoResponse, String> {
         let tx_hash: Result<GetLendOrderInfoResponse, String> = match resp.result {
-            Ok(response) => {
-                println!("order : {:?}", response);
-                match serde_json::from_value(response) {
-                    Ok(response) => Ok(GetLendOrderInfoResponse { result: response }),
+            Ok(response) => match serde_json::from_value(response) {
+                Ok(response) => Ok(GetLendOrderInfoResponse { result: response }),
 
-                    Err(arg) => Err(arg.to_string()),
-                }
-            }
+                Err(arg) => Err(arg.to_string()),
+            },
             Err(arg) => Err(arg.to_string()),
         };
         tx_hash
