@@ -10,7 +10,7 @@ use transaction::quisquislib::{
 
 use transaction::reference_tx::{Receiver, Sender};
 use transaction::{Transaction, TransferTransaction};
-use zkvm::zkos_types::{Input, InputData, OutputCoin, Utxo};
+use zkvm::{zkos_types::{Input, InputData, OutputCoin, Utxo}, Tx};
 
 use crate::*;
 use hex;
@@ -20,216 +20,25 @@ use serde::{Deserialize, Serialize};
 //Rename dark to stealth in all functions
 ///Neeeded to stroe the encrypt scalar for future
 pub struct TransferTxWallet {
-    tx_hex: String,
-    encrypt_scalar_hex: String,
-}
-// ------- qqReciever for Transfer Tx ------- //
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QqReciever {
-    amount: i64, //amount to be recieved
-    // can be an address hex string or a trading account input json string
-    trading_account: String, //Json String of Trading account of reciever
+    tx: Transaction,
+    encrypt_scalar: Option<Vec<Scalar>>,
 }
 
-impl QqReciever {
-    pub fn new(amount: i64, trading_account: String) -> Self {
+impl TransferTxWallet {
+    pub fn new(tx: Transaction, encrypt_scalar: Option<Vec<Scalar>>) -> Self {
         Self {
-            amount,
-            trading_account,
+            tx,
+            encrypt_scalar,
         }
+   }
+   pub fn get_tx(&self) -> Transaction {
+       self.tx.clone()
+   }
+    pub fn get_encrypt_scalar(&self) -> Option<Vec<Scalar>> {
+         self.encrypt_scalar.clone()
     }
-    // pub fn to_output_coin(&self) -> OutputCoin {
-    //     let account: crate::TradingAccount = serde_json::from_str(&self.trading_account).unwrap();
-    //     let output_coin = crate::OutputCoin::new(account.encrypt, account.address);
-    //     output_coin
-    // }
-    // pub fn to_output(&self) -> Output {
-    //     let out_coin = self.to_output_coin();
-    //     out_coin.to_output()
-    // }
-
-    // pub fn to_input_data(&self, utxo: Utxo, witness: u8) -> InputData {
-    //     let out_coin = self.to_output_coin();
-    //     out_coin.to_input_data(utxo, witness)
-    // }
-    // pub fn to_input(&self, utxo: Utxo, witness: u8) -> Input {
-    //     let out_coin = self.to_output_coin();
-    //     out_coin.to_input(utxo, witness)
-    // }
-    // // convert the Trading account into a traditional QQ Account
-    // pub fn to_account(&self) -> Account {
-    //     let account: crate::TradingAccount = serde_json::from_str(&self.trading_account).unwrap();
-    //     account.into()
-    // }
+    
 }
-
-// ------- qqSender for Transfer Tx ------- //
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QqSender {
-    total_amount: i64,          //total amount to be sent
-    input: String,              // input coin to be spent
-    receivers: Vec<QqReciever>, //list of recievers
-}
-impl QqSender {
-    pub fn new(total_amount: i64, input: String, receivers: Vec<QqReciever>) -> Self {
-        Self {
-            total_amount,
-            input,
-            receivers,
-        }
-    }
-    pub fn to_input(&self) -> Input {
-        let input: Input = serde_json::from_str(&self.input).unwrap();
-        input
-    }
-
-    // pub fn to_reciever_output_coins(&self) -> Vec<OutputCoin> {
-    //     let mut output_coins: Vec<OutputCoin> = Vec::new();
-    //     for receiver in &self.receivers {
-    //         let output_coin = receiver.to_output_coin();
-    //         output_coins.push(output_coin);
-    //     }
-    //     output_coins
-    // }
-
-    // pub fn input_to_qq_account(&self) -> Account {
-    //     let input: Input = self.to_input();
-    //     let out_coin: OutputCoin = input.as_out_coin().unwrap().to_owned();
-    //     out_coin.to_quisquis_account()
-    // }
-}
-///Utility function to convert Jsons into Rust Structs
-/// this should be used for processing txs in the browser
-fn preprocess_tx_request_frontend(
-    tx_vec: String,
-    sk: RistrettoSecretKey,
-    updated_sender_balance_ser: String,
-    updated_balance_reciever_ser: String,
-) -> (
-    Vec<u64>,
-    Vec<u64>,
-    Vec<RistrettoSecretKey>,
-    Vec<Sender>,
-    Vec<Input>,
-) {
-    // reconstruct tx_vector for WASM
-    let tx_vector: Vec<QqSender> = serde_json::from_str(&tx_vec).unwrap();
-
-    //reconstruct sender balance for WASM
-    let updated_sender_balance: Vec<u64> =
-        serde_json::from_str(&updated_sender_balance_ser).unwrap();
-
-    let updated_reciever_balance: Vec<u64> =
-        serde_json::from_str(&updated_balance_reciever_ser).unwrap();
-
-    //derive private key
-    /* The twilight wallet only supports a single secret key seed for now */
-    /* The same Secretkey can be used for as my input accounts as required */
-    // let sk: RistrettoSecretKey = hex_str_to_secret_key(seed);
-
-    //using the same sk for the number of senders
-    //let mut sk_vector: Vec<RistrettoSecretKey> = new
-    let sk_vector = vec![sk; updated_sender_balance.len()];
-    //Create TX_VECTOR for Tx
-
-    let mut sender_array = Vec::<Sender>::new();
-    let mut input_vector = Vec::<Input>::new();
-    //println!("tx_vector: {:?}", tx_vector);
-    // for sender_obj in tx_vector.iter() {
-    //     let mut recievers = Vec::<Receiver>::new();
-    //     let rec = &sender_obj.receivers;
-    //     for j in rec.into_iter() {
-    //         let r = Receiver::set_receiver(j.amount, j.to_account());
-    //         recievers.push(r);
-    //     }
-    //     let s = Sender::set_sender(
-    //         sender_obj.total_amount,
-    //         sender_obj.input_to_qq_account(),
-    //         recievers,
-    //     );
-    //     sender_array.push(s);
-    //     input_vector.push(serde_json::from_str(&sender_obj.input).unwrap());
-    // }
-    (
-        updated_sender_balance,
-        updated_reciever_balance,
-        sk_vector,
-        sender_array,
-        input_vector,
-    )
-}
-///Utility function to convert Jsons into Rust Structs
-/// this for Wasm tests only
-// fn preprocess_tx_request(
-//     tx_vec: String,
-//     secret_vec: String,
-//     updated_sender_balance_ser: String,
-//     updated_balance_reciever_ser: String,
-// ) -> (
-//     Vec<u64>,
-//     Vec<u64>,
-//     Vec<RistrettoSecretKey>,
-//     Vec<Sender>,
-//     Vec<Input>,
-// ) {
-//     // reconstruct tx_vector for WASM
-//     let tx_vector: Vec<QqSender> = serde_json::from_str(&tx_vec).unwrap();
-
-//     //reconstruct sender balance for WASM
-//     let updated_sender_balance: Vec<u64> =
-//         serde_json::from_str(&updated_sender_balance_ser).unwrap();
-
-//     let updated_reciever_balance: Vec<u64> =
-//         serde_json::from_str(&updated_balance_reciever_ser).unwrap();
-
-//     //reconstruct secret_seed_vec for WASM
-//     let secret_seed_vector: Vec<String> = serde_json::from_str(&secret_vec).unwrap();
-//     let sender_size = tx_vector.len();
-//     let secret_seed_vector_len = secret_seed_vector.len();
-//     //check if you have enough secret keys
-//     if sender_size != secret_seed_vector_len {
-//         panic!("Sender and Secret Key Vector size mismatch");
-//     }
-//     //recreate seed [u8] from Json Strings
-//     let sk_seed_vec: Vec<[u8; 65]> = secret_seed_vector
-//         .iter()
-//         .map(|i| decode_from_base64(&i))
-//         .collect();
-
-//     //create secret key vector
-//     let sk_vector: Vec<transaction::quisquislib::ristretto::RistrettoSecretKey> = sk_seed_vec
-//         .iter()
-//         .map(|i| transaction::quisquislib::keys::SecretKey::from_bytes(i))
-//         .collect();
-
-//     //Create TX_VECTOR for Tx
-
-//     let mut sender_array = Vec::<Sender>::new();
-//     let mut input_vector = Vec::<Input>::new();
-//     //println!("tx_vector: {:?}", tx_vector);
-//     for sender_obj in tx_vector.iter() {
-//         let mut recievers = Vec::<Receiver>::new();
-//         let rec = &sender_obj.receivers;
-//         for j in rec.into_iter() {
-//             let r = Receiver::set_receiver(j.amount, j.to_account());
-//             recievers.push(r);
-//         }
-//         let s = Sender::set_sender(
-//             sender_obj.total_amount,
-//             sender_obj.input_to_qq_account(),
-//             recievers,
-//         );
-//         sender_array.push(s);
-//         input_vector.push(serde_json::from_str(&sender_obj.input).unwrap());
-//     }
-//     (
-//         updated_sender_balance,
-//         updated_reciever_balance,
-//         sk_vector,
-//         sender_array,
-//         input_vector,
-//     )
-// }
 
 /// Create Quisquis Transaction with anonymity Set
 /// Returns Transaction
@@ -369,15 +178,15 @@ fn compute_address_input(address_input: bool, reciever: String) -> (Account, Sca
 
 // Works for single sender and reciever
 // seed = Signature string
-// sender = Input as json string
-// reciever = Either address as Hex String or Input as json string
+// sender = Input 
+// reciever = Either address as Hex String or Input as Json String
 // amount = Amount to be sent as u64
 // address_input = Flag
 //  0 ->  reciever is address
 // 1  ->  reciever is input
 pub fn create_private_transfer_tx_single(
     sk: RistrettoSecretKey,
-    sender: String,
+    sender: Input,
     reciever: String,
     amount: u64,
     address_input: bool,
@@ -391,8 +200,7 @@ pub fn create_private_transfer_tx_single(
 
     let (rec_acc, rec_comm_scalar) = compute_address_input(address_input, reciever.clone());
 
-    let sender_inp: Input = serde_json::from_str(&sender).unwrap();
-    let sender_acc = sender_inp.to_quisquis_account().unwrap();
+    let sender_acc = sender.to_quisquis_account().unwrap();
 
     let sender_array = vec![Sender::set_sender(
         -1 * (amount as i64),
@@ -403,7 +211,7 @@ pub fn create_private_transfer_tx_single(
         Sender::generate_value_and_account_vector(sender_array).unwrap();
     let transfer: Result<(TransferTransaction, Option<Vec<Scalar>>), &'static str>;
     let scalar_vector: Vec<Scalar> = vec![rec_comm_scalar];
-    let mut input_vector = vec![sender_inp];
+    let mut input_vector = vec![sender];
     match address_input {
         false => {
             let rec_input: Input = Input::input_from_quisquis_account(
@@ -449,52 +257,43 @@ pub fn create_private_transfer_tx_single(
     let transaction: Transaction = Transaction::transaction_transfer(
         transaction::TransactionData::TransactionTransfer(transfer_tx),
     );
-    let tx_bin = bincode::serialize(&transaction).unwrap();
-    let tx_hex = hex::encode(&tx_bin);
-
-    let comm_scalar = match final_comm_scalar {
-        Some(x) => x[0],
-        None => Scalar::zero(),
+    
+    let tx_dark_wallet: TransferTxWallet = TransferTxWallet {
+        tx: transaction,
+        encrypt_scalar: final_comm_scalar,
     };
-    //convert scalar to hex string
-    let scalar_hex = hex::encode(comm_scalar.to_bytes());
-    let tx_dark_wallet = TransferTxWallet {
-        tx_hex,
-        encrypt_scalar_hex: scalar_hex,
-    };
-    //let msg_to_return = serde_json::to_string(&msg_to_return).unwrap();
-    //returns hex encoded tx string
-    //return Ok(msg_to_return);
     tx_dark_wallet
 }
 ///Create Quisquis Dark Transaction.
 ///Returns Transaction
-pub fn create_private_transfer_transaction(
-    tx_vec: String,
+pub fn create_private_transfer_transaction_single_source_multiple_recievers(
+    sender_array: Vec<Sender>,
+    input_sender: Input, 
     sk: RistrettoSecretKey,
-    updated_sender_balance_ser: String,
-    updated_balance_reciever_ser: String,
+    updated_sender_balance: Vec<u64>,
+    updated_balance_reciever: Vec<u64>,
+    witness_comm_scalar: Option<&[Scalar]>,
     fee:u64,
-) -> String {
-    let (updated_sender_balance, updated_reciever_balance, sk_vector, sender_array, inputs_sender) =
-        preprocess_tx_request_frontend(
-            tx_vec,
-            sk,
-            updated_sender_balance_ser,
-            updated_balance_reciever_ser,
-        );
+) -> TransferTxWallet {
+    
 
     let (value_vector, account_vector, sender_count, receiver_count) =
         Sender::generate_value_and_account_vector(sender_array).unwrap();
 
+        println!("value_vector: {:?}", value_vector);
+        println!("account_vector: {:?}", account_vector);
+        println!("sender_count: {:?}", sender_count);
+        println!("receiver_count: {:?}", receiver_count);
+
     // create Inputs for recievers with Utxo as 000000000000000000000000000, 0
     let utxo: Utxo = Utxo::default();
 
-    //create vec of Reciver Inputs
+    //create vec of Sneder + Reciver Inputs
     let rec_accounts = &account_vector[sender_count..];
     let mut input_vector = Vec::<Input>::new();
-    input_vector.append(&mut inputs_sender.clone());
-    for input in rec_accounts.iter() {
+        input_vector.push(input_sender.clone());
+    
+    for (i,input) in rec_accounts.iter().enumerate() {
         //create address
         let (pk, enc) = input.get_account();
         let out_coin = OutputCoin::new(
@@ -505,28 +304,26 @@ pub fn create_private_transfer_transaction(
         let inp = Input::coin(InputData::coin(utxo, out_coin, 0));
         input_vector.push(inp.clone());
     }
+    let sk_vector = vec![sk];
     //create quisquis dark transfer transaction
     let transfer = transaction::TransferTransaction::create_private_transfer_transaction(
         &value_vector,
         &account_vector,
         &updated_sender_balance,
-        &updated_reciever_balance,
+        &updated_balance_reciever,
         &input_vector,
         &sk_vector,
         sender_count,
         receiver_count,
-        None,
+        witness_comm_scalar,
         fee,
     );
-    let (tx, _comm_scalar) = transfer.unwrap();
+    let (tx, final_comm_scalar) = transfer.unwrap();
     let transaction: transaction::Transaction = transaction::Transaction::transaction_transfer(
         transaction::TransactionData::TransactionTransfer(tx),
     );
-
-    let tx_bin = bincode::serialize(&transaction).unwrap();
-    let msg_to_return = hex::encode(&tx_bin);
-    //returns hex encoded tx string
-    msg_to_return
+    TransferTxWallet::new(transaction, final_comm_scalar)
+    
 }
 
 ///Verify Quisquis and Dark Transaction.

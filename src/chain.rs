@@ -8,7 +8,7 @@ use zkvm::{
 
 lazy_static! {
     pub static ref ZKOS_SERVER_URL: String =
-        std::env::var("ZKOS_SERVER_URL").expect("missing environment variable ZKOS_SERVER_URL");
+        std::env::var("ZKOS_SERVER_STAGING_URL").expect("missing environment variable ZKOS_SERVER_STAGING_URL");
 }
 
 pub fn get_transaction_coin_input_from_address(address_hex: String) -> Result<Input, String> {

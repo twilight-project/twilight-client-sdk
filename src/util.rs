@@ -16,7 +16,7 @@ use zkvm::{
 };
 lazy_static! {
     pub static ref ZKOS_SERVER_URL: String =
-        std::env::var("ZKOS_SERVER_URL").expect("missing environment variable ZKOS_SERVER_URL");
+        std::env::var("ZKOS_SERVER_STAGING_URL").expect("missing environment variable ZKOS_SERVER_STAGING_URL");
 }
 use hex;
 use serde::{Deserialize, Serialize};
@@ -449,4 +449,9 @@ pub fn get_utxo_hex_from_json(utxo_json: String) -> String {
 pub fn scalar_to_hex(scalar: Scalar) -> String {
     let byt = scalar.to_bytes();
     hex::encode(&byt)
+}
+/// convert u64 value to ZkvmString
+pub fn u64_commitment_to_zkvm_string(value: u64) -> ZkvmString {
+    let commitment = Commitment::blinded(value);
+    ZkvmString::from(commitment)
 }

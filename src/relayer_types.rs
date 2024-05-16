@@ -1,6 +1,8 @@
 use crate::relayer_rpcclient::method::*;
 use crate::relayer_rpcclient::txrequest::RELAYER_RPC_SERVER_URL;
 use crate::relayer_rpcclient::txrequest::{Resp, RpcBody, RpcRequest};
+use transaction::Transaction;
+
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::SigmaProof;
 use serde::{Deserialize, Serialize};
@@ -219,6 +221,42 @@ impl CreateTraderOrderZkos {
         response_unwrap
     }
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateTraderOrderClientZkos {
+    pub create_trader_order: CreateTraderOrder,
+    pub tx: Transaction,
+}
+impl CreateTraderOrderClientZkos {
+    pub fn new(
+        create_trader_order: CreateTraderOrder,
+        tx: Transaction,
+    ) -> Self {
+        Self {
+            create_trader_order,
+            tx,
+        }
+    }
+    pub fn encode_as_hex_string(&self) -> Result<String, &'static str> {
+        let byt = match bincode::serialize(&self){
+            Ok(byt) => byt,
+            Err(_) => {return Err("Error at serialization")}
+        };
+        Ok(hex::encode(&byt))
+    }
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, &'static str> {
+        let hex_decode = match hex::decode(hex_string) {
+                Ok(bytes_data) => bytes_data,
+                Err(_) => return Err("Error at Hex decoding"),
+            };
+        let client_order:Self = match bincode::deserialize(&hex_decode) {
+            Ok(zkos_data) => zkos_data,
+            Err(_) => return Err("Error at deserialization"),
+        };
+        Ok(client_order)
+    }
+}
+
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CreateLendOrder {
