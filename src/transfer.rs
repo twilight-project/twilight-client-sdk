@@ -280,10 +280,10 @@ pub fn create_private_transfer_transaction_single_source_multiple_recievers(
     let (value_vector, account_vector, sender_count, receiver_count) =
         Sender::generate_value_and_account_vector(sender_array).unwrap();
 
-        println!("value_vector: {:?}", value_vector);
-        println!("account_vector: {:?}", account_vector);
-        println!("sender_count: {:?}", sender_count);
-        println!("receiver_count: {:?}", receiver_count);
+      //  println!("value_vector: {:?}", value_vector);
+      //  println!("account_vector: {:?}", account_vector);
+      //  println!("sender_count: {:?}", sender_count);
+      //  println!("receiver_count: {:?}", receiver_count);
 
     // create Inputs for recievers with Utxo as 000000000000000000000000000, 0
     let utxo: Utxo = Utxo::default();
@@ -301,7 +301,7 @@ pub fn create_private_transfer_transaction_single_source_multiple_recievers(
             Address::standard_address(Network::default(), pk.clone()).as_hex(),
         );
 
-        let inp = Input::coin(InputData::coin(utxo, out_coin, 0));
+        let inp = Input::coin(InputData::coin(utxo, out_coin, i as u8));
         input_vector.push(inp.clone());
     }
     let sk_vector = vec![sk];

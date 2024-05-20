@@ -12,8 +12,8 @@ const RELAYER_SEED: &str =
    //LPf7DBZSdlKYSk7i0qfB+V0dKw7Ul6NxcbuPufKPuUFj/mV0KJL+w1GTUlzHG6vyM1LLEuN+yaPyddveiUC+ag==
 #[cfg(test)]
 mod tests {
-    use crate::relayer_rpcclient::method::{ByteRec, GetCreateTraderOrderResponse};
-    use crate::relayer_rpcclient::txrequest::{RpcBody, RpcRequest};
+    use crate::relayer_rpcclient::method::{ByteRec, GetCreateTraderOrderResponse, GetTransactionHashResponse, TransactionHashArgs};
+    use crate::relayer_rpcclient::txrequest::{RpcBody, RpcRequest, PUBLIC_API_RPC_SERVER_URL};
     use crate::relayer_types::CreateTraderOrderClientZkos;
     use crate::test::{TEST_SEED, RELAYER_SEED};
     use crate::*;
@@ -170,11 +170,11 @@ use std::time::Duration;
         let mut rng = rand::thread_rng();
         // Bob transfers 5000 to alice (1000), faye(2000), jay(1500) and dave(500)
         let (bob_account_1, bob_sk_account_1) =
-        Account::generate_random_account_with_value(5000u64.into());
+        Account::generate_random_account_with_value(6300u64.into());
 
 
         //Create sender updated account vector for the verification of sk and bl-v
-        let sender_bob = 5000 - 4500; //bl-v
+        let sender_bob = 5000 - 5000; //bl-v
     
         // create input from account vector
         let bob_utxo = Utxo::random(); //Simulating a valid UTXO input
@@ -187,6 +187,7 @@ use std::time::Duration;
         let alice_key = PublicKey::update_public_key(&bob_pk, Scalar::random(&mut rng));
 
         let (alice_account, alice_comm_rscalar) = Account::generate_account(alice_key.clone());
+        
         let (fay_account, fay_comm_rscalar) = Account::generate_account(PublicKey::update_public_key(
         &alice_key,
         Scalar::random(&mut rng),
@@ -199,20 +200,36 @@ use std::time::Duration;
         &alice_key,
         Scalar::random(&mut rng),
     ));
+     let (charlie_account, charlie_comm_rscalar) = Account::generate_account(PublicKey::update_public_key(
+        &alice_key,
+        Scalar::random(&mut rng),
+    ));
+     let (delta_account, delta_comm_rscalar) = Account::generate_account(PublicKey::update_public_key(
+        &alice_key,
+        Scalar::random(&mut rng),
+    ));
+     let (bravo_account, bravo_comm_rscalar) = Account::generate_account(PublicKey::update_public_key(
+        &alice_key,
+        Scalar::random(&mut rng),
+    ));
 
     // create sender array
     let alice_reciever = transaction::Receiver::set_receiver(1000, alice_account);
     let fay_reciever = transaction::Receiver::set_receiver(2000, fay_account);
     let jay_reciever = transaction::Receiver::set_receiver(1500, jay_account);
-    //let dave_reciever = transaction::Receiver::set_receiver(400, dave_account);
+    let dave_reciever = transaction::Receiver::set_receiver(500, dave_account);
+    let charlie_reciever = transaction::Receiver::set_receiver(600, charlie_account);
+    let delta_reciever = transaction::Receiver::set_receiver(400, delta_account);
+    let bravo_reciever = transaction::Receiver::set_receiver(300, bravo_account);
+
     
     let bob_sender =
-        transaction::Sender::set_sender(-4500, bob_account_1, vec![alice_reciever, jay_reciever, fay_reciever]); //dave_reciever]);
+        transaction::Sender::set_sender(-6300, bob_account_1, vec![alice_reciever, jay_reciever, fay_reciever, dave_reciever, charlie_reciever, delta_reciever, bravo_reciever]);
     
     let tx_vector:Vec<transaction::Sender> = vec![bob_sender];
     let updated_balance_sender: Vec<u64> = vec![sender_bob];
-    let reciever_value_balance: Vec<u64> = vec![1000, 1500, 2000];
-    let commimment_scalar = vec![alice_comm_rscalar, fay_comm_rscalar, jay_comm_rscalar, dave_comm_rscalar];
+    let reciever_value_balance: Vec<u64> = vec![1000, 1500, 2000, 500, 600, 400, 300];
+    let commimment_scalar = vec![alice_comm_rscalar, jay_comm_rscalar, fay_comm_rscalar, dave_comm_rscalar, charlie_comm_rscalar, delta_comm_rscalar, bravo_comm_rscalar];
         let tx_wallet = crate::transfer::create_private_transfer_transaction_single_source_multiple_recievers(
             tx_vector,
             bob_input_1,
@@ -230,30 +247,31 @@ use std::time::Duration;
 
 
     }
-lazy_static! {
-    pub static ref RELAYER_RPC_SERVER_URL: String = std::env::var("RELAYER_RPC_SERVER_URL")
-        .expect("missing environment variable RELAYER_RPC_SERVER_URL");
-}
+// lazy_static! {
+//     pub static ref RELAYER_RPC_SERVER_URL: String = std::env::var("RELAYER_RPC_SERVER_URL")
+//         .expect("missing environment variable RELAYER_RPC_SERVER_URL");
+// }
 
     #[test]
     pub fn test_create_trader_order_client_tx() {
         dotenv::dotenv().expect("Failed loading dotenv");
 
         //derive private key;
-        let sk = SecretKey::from_bytes(RELAYER_SEED.as_bytes());
-        let client_address = "0c4ebfaffc5587295c6b63f2ccecefd85ab72d0ef3caae13bceb40400f07056537844728a12de100bde2987cfdc474569f5436cdf9ac3fc0f0b8d8449df7fee36958463d3b";
-        let value = 5000u64;
+        let sk = <RistrettoSecretKey as SecretKey>::from_bytes(RELAYER_SEED.as_bytes());
+        println!("sk {:?}", sk);
+        let client_address = "0cd2be3c0d8ef4fdeaa60f25a3bb051e856486f5ce7db4b1f16506150875e8af32bcf1a2fe5ee9da9baa3b58ae7e1b99756711db9ea1cc2774fee9a8cbceef270e6762facf";
+        let value: u64 = 1400u64;
         let input_coin =
             crate::chain::get_transaction_coin_input_from_address(client_address.to_string())
                 .unwrap();
 
-        let scalar_hex = "9d31a84f0c79c4f0ab6b6bbc9c9e6890e8fbcf2893c0a886b6511cb6d9c8d604";
+        let scalar_hex = "8e09a846788e21f9a1b22ba245fdae8df85e9d651fd720ab2274dbf034e4cc08";
         let rscalar = crate::util::hex_to_scalar(scalar_hex.to_string()).unwrap();
        
         
-        let leverage = 10.0;
+        let leverage = 15.0;
         let position_value = value * leverage as u64;
-          let entry_price = 60000u64;
+          let entry_price = 60500u64;
         let position_size = position_value * entry_price;
         let order_side = relayer_types::PositionType::LONG;
         let contract_path = "./relayerprogram.json";
@@ -267,7 +285,7 @@ lazy_static! {
             rscalar,
             value,
             order_side.to_str(),
-            "MARKET".to_string(),
+            "LIMIT".to_string(),
             leverage,
             value as f64,
             value as f64,
@@ -280,13 +298,48 @@ lazy_static! {
             &programs,
             0u32,
         ).unwrap();
-        println!("order_hex: {:?}", order_tx_message.clone());
+       println!("order_hex: {:?}", order_tx_message.clone());
 
        // recreate trader order
-       let client_order: CreateTraderOrderClientZkos = CreateTraderOrderClientZkos::decode_from_hex_string(order_tx_message).unwrap();
-        let order_tx = client_order.tx;
+       //let client_order: CreateTraderOrderClientZkos = CreateTraderOrderClientZkos::decode_from_hex_string(order_tx_message).unwrap();
+       // let order_tx = client_order.tx;
         // verify the transaction
-        let verify_tx = order_tx.verify();
-        println!("verify_tx: {:?}", verify_tx);
+       // let verify_tx = order_tx.verify();
+       // println!("verify_tx: {:?}", verify_tx);
+        //send the msg to chain
+       // let response = crate::relayer_types::CreateTraderOrderZkos::submit_order(order_tx_message.clone());
+       // println!("response: {:?}", response);
 }
+
+    #[test]
+    fn test_transaction_hashes_response(){
+        dotenv::dotenv().expect("Failed loading dotenv");
+
+        let tx_hash_arg1 = TransactionHashArgs::AccountId {
+            id: "0cd2be3c0d8ef4fdeaa60f25a3bb051e856486f5ce7db4b1f16506150875e8af32bcf1a2fe5ee9da9baa3b58ae7e1b99756711db9ea1cc2774fee9a8cbceef270e6762facf".to_string(),
+            status: None,
+        };
+        let _tx_hash_arg2 = TransactionHashArgs::RequestId {
+            id: "REQIDAEF51D3147D9FD400135A13DE7ADE176F171597F2D37936C0129BB11F05B6B68".to_string(),
+            status: None,
+        };
+        let tx_send: RpcBody<TransactionHashArgs> = RpcRequest::new(
+            tx_hash_arg1,
+            crate::relayer_rpcclient::method::Method::transaction_hashes,
+        );
+        let res: Result<
+            crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match GetTransactionHashResponse::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+
+        println!("order response : {:#?}", response_unwrap);
+    }
 }

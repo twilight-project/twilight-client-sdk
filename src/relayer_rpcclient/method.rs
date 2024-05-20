@@ -2,8 +2,8 @@ use crate::relayer_types::{LendOrder, OrderStatus, TraderOrder, TxHash};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{hash::Hash, time::SystemTime};
-use uuid::Uuid;
-
+use uuid::{timestamp, Uuid};
+use serde_this_or_that::as_f64;
 /// Serialized as the "method" field of JSON-RPC/HTTP requests.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub enum Method {
@@ -19,6 +19,8 @@ pub enum Method {
     trader_order_info,
     #[allow(non_camel_case_types)]
     lend_order_info,
+    #[allow(non_camel_case_types)]
+    btc_usd_price,
 }
 impl Method {}
 
@@ -229,6 +231,33 @@ impl RequestResponse {
     }
     pub fn get_id(&self) -> String {
         self.id_key.clone()
+    }
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BTCPrice {
+    pub id: i64,
+    #[serde(deserialize_with = "as_f64")]
+    pub price: f64,
+    pub timestamp: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetBTCPRice {
+    pub result: BTCPrice,
+}
+impl GetBTCPRice {
+    pub fn get_response(
+        resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+    ) -> Result<GetBTCPRice, String> {
+        let tx_hash: Result<GetBTCPRice, String> = match resp.result {
+            Ok(response) => match serde_json::from_value(response) {
+                Ok(response) => Ok(GetBTCPRice { result: response }),
+
+                Err(arg) => Err(arg.to_string()),
+            },
+            Err(arg) => Err(arg.to_string()),
+        };
+        tx_hash
     }
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]

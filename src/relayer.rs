@@ -129,7 +129,10 @@ pub fn create_trader_order_zkos(
     
     let create_zkos_order_full: CreateTraderOrderClientZkos =
         CreateTraderOrderClientZkos::new(create_order, order_tx);
-    let order_hex: String = create_zkos_order_full.encode_as_hex_string()?;
+    let order_hex: String = match create_zkos_order_full.encode_as_hex_string(){
+        Ok(order_hex) => order_hex,
+        Err(_) => return Err("Error encoding order as hex string"),
+    };
     Ok(order_hex)
 }
 
