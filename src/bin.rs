@@ -42,20 +42,20 @@ fn main() {
     //println!("Verified: {:?}", verified);
     let sk = <RistrettoSecretKey as SecretKey>::from_bytes(RELAYER_SEED_PHRASE.as_bytes());
     
-    let client_address = "0cece816c6164c2f20526b683482474d0af046a9a24fc6cacd56327a2eeaf4427f78424232a96dc7c2bbff7ec816b78f32e65d8b70c52cc0ad2986f7b6ad36d128fe35a635";
-    let initial_amount: u64 = 20000;
-    let order_amount = 100u64;
+    let client_address = "0cbe7a0cf282248e8430ba001fd457e8e7049cc08240c95a70919b70fb6a096d5fcaa77822b34fa8b6156ca12fb133039a529a73554e341041a4315316a0af1f67eefd3464";
+    let initial_amount: u64 = 50000;
+    let order_amount = 200u64;
     let mut updated_sender_amount = 0;
     let mut address = "".to_string();
     let mut scalar = Scalar::zero();
     
-    let entry_price = helper_get_recent_price() as u64;
+    let entry_price = helper_get_recent_price() as u64 - 80u64;
     (scalar, updated_sender_amount, address) =  helper_send_transfer_tx(client_address.to_string(), sk, initial_amount) ;
     let trader_order = helper_place_limit_trader_order(order_amount, sk, address.to_string(), scalar, entry_price);
     println!("trader_order: {:?}", trader_order);
-    for _i in 0..199{
+    for _i in 0..249{
         
-        let random_point = rand::thread_rng().gen_range(0, 100);
+        let random_point = rand::thread_rng().gen_range(0, 500);
         let entry_price = helper_get_recent_price() as u64 - random_point;
         //entry_price = entry_price - 50;
         (scalar, updated_sender_amount, address) =  helper_send_transfer_tx(client_address.to_string(), sk, updated_sender_amount);
@@ -263,7 +263,7 @@ fn helper_single_transfer(coin_address: String, sk: RistrettoSecretKey, value: u
         
         //get coin input from output 
         let input = zkos_client_wallet::chain::get_transaction_coin_input_from_address(coin_address).unwrap();
-        let amount = 100u64;
+        let amount = 200u64;
         let updated_sender_balance = value - amount;
         // update public key 
         let rscalar = Scalar::random(&mut OsRng);
@@ -295,8 +295,8 @@ fn helper_send_transfer_tx(coin_address: String, sk:RistrettoSecretKey, value: u
     println!("reciever_address: {:?}", reciever_address.clone());
     //check for creation of new utxo
     
-    loop {
-       std::thread::sleep(Duration::from_secs(4));
+    for _i in 0..6{
+       std::thread::sleep(Duration::from_secs(10));
         let utxo_id_vec = zkos_client_wallet::chain::get_coin_utxo_by_address_hex(reciever_address.clone()).unwrap();
         println!("utxo_id_vec: {:?}", utxo_id_vec);
         if utxo_id_vec.len() > 0 {
