@@ -309,6 +309,69 @@ impl RpcRequest<TransactionHashArgs> for RpcBody<TransactionHashArgs> {
         }
     }
 }
+impl RpcRequest<Option<String>> for RpcBody<Option<String>> {
+    fn new(request: Option<String>, method: Method) -> Self {
+        Self::new_with_id(Id::uuid_v4(), request, method)
+    }
+
+    fn new_with_id(id: Id, request: Option<String>, method: Method) -> Self {
+        Self {
+            jsonrpc: Version::V2,
+            id,
+            method: method,
+            params: request,
+        }
+    }
+
+    fn id(&self) -> &Id {
+        &self.id
+    }
+
+    fn params(&self) -> &Option<String> {
+        &self.params
+    }
+    fn into_json(self) -> String {
+        let tx = serde_json::to_string(&self).unwrap();
+        let mut file = File::create("foo.txt").unwrap();
+        file.write_all(&serde_json::to_vec_pretty(&tx.clone()).unwrap())
+            .unwrap();
+        tx
+    }
+
+    fn get_method(&self) -> &Method {
+        &self.method
+    }
+
+    fn send(
+        self,
+        url: std::string::String,
+    ) -> Result<RpcResponse<serde_json::Value>, reqwest::Error> {
+        match self.method {
+            Method::btc_usd_price => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+            _ => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -419,6 +482,41 @@ mod test {
 
         let response_unwrap = match res {
             Ok(rpc_response) => match GetTransactionHashResponse::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+
+        println!("order response : {:#?}", response_unwrap);
+        let mut file = File::create("foo_response.txt").unwrap();
+        match response_unwrap {
+            Ok(res) => {
+                file.write_all(&serde_json::to_vec_pretty(&res).unwrap())
+                    .unwrap();
+            }
+            Err(arg) => {
+                file.write_all(&serde_json::to_vec_pretty(&arg).unwrap())
+                    .unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn query_btc_price_test() {
+        dotenv::dotenv().expect("Failed loading dotenv");
+
+        let tx_send: RpcBody<Option<String>> = RpcRequest::new(
+            None,
+            crate::relayer_rpcclient::method::Method::btc_usd_price,
+        );
+        let res: Result<
+            crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match GetBTCPRice::get_response(rpc_response) {
                 Ok(response) => Ok(response),
                 Err(arg) => Err(arg),
             },
