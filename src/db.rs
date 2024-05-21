@@ -1,4 +1,6 @@
 use diesel::prelude::*;
+use dotenv::dotenv;
+use std::env;
 
 #[derive(Insertable, Queryable, Identifiable, AsChangeset)]
 #[table_name = "accounts"]
@@ -23,6 +25,18 @@ pub struct Order {
     pub request_id: String,
     pub tx_hash: String,
     pub archived: bool,
+}
+
+//DATABASE_URL=postgres://username:password@localhost/database_name
+
+pub fn establish_connection() -> PgConnection {
+    dotenv().ok();
+
+    let database_url = env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
+
+    PgConnection::establish(&database_url)
+        .expect(&format!("Error connecting to {}", database_url))
 }
 
 pub fn insert_account(conn: &PgConnection, account: Account) -> QueryResult<usize> {
