@@ -364,7 +364,7 @@ pub fn create_trade_order_client_transaction(
         tx_data.clone(),
     );
 
-    println!("program_proof: {:?}", program_proof );
+   // println!("program_proof: {:?}", program_proof );
 
     let (program, proof) = match program_proof {
         Ok((program, proof)) => (program, proof),

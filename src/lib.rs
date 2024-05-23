@@ -4,11 +4,15 @@
 //! ZkOS Client Wallet implementation.
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate diesel;
 pub extern crate quisquislib;
 pub extern crate transaction;
 pub extern crate transactionapi;
 pub extern crate zkschnorr;
 pub extern crate zkvm;
+
+
 
 pub mod chain;
 pub mod keys_management;
@@ -21,3 +25,7 @@ pub mod transfer;
 pub mod util;
 pub mod zk_account;
 mod test;
+pub mod schema;
+pub mod models;
+pub mod db_ops;
+

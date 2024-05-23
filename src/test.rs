@@ -44,7 +44,7 @@ use std::time::Duration;
         // Load chain Metadata
         dotenv::dotenv().expect("Failed loading dotenv");
 
-        let coin_address: String = "0cf05ad3645017dde85fc2efea413ed83251541817b4da34a953ac8fe1b56f5e3f401ede9e1a83033c5082c5bbdce2bcc0f21ef70b56dbd74f13c5cf9b7009ed11f18eaea3".to_string();
+        let coin_address: String = "0c8ec6914e322403233e039af43d97a9f380ef2b300020da5fa3120e40e792925abeb75b95711bc939a85b18896af562645181f9558b55edee72ab672ebd10a73dbc3d08d5".to_string();
     
         // //get coin output from chain    
         let utxo_id_vec = crate::chain::get_coin_utxo_by_address_hex(coin_address).unwrap();
@@ -97,6 +97,47 @@ use std::time::Duration;
         // compare enc
         assert_eq!(encrypt_new, enc_old);    
 
+    }
+
+    #[test]
+    fn test_db_account_scalar_verification(){
+        // Load chain Metadata
+        dotenv::dotenv().expect("Failed loading dotenv");
+        let mut conn = crate::db_ops::establish_connection();
+        // get all accounts
+        //let pk_address = "0cf47a707ab3f2896f5b710597ec53378bd330487cb4641bc11f34652816966c6d2086d468393fbd05cfce950c772581363a70fc49829c30aef5fee125b3e36b7254b71645";
+        //let account_db = crate::db_ops::get_account_by_pk_address(pk_address, &mut conn).unwrap();
+        
+        let accounts = crate::db_ops::get_all_accounts(&mut conn).unwrap();
+        //println!("accountDB {:?}", account_db.clone());
+        for account_db in accounts.iter(){
+            let pk_address = account_db.pk_address.clone();
+            let scalar_hex = account_db.scalar_str.clone().unwrap();
+            let scalar = crate::util::hex_to_scalar(scalar_hex).unwrap();
+            let balance = account_db.balance as u64;
+            //println!("balance {:?}", balance);
+            // get Account from Output
+            let utxo_id_vec = crate::chain::get_coin_utxo_by_address_hex(pk_address.to_string()).unwrap();
+            let coin_output = crate::chain::get_coin_output_by_utxo_id_hex(utxo_id_vec[0].clone()).unwrap();
+            let account : Account = Output::to_quisquis_account(&coin_output).unwrap();
+            let (pk_old, enc_old) = account.get_account();
+            let encrypt_new = ElGamalCommitment::generate_commitment(&pk_old, scalar, Scalar::from(balance));
+            // compare enc
+            assert_eq!(encrypt_new, enc_old);
+        }
+        // let scalar_hex = account_db.scalar_str.unwrap();
+        // let scalar = crate::util::hex_to_scalar(scalar_hex).unwrap();
+        // let balance = account_db.balance as u64;
+        // //println!("balance {:?}", balance);
+        // // get Account from Output
+        // let utxo_id_vec = crate::chain::get_coin_utxo_by_address_hex(pk_address.to_string()).unwrap();
+        // let coin_output = crate::chain::get_coin_output_by_utxo_id_hex(utxo_id_vec[0].clone()).unwrap();
+        // let account : Account = Output::to_quisquis_account(&coin_output).unwrap();
+        // let (pk_old, enc_old) = account.get_account();
+        // let encrypt_new = ElGamalCommitment::generate_commitment(&pk_old, scalar, Scalar::from(balance));
+        // // compare enc
+        // assert_eq!(encrypt_new, enc_old);
+        
     }
     #[test]
     fn test_transfer_private_single(){
@@ -159,7 +200,7 @@ use std::time::Duration;
 
     #[test]
     fn convert_bytes_to_hex(){
-        let bytes = [78, 145, 236, 144, 5, 236, 245, 138, 234, 89, 187, 21, 136, 9, 23, 151, 123, 244, 167, 16, 214, 214, 146, 111, 190, 124, 59, 5, 143, 45, 233, 1];
+        let bytes = [77, 248, 36, 68, 30, 218, 138, 123, 106, 210, 26, 141, 28, 98, 78, 29, 101, 134, 227, 150, 204, 70, 107, 172, 83, 59, 127, 181, 38, 52, 56, 8];
         let hex = hex::encode(bytes);
         println!("hex {:?}", hex);
     }
@@ -259,7 +300,7 @@ use std::time::Duration;
         //derive private key;
         let sk = <RistrettoSecretKey as SecretKey>::from_bytes(RELAYER_SEED.as_bytes());
         println!("sk {:?}", sk);
-        let client_address = "0cd2be3c0d8ef4fdeaa60f25a3bb051e856486f5ce7db4b1f16506150875e8af32bcf1a2fe5ee9da9baa3b58ae7e1b99756711db9ea1cc2774fee9a8cbceef270e6762facf";
+        let client_address = "0c1473fc6e097057d678c9c5cfa886e084bc2a425671200bc6d931d682c1623a6d7e6fb5a6381c7cef4b42875655b5aa78141f2dda25ea2f7585e0ca2b4402b70cd8f694dc";
         let value: u64 = 1400u64;
         let input_coin =
             crate::chain::get_transaction_coin_input_from_address(client_address.to_string())
@@ -298,7 +339,7 @@ use std::time::Duration;
             &programs,
             0u32,
         ).unwrap();
-       println!("order_hex: {:?}", order_tx_message.clone());
+       //println!("order_hex: {:?}", order_tx_message.clone());
 
        // recreate trader order
        //let client_order: CreateTraderOrderClientZkos = CreateTraderOrderClientZkos::decode_from_hex_string(order_tx_message).unwrap();
@@ -319,10 +360,10 @@ use std::time::Duration;
             id: "0cd2be3c0d8ef4fdeaa60f25a3bb051e856486f5ce7db4b1f16506150875e8af32bcf1a2fe5ee9da9baa3b58ae7e1b99756711db9ea1cc2774fee9a8cbceef270e6762facf".to_string(),
             status: None,
         };
-        let _tx_hash_arg2 = TransactionHashArgs::RequestId {
-            id: "REQIDAEF51D3147D9FD400135A13DE7ADE176F171597F2D37936C0129BB11F05B6B68".to_string(),
-            status: None,
-        };
+        // let _tx_hash_arg2 = TransactionHashArgs::RequestId {
+        //     id: "REQIDAEF51D3147D9FD400135A13DE7ADE176F171597F2D37936C0129BB11F05B6B68".to_string(),
+        //     status: None,
+        // };
         let tx_send: RpcBody<TransactionHashArgs> = RpcRequest::new(
             tx_hash_arg1,
             crate::relayer_rpcclient::method::Method::transaction_hashes,
@@ -341,5 +382,46 @@ use std::time::Duration;
         };
 
         println!("order response : {:#?}", response_unwrap);
+    }
+    #[test]
+    fn test_create_account_db(){
+        dotenv::dotenv().expect("Failed loading dotenv");
+        let mut conn = crate::db_ops::establish_connection();
+        let pk_address = "0c1473fc6e097057d678c9c5cfa886e084bc2a425671200bc6d931d682c1623a6d7e6fb5a6381c7cef4b42875655b5aa78141f2dda25ea2f7585e0ca2b4402b70cd8f694dc";
+        let scalar_str = "8e09a846788e21f9a1b22ba245fdae8df85e9d651fd720ab2274dbf034e4cc08";
+        let is_on_chain = false;
+        let balance = 1000;
+        let account = crate::db_ops::create_account(&mut conn, pk_address, scalar_str, is_on_chain, balance).unwrap();
+        println!("account {:?}", account);
+    }
+    #[test]
+    fn test_get_all_accounts_db(){
+        dotenv::dotenv().expect("Failed loading dotenv");
+        let mut conn = crate::db_ops::establish_connection();
+        let accounts = crate::db_ops::get_all_accounts(&mut conn).unwrap();
+        println!("accounts {:?}", accounts);
+    }
+    #[test]
+    fn test_get_account_by_pk_address_db(){
+        dotenv::dotenv().expect("Failed loading dotenv");
+        let mut conn = crate::db_ops::establish_connection();
+        let pk_address = "0c1473fc6e097057d678c9c5cfa886e084bc2a425671200bc6d931d682c1623a6d7e6fb5a6381c7cef4b42875655b5aa78141f2dda25ea2f7585e0ca2b4402b70cd8f694dc";
+        let account = crate::db_ops::get_account_by_pk_address(pk_address, &mut conn).unwrap();
+        println!("account {:?}", account);
+    }
+    #[test]
+    fn test_delete_account_by_id_db(){
+        dotenv::dotenv().expect("Failed loading dotenv");
+        let mut conn = crate::db_ops::establish_connection();
+        let id = 1;
+        let size = crate::db_ops::delete_account_by_id(id, &mut conn).unwrap();
+        println!("size {:?}", size);
+    }
+    #[test]
+    fn test_delete_all_accounts_db(){
+        dotenv::dotenv().expect("Failed loading dotenv");
+        let mut conn = crate::db_ops::establish_connection();
+        let size = crate::db_ops::delete_all_accounts(&mut conn).unwrap();
+        println!("size {:?}", size);
     }
 }
