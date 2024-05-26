@@ -44,7 +44,7 @@ use std::time::Duration;
         // Load chain Metadata
         dotenv::dotenv().expect("Failed loading dotenv");
 
-        let coin_address: String = "0c8ec6914e322403233e039af43d97a9f380ef2b300020da5fa3120e40e792925abeb75b95711bc939a85b18896af562645181f9558b55edee72ab672ebd10a73dbc3d08d5".to_string();
+        let coin_address: String = "0cca73b4d0d2fe98f3f392f5c9940b89d8a62d42418f5f128adad1aeeea51309329c46551c578c1b17ee9aa184198582095700d71dd2802e996c8eba97b680a915969ec3f3".to_string();
     
         // //get coin output from chain    
         let utxo_id_vec = crate::chain::get_coin_utxo_by_address_hex(coin_address).unwrap();
@@ -399,7 +399,9 @@ use std::time::Duration;
         dotenv::dotenv().expect("Failed loading dotenv");
         let mut conn = crate::db_ops::establish_connection();
         let accounts = crate::db_ops::get_all_accounts(&mut conn).unwrap();
-        println!("accounts {:?}", accounts);
+        
+        //println!("accounts {:?}", accounts);
+        print!("Number of accounts {:?}", accounts.len());
     }
     #[test]
     fn test_get_account_by_pk_address_db(){
@@ -424,4 +426,16 @@ use std::time::Duration;
         let size = crate::db_ops::delete_all_accounts(&mut conn).unwrap();
         println!("size {:?}", size);
     }
+    #[test]
+    fn delete_last_100_entries_accounts(){
+        dotenv::dotenv().expect("Failed loading dotenv");
+        let mut count = 6089;
+        // for _i in 0..100{
+        //     count += 1;
+        // }
+        // let mut conn = crate::db_ops::establish_connection();
+        // let size = crate::db_ops::delete_account_by_id(count, &mut conn).unwrap();
+       // println!("size {:?}", size);
+    }
+ 
 }

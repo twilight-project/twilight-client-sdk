@@ -1,4 +1,5 @@
 
+use jsonrpc::client;
 use rand::Rng;
 use zkos_client_wallet::relayer_rpcclient::method::{ByteRec, GetCreateTraderOrderResponse, GetTransactionHashResponse, TransactionHashArgs};
 use zkos_client_wallet::relayer_rpcclient::txrequest::{RpcBody, RpcRequest, PUBLIC_API_RPC_SERVER_URL};
@@ -43,11 +44,23 @@ fn main() {
     //println!("SHORT Order ");
   
     let sk = <RistrettoSecretKey as SecretKey>::from_bytes(RELAYER_SEED_PHRASE.as_bytes());
-    
+    test_tx_commit_rpc(sk);
+
+
     let client_address = "0c54f1d02f24ad3a03f6bb43980470ce65ebe2d44b8b4ff61ca8a57631435e55239a4decbdb87af96b3e14ab46e3a53394fe16c209604ab30e5d3a43576704d600a20a1e24";
-    let initial_amount: u64 = 694400;
-    
-    add_accounts_to_db(sk, client_address.to_string(), initial_amount);
+    let initial_amount: u64 = 613600;
+    //  let mut conn = zkos_client_wallet::db_ops::establish_connection();
+    //     let accounts = zkos_client_wallet::db_ops::get_all_accounts(&mut conn).unwrap();
+
+    //     let accountdb = accounts[0].clone();
+    //     let balance = accountdb.balance as u64;
+    //     let client_address = accountdb.pk_address.clone();
+    //     let scalar = zkos_client_wallet::util::hex_to_scalar(accountdb.scalar_str.unwrap());
+    //     for _i in 0..50{
+    //     let res = helper_place_limit_trader_order(balance, sk, client_address.clone(), scalar.unwrap(), 65000);
+    //     }
+     add_accounts_to_db(sk, client_address.to_string(), initial_amount);
+
 //     let order_amount = 100u64;
     
 //     let entry_price = helper_get_recent_price() as u64 + 80u64;
@@ -73,28 +86,34 @@ fn main() {
    
 }   
 
-fn helper_place_limit_trader_order(value: u64, sk: RistrettoSecretKey, client_address: String, rscalar: Scalar, entry_price: u64)  {
+fn helper_place_limit_trader_order(value: u64, sk: RistrettoSecretKey, client_address: String, rscalar: Scalar, entry_price: u64) -> Result<(), String>  {
     //fetch input account from the address
-     let input_coin =
-            zkos_client_wallet::chain::get_transaction_coin_input_from_address(client_address.to_string())
-                .unwrap();
+     let input_coin = match
+            zkos_client_wallet::chain::get_transaction_coin_input_from_address(client_address.to_string()){
+                Ok(input) => input,
+                Err(e) => return Err(e)
+            };
 
         // select a random value between 0 to 50
         let random_point = rand::thread_rng().gen_range(1, 50);
+        
         let leverage = random_point as f64;
         let position_value = value * leverage as u64;
-        //let mut entry_price = 67500u64;
-       // let random_price = rand::thread_rng().gen_range(1, 1000);
-        //entry_price = entry_price - random_price;
-          //let random_point = rand::thread_rng().gen_range(0, 1);
-        let mut order_side = zkos_client_wallet::relayer_types::PositionType::SHORT;
-        //if random_point == 1 {
-          //  order_side = zkos_client_wallet::relayer_types::PositionType::SHORT;
-          //  entry_price = entry_price + random_price;
-          //  println!("Short Order");
-        //} 
         
-        let position_size = position_value * entry_price;
+        let random_price_variance = rand::thread_rng().gen_range(10, 500);
+        
+        let mut entry_price_local = entry_price - random_price_variance;
+        let order_side_select = rand::thread_rng().gen_range(0, 2);
+        
+        let mut order_side = zkos_client_wallet::relayer_types::PositionType::LONG;
+        
+        if order_side_select > 0 {
+           order_side = zkos_client_wallet::relayer_types::PositionType::SHORT;
+           entry_price_local = entry_price + random_price_variance;
+          
+        } 
+        
+        let position_size = position_value * entry_price_local;
         
       
         //let order_side = relayer_types::PositionType::LONG;
@@ -104,7 +123,7 @@ fn helper_place_limit_trader_order(value: u64, sk: RistrettoSecretKey, client_ad
         let programs = zkos_client_wallet::programcontroller::ContractManager::import_program(&contract_path);
 
   
-        let order_tx_message = zkos_client_wallet::relayer::create_trader_order_zkos(
+        let order_tx_message = match zkos_client_wallet::relayer::create_trader_order_zkos(
             input_coin,
             sk,
             rscalar,
@@ -115,34 +134,44 @@ fn helper_place_limit_trader_order(value: u64, sk: RistrettoSecretKey, client_ad
             value as f64,
             value as f64,
             "PENDING".to_string(),
-            entry_price as f64,
+            entry_price_local as f64,
             35000.0,
             position_value,
             position_size,
             order_side,
             &programs,
             0u32,
-        ).unwrap();
-      // return order_tx_message;
+        ){
+            Ok(order_tx_message) => order_tx_message,
+            Err(e) => return Err(e.to_string())
+        };
 
-    //    recreate trader order
+   //     send the msg to chain
+        let response = match zkos_client_wallet::relayer_types::CreateTraderOrderZkos::submit_order(order_tx_message.clone()){
+            Ok(response) => response,
+            Err(e) => return Err(e.to_string())
+        };
+        println!("response: {:?}", response);
+        //return response;
+        Ok(())
+            //    recreate trader order
     //  let client_order: CreateTraderOrderClientZkos = CreateTraderOrderClientZkos::decode_from_hex_string(order_tx_message.clone()).unwrap();
      //  let order_tx = client_order.tx;
     //    verify the transaction
      //  let verify_tx = order_tx.verify();
       // println!("verify_tx: {:?}", verify_tx);
-   //     send the msg to chain
-        let response = zkos_client_wallet::relayer_types::CreateTraderOrderZkos::submit_order(order_tx_message.clone());
-        println!("response: {:?}", response);
 }
    
+fn create_orders_and_db(){
 
+}
 
-fn helper_multiple_account_transfer(sk: RistrettoSecretKey, sender_address: String, balance: u64)-> (TransferTxWallet, Vec<u64>, String) {
+fn helper_multiple_account_transfer(sk: RistrettoSecretKey, sender_address: String, balance: u64)-> Result<TransferTxWallet, String> {
      let mut rng = rand::thread_rng();
         
         //get coin input from output 
-        let bob_input_1 = zkos_client_wallet::chain::get_transaction_coin_input_from_address(sender_address).unwrap();
+        let bob_input_1 = zkos_client_wallet::chain::get_transaction_coin_input_from_address(sender_address)?;
+
         let amount = 800u64;
         // get sender account from input
         let sender_account = bob_input_1.to_quisquis_account().unwrap();
@@ -211,7 +240,7 @@ fn helper_multiple_account_transfer(sk: RistrettoSecretKey, sender_address: Stri
         );
    // let updated_scalar = tx_wallet.get_encrypt_scalar().unwrap()[0];
    //  println!("comm_rscalar: {:?}", zkos_client_wallet::util::scalar_to_hex(updated_scalar));
-        (tx_wallet, reciever_value_balance, alice_address.clone())
+        Ok(tx_wallet)
 }
 
 fn helper_single_transfer(coin_address: String, sk: RistrettoSecretKey, value: u64)-> (TransferTxWallet, u64, String){
@@ -220,7 +249,7 @@ fn helper_single_transfer(coin_address: String, sk: RistrettoSecretKey, value: u
         
         //get coin input from output 
         let input = zkos_client_wallet::chain::get_transaction_coin_input_from_address(coin_address).unwrap();
-        let amount = 100u64;
+        let amount = 10u64;
         let updated_sender_balance = value - amount;
         // update public key 
         let rscalar = Scalar::random(&mut OsRng);
@@ -240,39 +269,94 @@ fn helper_single_transfer(coin_address: String, sk: RistrettoSecretKey, value: u
         (tx_wallet, updated_sender_balance, new_address.clone())
 }
 
-fn create_db_accounts(address: String, initial_balance: u64, sk: RistrettoSecretKey) {
-    
-    let (tx_wallet, updated_balance, reciever_address) = helper_multiple_account_transfer(sk,  address, initial_balance);
+fn create_db_accounts(address: String, initial_balance: u64, sk: RistrettoSecretKey)->Result<(), String> {
+    //let mut tx_wallet: TransferTxWallet;
+    //loop{
+      //  std::thread::sleep(Duration::from_secs(5));
+       // println!("Creating accounts");
+            match helper_multiple_account_transfer(sk,  address.clone(), initial_balance){
+            Ok(tx_wallet) => {
+                let tx = tx_wallet.get_tx();
+                //convert tx to hex
+                //let tx_encode = bincode::serialize(&tx).unwrap();
+                //let tx_hex = hex::encode(tx_encode);
+                //println!("tx_wallet: {:?}", tx_hex);
+                // send the tx to chain
+                let response:String =  match zkos_client_wallet::chain::tx_commit_broadcast_transaction(tx_wallet.get_tx()){
+                    Ok(response) => response,
+                    Err(e) => return Err(e)
+                
+                };
+                // if response.is_err(){
+                //     println!("Error in sending tx to chain");
+                //     return Err("Error in sending tx to chain".to_string());
+                // }
+                println!("response {:?}", response);
+                //check for creation of new utxo
+                for i in 0..10{
+                     println!("Fetching utxo try {:?}", i);
+                    std::thread::sleep(Duration::from_secs(5));
+                    let utxo_id_vec = zkos_client_wallet::chain::get_coin_utxo_by_address_hex(address.clone()).unwrap();
+                   
+                    if utxo_id_vec.len() > 0 {
+                        // add the accounts to db
+                        let mut conn = zkos_client_wallet::db_ops::establish_connection();
+                        let tx = tx_wallet.get_tx();
+                        let outputs = tx.get_tx_outputs();
+                        let is_on_chain = true;
+                        let encrypt_scalar = tx_wallet.get_encrypt_scalar().unwrap();
+                        // println!("Scalar length: {:?}", encrypt_scalar.len());
+                        let updated_balance: Vec<u64> = vec![100, 110, 90, 150, 130, 120, 100];
+                        for i in 0..7 {
+                            let scalar_str = zkos_client_wallet::util::scalar_to_hex(encrypt_scalar[i]);
+                            let balance = updated_balance[i];
+                            let pk_address = outputs[i+1].as_output_data().get_owner_address().unwrap();
+                            zkos_client_wallet::db_ops::create_account(&mut conn, pk_address, &scalar_str, is_on_chain, balance as i32).unwrap();
+                        }
+                        break;
+                    }
+                }
+               
+            },
+            Err(e) => return Err(e)
+        };
+       // if res.is_ok(){
+         //   println!("Tx created");
+           // tx_wallet = res.unwrap();
+           // break;
+       // }
+    //}
     // send the tx to chain
-    let response = match zkos_client_wallet::chain::tx_commit_broadcast_transaction(tx_wallet.get_tx()){
-        Ok(response) => response,
-        Err(arg) => arg,  
-    };
-   // println!("response {:?}", response);
+    //let response =  zkos_client_wallet::chain::tx_commit_broadcast_transaction(tx_wallet.get_tx());
+    //if response.is_err(){
+      //  println!("Error in sending tx to chain");
+
+    //}
+    //println!("response {:?}", response);
     //check for creation of new utxo
-    for i in 0..10{
-       std::thread::sleep(Duration::from_secs(5));
-        let utxo_id_vec = zkos_client_wallet::chain::get_coin_utxo_by_address_hex(reciever_address.clone()).unwrap();
-       //println!("Fetching utxo try {:?}", i);
-        if utxo_id_vec.len() > 0 {
-            // add the accounts to db
-            let mut conn = zkos_client_wallet::db_ops::establish_connection();
-            let tx = tx_wallet.get_tx();
-            let outputs = tx.get_tx_outputs();
-            let is_on_chain = true;
-            let encrypt_scalar = tx_wallet.get_encrypt_scalar().unwrap();
-           // println!("Scalar length: {:?}", encrypt_scalar.len());
-            
-            for i in 0..7 {
-                let scalar_str = zkos_client_wallet::util::scalar_to_hex(encrypt_scalar[i]);
-                let balance = updated_balance[i];
-                let pk_address = outputs[i+1].as_output_data().get_owner_address().unwrap();
-                zkos_client_wallet::db_ops::create_account(&mut conn, pk_address, &scalar_str, is_on_chain, balance as i32).unwrap();
-            }
-            break;
-        }
-    }
-    
+    // for i in 0..10{
+    //    std::thread::sleep(Duration::from_secs(5));
+    //     let utxo_id_vec = zkos_client_wallet::chain::get_coin_utxo_by_address_hex(reciever_address.clone()).unwrap();
+    //    println!("Fetching utxo try {:?}", i);
+    //     if utxo_id_vec.len() > 0 {
+    //         // add the accounts to db
+    //         let mut conn = zkos_client_wallet::db_ops::establish_connection();
+    //         let tx = tx_wallet.get_tx();
+    //         let outputs = tx.get_tx_outputs();
+    //         let is_on_chain = true;
+    //         let encrypt_scalar = tx_wallet.get_encrypt_scalar().unwrap();
+    //        // println!("Scalar length: {:?}", encrypt_scalar.len());
+    //         let updated_balance: Vec<u64> = vec![100, 110, 90, 150, 130, 120, 100];
+    //         for i in 0..7 {
+    //             let scalar_str = zkos_client_wallet::util::scalar_to_hex(encrypt_scalar[i]);
+    //             let balance = updated_balance[i];
+    //             let pk_address = outputs[i+1].as_output_data().get_owner_address().unwrap();
+    //             zkos_client_wallet::db_ops::create_account(&mut conn, pk_address, &scalar_str, is_on_chain, balance as i32).unwrap();
+    //         }
+    //         break;
+    //     }
+    // }
+     Ok(())
 
 } 
 
@@ -289,11 +373,11 @@ fn helper_send_transfer_tx(coin_address: String, sk:RistrettoSecretKey, value: u
     let response = zkos_client_wallet::chain::tx_commit_broadcast_transaction(tx_wallet.get_tx()).unwrap();
     println!("response {:?}", response);
    // println!("Scalar Wallet{:?}", tx_wallet.get_encrypt_scalar().unwrap()[0].clone());
-    println!("reciever_address: {:?}", reciever_address.clone());
+    //println!("reciever_address: {:?}", reciever_address.clone());
     //check for creation of new utxo
     
     for i in 0..10{
-       std::thread::sleep(Duration::from_secs(8));
+       std::thread::sleep(Duration::from_secs(3));
         let utxo_id_vec = zkos_client_wallet::chain::get_coin_utxo_by_address_hex(reciever_address.clone()).unwrap();
        println!("Fetching utxo try {:?}", i);
         if utxo_id_vec.len() > 0 {
@@ -383,13 +467,36 @@ fn add_accounts_to_db(sk: RistrettoSecretKey, sender_address: String,  mut initi
     while initial_balance > 0  
     {
         println!("Initial Balance: {:?}", initial_balance);
-        create_db_accounts(sender_address.clone(), initial_balance, sk);
-        initial_balance -= 800;
+        match create_db_accounts(sender_address.clone(), initial_balance, sk){
+            Ok(_) => {
+                initial_balance -= 800;
+                println!("Accounts created");
+            },
+            Err(e) => {
+
+                println!("Error in creating accounts: {:?}", e);
+            }
+        };
+        
     }
 }
 
 
+fn test_tx_commit_rpc(sk: RistrettoSecretKey){
+    let coin_address = "0c042724dc1f37fc1157dcb234d45d035df66b1b62db7f445811dc3248ea981368b2f476e79bf8cd4922c3892184ed21486a94968b57a34c0cb59e68b8ad34910359036d0f".to_string();
+    let value: u64 = 8821;
+    println!("value: {:?}", value);
+    helper_send_transfer_tx(coin_address.clone(), sk, value);
+    
+    let mut updated_sender_amount = value - 10;
+    for i in 0..900 {
+        println!("Iteration: {:?}", i);
+        println!("Updated Sender Amount: {:?}", updated_sender_amount);
+        let (_, upd_sender, _) = helper_send_transfer_tx(coin_address.clone(), sk, updated_sender_amount);
+        updated_sender_amount = upd_sender;
+    }
 
+}
 
 
 // let mut receivers_vec: Vec<transaction::Receiver> = Vec::new();
