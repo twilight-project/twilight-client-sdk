@@ -458,6 +458,7 @@ mod test {
     use crate::relayer_rpcclient::txrequest::{
         Resp, RpcBody, RpcRequest, PUBLIC_API_RPC_SERVER_URL,
     };
+    use crate::util::ZKOS_SERVER_URL;
     use std::fs::File;
     use std::io::prelude::*;
     // cargo test -- --nocapture --test check_allOutputs_test --test-threads 5
@@ -596,7 +597,7 @@ mod test {
         let res: Result<
             crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
             reqwest::Error,
-        > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
+        > = tx_send.send(ZKOS_SERVER_URL.clone());
 
         let response_unwrap = match res {
             Ok(rpc_response) => match GetUtxoIdHex::get_response(rpc_response) {
@@ -636,7 +637,7 @@ mod test {
         let res: Result<
             crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
             reqwest::Error,
-        > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
+        > = tx_send.send(ZKOS_SERVER_URL.clone());
 
         let response_unwrap = match res {
             Ok(rpc_response) => match GetUtxoOutput::get_response(rpc_response) {
