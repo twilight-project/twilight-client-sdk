@@ -4,6 +4,7 @@ use serde_this_or_that::as_f64;
 use sha2::{Digest, Sha256};
 use std::{hash::Hash, time::SystemTime};
 use uuid::Uuid;
+use zkvm::{IOType, Output};
 /// Serialized as the "method" field of JSON-RPC/HTTP requests.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub enum Method {
@@ -21,6 +22,10 @@ pub enum Method {
     lend_order_info,
     #[allow(non_camel_case_types)]
     btc_usd_price,
+    #[allow(non_camel_case_types)]
+    get_utxos_id,
+    #[allow(non_camel_case_types)]
+    get_output,
 }
 impl Method {}
 
@@ -232,6 +237,51 @@ impl GetBTCPRice {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UtxoRequest {
+    pub address_or_id: String,
+    pub input_type: IOType,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetUtxoIdHex {
+    pub utxo_id: String,
+}
+impl GetUtxoIdHex {
+    pub fn get_response(
+        resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+    ) -> Result<GetUtxoIdHex, String> {
+        let utxo_id_result: Result<GetUtxoIdHex, String> = match resp.result {
+            Ok(response) => match serde_json::from_value(response) {
+                Ok(response) => Ok(GetUtxoIdHex { utxo_id: response }),
+
+                Err(arg) => Err(arg.to_string()),
+            },
+            Err(arg) => Err(arg.to_string()),
+        };
+        utxo_id_result
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetUtxoOutput {
+    pub utxo_output: Output,
+}
+impl GetUtxoOutput {
+    pub fn get_response(
+        resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+    ) -> Result<GetUtxoOutput, String> {
+        let utxo_id_result: Result<GetUtxoOutput, String> = match resp.result {
+            Ok(response) => match serde_json::from_value(response) {
+                Ok(response) => Ok(GetUtxoOutput {
+                    utxo_output: response,
+                }),
+
+                Err(arg) => Err(arg.to_string()),
+            },
+            Err(arg) => Err(arg.to_string()),
+        };
+        utxo_id_result
+    }
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ByteRec {
     pub data: String,

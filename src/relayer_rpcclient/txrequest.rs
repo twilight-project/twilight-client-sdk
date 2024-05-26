@@ -1,5 +1,5 @@
 use super::id::Id;
-use super::method::{Method, TransactionHashArgs};
+use super::method::{Method, TransactionHashArgs, UtxoRequest};
 // use curve25519_dalek::digest::Output;
 use jsonrpc_core::response::{Failure, Output, Success};
 use jsonrpc_core::Response as JsonRPCResponse;
@@ -309,6 +309,7 @@ impl RpcRequest<TransactionHashArgs> for RpcBody<TransactionHashArgs> {
         }
     }
 }
+
 impl RpcRequest<Option<String>> for RpcBody<Option<String>> {
     fn new(request: Option<String>, method: Method) -> Self {
         Self::new_with_id(Id::uuid_v4(), request, method)
@@ -373,8 +374,85 @@ impl RpcRequest<Option<String>> for RpcBody<Option<String>> {
     }
 }
 
+impl RpcRequest<UtxoRequest> for RpcBody<UtxoRequest> {
+    fn new(request: UtxoRequest, method: Method) -> Self {
+        Self::new_with_id(Id::uuid_v4(), request, method)
+    }
+
+    fn new_with_id(id: Id, request: UtxoRequest, method: Method) -> Self {
+        Self {
+            jsonrpc: Version::V2,
+            id,
+            method: method,
+            params: request,
+        }
+    }
+
+    fn id(&self) -> &Id {
+        &self.id
+    }
+
+    fn params(&self) -> &UtxoRequest {
+        &self.params
+    }
+    fn into_json(self) -> String {
+        let tx = serde_json::to_string(&self).unwrap();
+        let mut file = File::create("foo.txt").unwrap();
+        file.write_all(&serde_json::to_vec_pretty(&tx.clone()).unwrap())
+            .unwrap();
+        tx
+    }
+
+    fn get_method(&self) -> &Method {
+        &self.method
+    }
+
+    fn send(
+        self,
+        url: std::string::String,
+    ) -> Result<RpcResponse<serde_json::Value>, reqwest::Error> {
+        match self.method {
+            Method::get_utxos_id => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+            Method::get_output => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+            _ => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
+    use zkvm::IOType;
+
     use super::RELAYER_RPC_SERVER_URL;
     use crate::relayer_rpcclient::method::*;
     use crate::relayer_rpcclient::txrequest::{
@@ -482,6 +560,86 @@ mod test {
 
         let response_unwrap = match res {
             Ok(rpc_response) => match GetTransactionHashResponse::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+
+        println!("order response : {:#?}", response_unwrap);
+        let mut file = File::create("foo_response.txt").unwrap();
+        match response_unwrap {
+            Ok(res) => {
+                file.write_all(&serde_json::to_vec_pretty(&res).unwrap())
+                    .unwrap();
+            }
+            Err(arg) => {
+                file.write_all(&serde_json::to_vec_pretty(&arg).unwrap())
+                    .unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn get_utxo_id_test() {
+        dotenv::dotenv().expect("Failed loading dotenv");
+
+        let utxo_request_arg = UtxoRequest {
+            address_or_id: "0c4846130acc477b3026998b495e880f4ee199ea1ad8955f6983c58a06b10b4a65fe34bdce04a9eed97518362577314dcb8bd5b0c15de0e0c7f0fba90c7e42a65b5d945ea4".to_string(),
+            input_type: IOType::Coin,
+        };
+
+        let tx_send: RpcBody<UtxoRequest> = RpcRequest::new(
+            utxo_request_arg,
+            crate::relayer_rpcclient::method::Method::get_utxos_id,
+        );
+        let res: Result<
+            crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match GetUtxoIdHex::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+
+        println!("order response : {:#?}", response_unwrap);
+        let mut file = File::create("foo_response.txt").unwrap();
+        match response_unwrap {
+            Ok(res) => {
+                file.write_all(&serde_json::to_vec_pretty(&res).unwrap())
+                    .unwrap();
+            }
+            Err(arg) => {
+                file.write_all(&serde_json::to_vec_pretty(&arg).unwrap())
+                    .unwrap();
+            }
+        }
+    }
+    #[test]
+    fn get_utxo_output_test() {
+        dotenv::dotenv().expect("Failed loading dotenv");
+
+        let utxo_request_arg = UtxoRequest {
+            address_or_id: "8d14201652ddaf19b48d2274532671035d4db40e72e585354689a83b76f35ba407"
+                .to_string(),
+            input_type: IOType::Coin,
+        };
+
+        let tx_send: RpcBody<UtxoRequest> = RpcRequest::new(
+            utxo_request_arg,
+            crate::relayer_rpcclient::method::Method::get_output,
+        );
+        let res: Result<
+            crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match GetUtxoOutput::get_response(rpc_response) {
                 Ok(response) => Ok(response),
                 Err(arg) => Err(arg),
             },
