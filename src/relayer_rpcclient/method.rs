@@ -27,7 +27,7 @@ pub enum Method {
     #[allow(non_camel_case_types)]
     get_output,
     #[allow(non_camel_case_types)]
-    get_utxo_detail,
+    get_utxos_detail,
 }
 impl Method {}
 

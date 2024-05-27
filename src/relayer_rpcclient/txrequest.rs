@@ -434,7 +434,7 @@ impl RpcRequest<UtxoRequest> for RpcBody<UtxoRequest> {
 
                 return rpc_response(res);
             }
-            Method::get_utxo_detail => {
+            Method::get_utxos_detail => {
                 let client = reqwest::blocking::Client::new();
                 let clint_clone = client.clone();
                 let res = clint_clone
@@ -632,7 +632,7 @@ mod test {
         }
     }
     #[test]
-    fn get_utxo_detail_test() {
+    fn get_utxos_detail_test() {
         dotenv::dotenv().expect("Failed loading dotenv");
 
         let utxo_request_arg = UtxoRequest {
@@ -642,7 +642,7 @@ mod test {
 
         let tx_send: RpcBody<UtxoRequest> = RpcRequest::new(
             utxo_request_arg,
-            crate::relayer_rpcclient::method::Method::get_utxo_detail,
+            crate::relayer_rpcclient::method::Method::get_utxos_detail,
         );
         let res: Result<
             crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
