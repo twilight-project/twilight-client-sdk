@@ -434,6 +434,17 @@ impl RpcRequest<UtxoRequest> for RpcBody<UtxoRequest> {
 
                 return rpc_response(res);
             }
+            Method::get_utxo_detail => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
             _ => {
                 let client = reqwest::blocking::Client::new();
                 let clint_clone = client.clone();
@@ -620,6 +631,46 @@ mod test {
             }
         }
     }
+    #[test]
+    fn get_utxo_detail_test() {
+        dotenv::dotenv().expect("Failed loading dotenv");
+
+        let utxo_request_arg = UtxoRequest {
+            address_or_id: "0c4846130acc477b3026998b495e880f4ee199ea1ad8955f6983c58a06b10b4a65fe34bdce04a9eed97518362577314dcb8bd5b0c15de0e0c7f0fba90c7e42a65b5d945ea4".to_string(),
+            input_type: IOType::Coin,
+        };
+
+        let tx_send: RpcBody<UtxoRequest> = RpcRequest::new(
+            utxo_request_arg,
+            crate::relayer_rpcclient::method::Method::get_utxo_detail,
+        );
+        let res: Result<
+            crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send(ZKOS_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match UtxoDetailResponse::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+
+        println!("order response : {:#?}", response_unwrap);
+        let mut file = File::create("foo_response.txt").unwrap();
+        match response_unwrap {
+            Ok(res) => {
+                file.write_all(&serde_json::to_vec_pretty(&res).unwrap())
+                    .unwrap();
+            }
+            Err(arg) => {
+                file.write_all(&serde_json::to_vec_pretty(&arg).unwrap())
+                    .unwrap();
+            }
+        }
+    }
+
     #[test]
     fn get_utxo_output_test() {
         dotenv::dotenv().expect("Failed loading dotenv");
