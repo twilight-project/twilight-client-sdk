@@ -4,7 +4,7 @@ use serde_this_or_that::as_f64;
 use sha2::{Digest, Sha256};
 use std::{hash::Hash, time::SystemTime};
 use uuid::Uuid;
-use zkvm::{IOType, Output};
+use zkvm::{IOType, Output, Utxo};
 /// Serialized as the "method" field of JSON-RPC/HTTP requests.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub enum Method {
@@ -26,6 +26,8 @@ pub enum Method {
     get_utxos_id,
     #[allow(non_camel_case_types)]
     get_output,
+    #[allow(non_camel_case_types)]
+    get_utxo_detail,
 }
 impl Method {}
 
@@ -282,6 +284,28 @@ impl GetUtxoOutput {
         utxo_id_result
     }
 }
+// get_utxo_detail
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UtxoDetailResponse {
+    pub id: Utxo,
+    pub output: zkvm::Output,
+}
+impl UtxoDetailResponse {
+    pub fn get_response(
+        resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+    ) -> Result<UtxoDetailResponse, String> {
+        let utxo_id_result: Result<UtxoDetailResponse, String> = match resp.result {
+            Ok(response) => match serde_json::from_value(response) {
+                Ok(response) => Ok(response),
+
+                Err(arg) => Err(arg.to_string()),
+            },
+            Err(arg) => Err(arg.to_string()),
+        };
+        utxo_id_result
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ByteRec {
     pub data: String,
