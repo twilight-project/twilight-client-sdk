@@ -48,6 +48,14 @@ impl OrderType {
             _ => None,
         }
     }
+    pub fn to_str(&self) -> String {
+        match self {
+            OrderType::LIMIT => "LIMIT".to_string(),
+            OrderType::MARKET => "MARKET".to_string(),
+            OrderType::DARK => "DARK".to_string(),
+            OrderType::LEND => "LEND".to_string(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -116,6 +124,26 @@ impl OrderStatus {
             "OrderNotFound" => Some(OrderStatus::OrderNotFound),
             "RejectedFromChain" => Some(OrderStatus::RejectedFromChain),
             _ => None,
+        }
+    }
+    pub fn to_str(&self) -> String {
+        match self {
+            OrderStatus::SETTLED => "SETTLED".to_string(),
+            OrderStatus::LENDED => "LENDED".to_string(),
+            OrderStatus::LIQUIDATE => "LIQUIDATE".to_string(),
+            OrderStatus::CANCELLED => "CANCELLED".to_string(),
+            OrderStatus::PENDING => "PENDING".to_string(),
+            OrderStatus::FILLED => "FILLED".to_string(),
+            OrderStatus::DuplicateOrder => "DuplicateError".to_string(),
+            OrderStatus::UtxoError => "UtxoError".to_string(),
+            OrderStatus::Error => "Error".to_string(),
+            OrderStatus::NoResponseFromChain => "NoResponseFromChain".to_string(),
+            OrderStatus::BincodeError => "BincodeError".to_string(),
+            OrderStatus::HexCodeError => "HexCodeError".to_string(),
+            OrderStatus::SerializationError => "SerializationError".to_string(),
+            OrderStatus::RequestSubmitted => "RequestSubmitted".to_string(),
+            OrderStatus::OrderNotFound => "OrderNotFound".to_string(),
+            OrderStatus::RejectedFromChain => "RejectedFromChain".to_string(),
         }
     }
 }

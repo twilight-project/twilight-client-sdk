@@ -64,9 +64,9 @@ pub fn delete_all_accounts(conn: &mut PgConnection) -> Result<usize, diesel::res
     diesel::delete(accounts).execute(conn)
 }
 
-pub fn get_order_by_order_id(order_id: &str, connection: &mut PgConnection) -> Result<OrderDB, diesel::result::Error> {
+pub fn get_order_by_order_id(order_idd: &str, connection: &mut PgConnection) -> Result<OrderDB, diesel::result::Error> {
     use crate::schema::orders::dsl::*;
-    orders.filter(order_id.eq(order_id))
+    orders.filter(order_id.eq(order_idd))
     .select(OrderDB::as_select())
     .first(connection)
 }

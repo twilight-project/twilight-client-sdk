@@ -2,9 +2,10 @@ use curve25519_dalek::scalar::Scalar;
 use hex;
 use transactionapi::rpcclient::{method::*, txrequest::*};
 use zkvm::{
-    zkos_types::{Input, Output, Utxo},
-    String as ZkvmString,
+    zkos_types::{Input, Output, Utxo}, IOType, String as ZkvmString
 };
+
+use crate::relayer_rpcclient::method::{UtxoDetailResponse, UtxoRequest};
 
 lazy_static! {
     pub static ref ZKOS_SERVER_URL: String =
@@ -37,6 +38,24 @@ pub fn get_transaction_coin_input_from_address(address_hex: String) -> Result<In
         Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
     }
 }
+
+
+pub fn get_transaction_coin_input_from_address_fast(address_hex: String) -> Result<Input, String> {
+    let coin_utxo_result = get_utxo_details_by_address(address_hex, IOType::Coin);
+    match coin_utxo_result {
+        Ok(utxo_detail_response) => {
+            let out_coin = match utxo_detail_response.output.as_out_coin() {
+                Some(coin) => coin.clone(),
+                None => return Err("Invalid Output:: Not a Coin Output")?,
+            };
+            let inp = Input::coin(zkvm::InputData::coin(utxo_detail_response.id.clone(), out_coin, 0));
+            Ok(inp)            
+        }
+        Err(arg) => Err(format!("GetUtxoDetailError in transaction_coin_input fn: {:?}", arg).into()),
+    }
+}
+
+
 pub fn get_transaction_memo_input_from_address(
     address_hex: String,
     memo_output: Output,
@@ -105,6 +124,59 @@ pub fn get_coin_utxo_by_address_hex(address_hex: String) -> Result<Vec<String>, 
         Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
     }
 }
+
+pub fn get_utxo_id_by_address(address_hex: String, out_type: IOType) -> Result<crate::relayer_rpcclient::method::GetUtxoIdHex, String> {
+    
+    let utxo_request_arg = UtxoRequest {
+        address_or_id: address_hex.clone(),
+        input_type: out_type,
+    };
+
+    let tx_send: crate::relayer_rpcclient::txrequest::RpcBody<UtxoRequest> = crate::relayer_rpcclient::txrequest::RpcRequest::new(
+utxo_request_arg,
+        crate::relayer_rpcclient::method::Method::get_utxos_id,
+    );
+    let res: Result<
+        crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        reqwest::Error,
+        > = crate::relayer_rpcclient::txrequest::RpcRequest::send(tx_send, ZKOS_SERVER_URL.clone());
+    
+    let response_unwrap = match res {
+        Ok(rpc_response) => match crate::relayer_rpcclient::method::GetUtxoIdHex::get_response(rpc_response) {
+            Ok(response) => Ok(response),
+            Err(arg) => Err(arg),
+        },
+        Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+    };
+    response_unwrap
+
+}
+
+pub fn get_utxo_details_by_address(address_hex: String, out_type: IOType) -> Result<UtxoDetailResponse, String> {
+    let utxo_request_arg = UtxoRequest {
+        address_or_id: address_hex.clone(),
+        input_type: out_type,
+    };
+
+    let tx_send: crate::relayer_rpcclient::txrequest::RpcBody<UtxoRequest> = crate::relayer_rpcclient::txrequest::RpcRequest::new(
+utxo_request_arg,
+        crate::relayer_rpcclient::method::Method::get_utxos_detail,
+    );
+    let res: Result<
+        crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        reqwest::Error,
+        > = crate::relayer_rpcclient::txrequest::RpcRequest::send(tx_send, ZKOS_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match UtxoDetailResponse::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+        response_unwrap
+}
+
 pub fn get_coin_output_by_utxo_id_hex(utxo_id_hex: String) -> Result<Output, String> {
     let tx_send: RpcBody<Vec<String>> = RpcRequest::new(vec![utxo_id_hex], Method::getOutput);
     let res = tx_send.send(ZKOS_SERVER_URL.clone());

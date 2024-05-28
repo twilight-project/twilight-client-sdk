@@ -28,4 +28,5 @@ mod test;
 pub mod schema;
 pub mod models;
 pub mod db_ops;
+pub mod agent;
 

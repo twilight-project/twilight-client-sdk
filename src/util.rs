@@ -259,6 +259,7 @@ pub fn create_input_coin_from_output_coin(
 
     Ok(inp)
 }
+
 ///create input memo from output memo
 ///
 pub fn create_input_memo_from_output_memo(

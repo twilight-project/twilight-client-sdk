@@ -4,7 +4,7 @@ use serde_this_or_that::as_f64;
 use sha2::{Digest, Sha256};
 use std::{hash::Hash, time::SystemTime};
 use uuid::{timestamp, Uuid};
-use serde_this_or_that::as_f64;use zkvm::{IOType, Output};
+use zkvm::{IOType, Output, Utxo};
 /// Serialized as the "method" field of JSON-RPC/HTTP requests.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub enum Method {
@@ -27,7 +27,7 @@ pub enum Method {
     #[allow(non_camel_case_types)]
     get_output,
     #[allow(non_camel_case_types)]
-    btc_usd_price,
+    get_utxos_detail,
 }
 impl Method {}
 
@@ -219,26 +219,6 @@ impl GetLendOrderInfoResponse {
     }
 }
 // Query trader order info Response
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GetBTCPRice {
-    pub result: BTCPrice,
-}
-impl GetBTCPRice {
-    pub fn get_response(
-        resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
-    ) -> Result<GetBTCPRice, String> {
-        let tx_hash: Result<GetBTCPRice, String> = match resp.result {
-            Ok(response) => match serde_json::from_value(response) {
-                Ok(response) => Ok(GetBTCPRice { result: response }),
-
-                Err(arg) => Err(arg.to_string()),
-            },
-            Err(arg) => Err(arg.to_string()),
-        };
-        tx_hash
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UtxoRequest {
     pub address_or_id: String,
@@ -284,6 +264,28 @@ impl GetUtxoOutput {
         utxo_id_result
     }
 }
+// get_utxos_detail
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UtxoDetailResponse {
+    pub id: Utxo,
+    pub output: zkvm::Output,
+}
+impl UtxoDetailResponse {
+    pub fn get_response(
+        resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+    ) -> Result<UtxoDetailResponse, String> {
+        let utxo_id_result: Result<UtxoDetailResponse, String> = match resp.result {
+            Ok(response) => match serde_json::from_value(response) {
+                Ok(response) => Ok(response),
+
+                Err(arg) => Err(arg.to_string()),
+            },
+            Err(arg) => Err(arg.to_string()),
+        };
+        utxo_id_result
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ByteRec {
     pub data: String,
@@ -311,13 +313,6 @@ impl RequestResponse {
     pub fn get_id(&self) -> String {
         self.id_key.clone()
     }
-}
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BTCPrice {
-    pub id: i64,
-    #[serde(deserialize_with = "as_f64")]
-    pub price: f64,
-    pub timestamp: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

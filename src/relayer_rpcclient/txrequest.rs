@@ -1,7 +1,7 @@
 use super::id::Id;
 use super::method::{Method, TransactionHashArgs, UtxoRequest};
 // use curve25519_dalek::digest::Output;
-use jsonrpc_core::response::{Failure, Output, Success};
+use jsonrpc_core::response::{self, Failure, Output, Success};
 use jsonrpc_core::Response as JsonRPCResponse;
 use jsonrpc_core::Version;
 use serde::{Deserialize, Serialize};
@@ -434,6 +434,17 @@ impl RpcRequest<UtxoRequest> for RpcBody<UtxoRequest> {
 
                 return rpc_response(res);
             }
+            Method::get_utxos_detail => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
             _ => {
                 let client = reqwest::blocking::Client::new();
                 let clint_clone = client.clone();
@@ -449,6 +460,76 @@ impl RpcRequest<UtxoRequest> for RpcBody<UtxoRequest> {
     }
 }
 
+pub fn get_recent_price_from_relayer() -> Result<super::method::GetBTCPRice, String> {
+    let tx_send: RpcBody<Option<String>> = RpcRequest::new(
+        None,
+        crate::relayer_rpcclient::method::Method::btc_usd_price,
+    );
+    let res: Result<
+        crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        reqwest::Error,
+    > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
+
+    let response_unwrap: Result<super::method::GetBTCPRice, String> = match res {
+        Ok(rpc_response) => {
+            match crate::relayer_rpcclient::method::GetBTCPRice::get_response(
+                rpc_response,
+            ) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            }
+        }
+        Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+    };
+    response_unwrap
+}
+
+pub fn get_order_details_transactiion_hashes(
+    address: String,
+) -> Result<crate::relayer_rpcclient::method::GetTransactionHashResponse, String> {
+    let tx_hash_arg1 = TransactionHashArgs::AccountId {
+        id: address,
+        status: None,
+    };
+    let tx_request: RpcBody<TransactionHashArgs> = RpcRequest::new(
+        tx_hash_arg1,
+        crate::relayer_rpcclient::method::Method::transaction_hashes,
+    );
+    let res: Result<
+        crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        reqwest::Error,
+    > = tx_request.send(PUBLIC_API_RPC_SERVER_URL.clone());
+
+    match res {
+        Ok(rpc_response) => match crate::relayer_rpcclient::method::GetTransactionHashResponse::get_response(rpc_response) {
+            Ok(response) => Ok(response),
+            Err(arg) => Err(arg),
+        },
+        Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+    }
+}
+
+pub fn get_trader_order_info(
+    msg: String,
+) -> Result<crate::relayer_rpcclient::method::GetTraderOrderInfoResponse, String> {
+    let tx_send: RpcBody<ByteRec> = RpcRequest::new(
+        ByteRec { data: msg },
+        crate::relayer_rpcclient::method::Method::trader_order_info,
+    );
+    let res: Result<
+        crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        reqwest::Error,
+    > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
+
+    match res {
+            Ok(rpc_response) => match crate::relayer_rpcclient::method::GetTraderOrderInfoResponse::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        }
+}
+
 #[cfg(test)]
 mod test {
     use zkvm::IOType;
@@ -462,6 +543,7 @@ mod test {
     use std::io::prelude::*;
     // cargo test -- --nocapture --test check_allOutputs_test --test-threads 5
     use crate::relayer_rpcclient::order_test_hex::*;
+    use crate::chain::ZKOS_SERVER_URL;
     #[test]
     fn create_trader_order_test() {
         dotenv::dotenv().expect("Failed loading dotenv");
@@ -512,9 +594,9 @@ mod test {
         let res: Result<
             crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
             reqwest::Error,
-        > = tx_send.send(RELAYER_RPC_SERVER_URL.clone());
+        > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
 
-        let response_unwrap = match res {
+        let response_unwrap: Result<GetTraderOrderInfoResponse, String> = match res {
             Ok(rpc_response) => match GetTraderOrderInfoResponse::get_response(rpc_response) {
                 Ok(response) => Ok(response),
                 Err(arg) => Err(arg),
@@ -556,7 +638,7 @@ mod test {
         let res: Result<
             crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
             reqwest::Error,
-        > = tx_send.send(RELAYER_RPC_SERVER_URL.clone());
+        > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
 
         let response_unwrap = match res {
             Ok(rpc_response) => match GetTransactionHashResponse::get_response(rpc_response) {
@@ -596,7 +678,7 @@ mod test {
         let res: Result<
             crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
             reqwest::Error,
-        > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
+        > = tx_send.send(ZKOS_SERVER_URL.clone());
 
         let response_unwrap = match res {
             Ok(rpc_response) => match GetUtxoIdHex::get_response(rpc_response) {
@@ -636,7 +718,7 @@ mod test {
         let res: Result<
             crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
             reqwest::Error,
-        > = tx_send.send(PUBLIC_API_RPC_SERVER_URL.clone());
+        > = tx_send.send(ZKOS_SERVER_URL.clone());
 
         let response_unwrap = match res {
             Ok(rpc_response) => match GetUtxoOutput::get_response(rpc_response) {
@@ -675,6 +757,45 @@ mod test {
 
         let response_unwrap = match res {
             Ok(rpc_response) => match GetBTCPRice::get_response(rpc_response) {
+                Ok(response) => Ok(response),
+                Err(arg) => Err(arg),
+            },
+            Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+        };
+
+        println!("order response : {:#?}", response_unwrap);
+        let mut file = File::create("foo_response.txt").unwrap();
+        match response_unwrap {
+            Ok(res) => {
+                file.write_all(&serde_json::to_vec_pretty(&res).unwrap())
+                    .unwrap();
+            }
+            Err(arg) => {
+                file.write_all(&serde_json::to_vec_pretty(&arg).unwrap())
+                    .unwrap();
+            }
+        }
+    }
+    #[test]
+    fn get_utxo_detail_test() {
+        dotenv::dotenv().expect("Failed loading dotenv");
+
+        let utxo_request_arg = UtxoRequest {
+            address_or_id: "0c4846130acc477b3026998b495e880f4ee199ea1ad8955f6983c58a06b10b4a65fe34bdce04a9eed97518362577314dcb8bd5b0c15de0e0c7f0fba90c7e42a65b5d945ea4".to_string(),
+            input_type: IOType::Coin,
+        };
+
+        let tx_send: RpcBody<UtxoRequest> = RpcRequest::new(
+            utxo_request_arg,
+            crate::relayer_rpcclient::method::Method::get_utxos_detail,
+        );
+        let res: Result<
+            crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send(ZKOS_SERVER_URL.clone());
+
+        let response_unwrap = match res {
+            Ok(rpc_response) => match UtxoDetailResponse::get_response(rpc_response) {
                 Ok(response) => Ok(response),
                 Err(arg) => Err(arg),
             },
