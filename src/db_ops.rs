@@ -44,7 +44,12 @@ pub fn get_accounts_with_not_null_scalar_str(conn: &mut PgConnection) -> Result<
     accounts.filter(scalar_str.is_not_null()).load(conn)
 }
 
-pub fn create_account(conn: &mut PgConnection, pk_address: &str, scalar_str: &str, is_on_chain: bool, balance: i32) ->  Result<AccountDB, diesel::result::Error> {
+pub fn delete_account_by_pk_address(address: &str, conn: &mut PgConnection) -> Result<usize, diesel::result::Error> {
+    use crate::schema::accounts::dsl::*;
+    diesel::delete(accounts.filter(pk_address.eq(address))).execute(conn)
+}
+
+pub fn create_account(conn: &mut PgConnection, pk_address: &str, scalar_str: Option<&str>, is_on_chain: bool, balance: i32) ->  Result<AccountDB, diesel::result::Error> {
 
     let new_account = NewAccount { pk_address, is_on_chain, scalar_str, balance };
 
@@ -54,9 +59,9 @@ pub fn create_account(conn: &mut PgConnection, pk_address: &str, scalar_str: &st
         .get_result(conn)
 }
 
-pub fn delete_account_by_id(id: i32, conn: &mut PgConnection) -> Result<usize, diesel::result::Error> {
+pub fn delete_account_by_id(idd: i32, conn: &mut PgConnection) -> Result<usize, diesel::result::Error> {
     use crate::schema::accounts::dsl::*;
-    diesel::delete(accounts.filter(id.eq(id))).execute(conn)
+    diesel::delete(accounts.filter(id.eq(idd))).execute(conn)
 }
 
 pub fn delete_all_accounts(conn: &mut PgConnection) -> Result<usize, diesel::result::Error> {
@@ -103,24 +108,24 @@ pub fn delete_all_orders(conn: &mut PgConnection) -> Result<usize, diesel::resul
     diesel::delete(orders).execute(conn)
 }
 
-pub fn get_orders_by_type(conn: &mut PgConnection, order_type: &str) -> Result<Vec<OrderDB>, diesel::result::Error> {
+pub fn get_orders_by_type(conn: &mut PgConnection, ord_type: &str) -> Result<Vec<OrderDB>, diesel::result::Error> {
 
     use crate::schema::orders::dsl::*;
-    orders.filter(order_type.eq(order_type))
+    orders.filter(order_type.eq(ord_type))
     .load(conn)
 }
 
-pub fn get_orders_by_status(conn: &mut PgConnection, order_status: &str) -> Result<Vec<OrderDB>, diesel::result::Error> {
+pub fn get_orders_by_status(conn: &mut PgConnection, ord_status: &str) -> Result<Vec<OrderDB>, diesel::result::Error> {
 
     use crate::schema::orders::dsl::*;
-    orders.filter(order_status.eq(order_status))
+    orders.filter(order_status.eq(ord_status))
     .load(conn)
 }
 
-pub fn get_orders_by_position_type(conn: &mut PgConnection, position_type: &str) -> Result<Vec<OrderDB>, diesel::result::Error> {
+pub fn get_orders_by_position_type(conn: &mut PgConnection, pos_type: &str) -> Result<Vec<OrderDB>, diesel::result::Error> {
 
     use crate::schema::orders::dsl::*;
-    orders.filter(position_type.eq(position_type))
+    orders.filter(position_type.eq(pos_type))
     .load(conn)
 }
 

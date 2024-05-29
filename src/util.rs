@@ -456,3 +456,8 @@ pub fn u64_commitment_to_zkvm_string(value: u64) -> ZkvmString {
     let commitment = Commitment::blinded(value);
     ZkvmString::from(commitment)
 }
+
+pub fn hex_to_output(hex_str: String) -> Output {
+    let bytes = hex::decode(&hex_str).unwrap();
+    bincode::deserialize(&bytes).unwrap()
+}

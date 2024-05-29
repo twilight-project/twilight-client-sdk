@@ -150,10 +150,10 @@ pub fn execute_order_zkos(
     account_id: String,
     uuid: Uuid,
     order_type: String,
-    settle_margin_settle_withdraw: f64,
+    settle_margin_settle_withdraw: f64, //random value =0 
     order_status: String,
     execution_price_poolshare_price: f64,
-    tx_type: TXType,
+    tx_type: TXType,     // ORDER or LEND
 ) -> String {
     //prepare data for signature
     //extract publickey from owner address of output memo

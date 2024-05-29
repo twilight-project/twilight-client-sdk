@@ -37,18 +37,20 @@ pub fn load_accounts_to_db_from_main_account(
 ) {
     // create a loop ove main sender account and create multiple accounts
     // each iteration adds 7 accounts
-
-    while initial_balance > 0 {
-        println!("Initial Balance: {:?}", initial_balance);
+    println!("Loading accounts into DB!");
+    println!("Initial Balance: {:?}", initial_balance);
+    while initial_balance > 800 {
+        
         match create_db_accounts(sender_address.clone(), initial_balance, sk) {
             Ok(_) => {
                 initial_balance -= 800;
-                println!("Accounts created");
+                println!("7 Accounts added");
             }
             Err(e) => {
                 println!("Error in creating accounts: {:?}", e);
             }
         };
+        println!("Balance: {:?}", initial_balance);
     }
 }
 
@@ -57,20 +59,20 @@ fn test_tx_commit_rpc(sk: RistrettoSecretKey) {
     let coin_address = "0c042724dc1f37fc1157dcb234d45d035df66b1b62db7f445811dc3248ea981368b2f476e79bf8cd4922c3892184ed21486a94968b57a34c0cb59e68b8ad34910359036d0f".to_string();
     let value: u64 = 8821;
     println!("value: {:?}", value);
-    self::create_boadcast_transfer_tx_single_account(coin_address.clone(), sk, value);
+    self::create_boadcast_transfer_tx_single_account(coin_address.clone(), sk, value, 10);
 
     let mut updated_sender_amount = value - 10;
     for i in 0..900 {
         println!("Iteration: {:?}", i);
         println!("Updated Sender Amount: {:?}", updated_sender_amount);
         let (_, upd_sender, _) =
-            self::create_boadcast_transfer_tx_single_account(coin_address.clone(), sk, updated_sender_amount);
+            self::create_boadcast_transfer_tx_single_account(coin_address.clone(), sk, updated_sender_amount, 10);
         updated_sender_amount = upd_sender;
     }
 }
 
 // creates a transfer tx for multiple reciever accounts
-fn helper_multiple_account_transfer(
+fn single_to_multiple_account_transfer(
     sk: RistrettoSecretKey,
     sender_address: String,
     balance: u64,
@@ -168,10 +170,11 @@ fn helper_multiple_account_transfer(
 // creates transfer tx for single account transfer
 // creates a new account with random address to recieve the transfer
 // returns the scalar, updated sender balance and receiver address
-pub fn helper_single_transfer(
+pub fn single_source_single_reciever_transfer(
     coin_address: String,
     sk: RistrettoSecretKey,
-    value: u64,
+    sender_value: u64,
+    reciever_amount: u64,
 ) -> (TransferTxWallet, u64, String) {
     // get pk from address_string
     let pk: RistrettoPublicKey =
@@ -185,8 +188,7 @@ pub fn helper_single_transfer(
             Ok(input) => input,
             Err(e) => panic!("Error in getting input: {:?}", e),
         };
-    let amount = 10u64;
-    let updated_sender_balance = value - amount;
+    let updated_sender_balance = sender_value - reciever_amount;
     // update public key
     let rscalar = Scalar::random(&mut OsRng);
     let updated_key = RistrettoPublicKey::update_public_key(&pk, rscalar);
@@ -196,7 +198,7 @@ pub fn helper_single_transfer(
         sk.clone(),
         input,
         new_address.clone(),
-        amount,
+        sender_value,
         false,
         updated_sender_balance,
         1u64,
@@ -214,16 +216,15 @@ pub fn create_db_accounts(
     sk: RistrettoSecretKey,
 ) -> Result<(), String> {
     //create Tx for multiple accounts transfer
-    match helper_multiple_account_transfer(sk, address.clone(), initial_balance) {
+    match single_to_multiple_account_transfer(sk, address.clone(), initial_balance) {
         Ok(tx_wallet) => {
             // send the tx to chain
-            let response: String = match crate::chain::tx_commit_broadcast_transaction(
+            let _response: String = match crate::chain::tx_commit_broadcast_transaction(
                 tx_wallet.get_tx(),
             ) {
                 Ok(response) => response,
                 Err(e) => return Err(e),
             };
-            println!("response {:?}", response);
             let mut conn = crate::db_ops::establish_connection();
             let tx = tx_wallet.get_tx();
             let outputs = tx.get_tx_outputs();
@@ -252,7 +253,7 @@ pub fn create_db_accounts(
                         let _ = crate::db_ops::create_account(
                             &mut conn,
                             pk_address,
-                            &scalar_str,
+                            Some(&scalar_str),
                             is_on_chain,
                             balance as i32,
                         );
@@ -274,9 +275,10 @@ pub fn create_boadcast_transfer_tx_single_account(
     coin_address: String,
     sk: RistrettoSecretKey,
     value: u64,
+    receiver_amount:u64, 
 ) -> (Scalar, u64, String) {
     let (tx_wallet, updated_sender_balance, reciever_address) =
-        helper_single_transfer(coin_address, sk, value);
+        self::single_source_single_reciever_transfer(coin_address, sk, value, receiver_amount);
     // send the tx to chain
     let response =
         crate::chain::tx_commit_broadcast_transaction(tx_wallet.get_tx()).unwrap();
@@ -284,12 +286,11 @@ pub fn create_boadcast_transfer_tx_single_account(
     //check for creation of new utxo
     for i in 0..10 {
         std::thread::sleep(Duration::from_secs(3));
-        let utxo_id_vec =
-            crate::chain::get_coin_utxo_by_address_hex(reciever_address.clone())
+        let utxo_id_vec: crate::relayer_rpcclient::method::GetUtxoIdHex =
+            crate::chain::get_utxo_id_by_address(reciever_address.clone(), zkvm::IOType::Coin)
                 .unwrap();
         println!("Fetching utxo try {:?}", i);
-        if utxo_id_vec.len() > 0 {
-            println!("utxo_id_vec: {:?}", utxo_id_vec);
+        if utxo_id_vec.utxo_id.len() > 0{
             break;
         }
     }
@@ -298,4 +299,44 @@ pub fn create_boadcast_transfer_tx_single_account(
         updated_sender_balance,
         reciever_address.clone(),
     )
+}
+
+pub fn convert_encrypted_trading_account_to_scalar_based_account_db(coin_address: String,
+    sk: RistrettoSecretKey,
+    value: u64,)-> Result<(), String>{
+
+     // create a tansfer tx fro single source single receiver transfer
+    let (tx_wallet, _updated_sender_balance, reciever_address) =
+        self::single_source_single_reciever_transfer(coin_address, sk, value, value); 
+
+    // send the tx to chain
+    let _response =
+        crate::chain::tx_commit_broadcast_transaction(tx_wallet.get_tx())?;  
+    
+    //check for creation of new utxo
+    for i in 0..5 {
+        std::thread::sleep(Duration::from_secs(3));
+        println!("Fetching utxo try {:?}", i);
+        let utxo_id = crate::chain::get_utxo_id_by_address(
+                reciever_address.clone(),
+                zkvm::IOType::Coin,
+            );
+        if utxo_id.is_ok() {
+            // add the new account to db
+            let scalar_str = crate::util::scalar_to_hex(tx_wallet.get_encrypt_scalar().unwrap()[0]);
+            let balance = value;
+            let pk_address = reciever_address.clone();
+            let mut conn = crate::db_ops::establish_connection();
+            let _ = crate::db_ops::create_account(
+                &mut conn,
+                &pk_address,
+                Some(&scalar_str),
+                true,
+                balance as i32,
+            );
+            break;
+        }    
+    }
+   
+    Ok(())
 }

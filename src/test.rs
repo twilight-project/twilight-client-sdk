@@ -391,7 +391,7 @@ use std::time::Duration;
         let scalar_str = "8e09a846788e21f9a1b22ba245fdae8df85e9d651fd720ab2274dbf034e4cc08";
         let is_on_chain = false;
         let balance = 1000;
-        let account = crate::db_ops::create_account(&mut conn, pk_address, scalar_str, is_on_chain, balance).unwrap();
+        let account = crate::db_ops::create_account(&mut conn, pk_address, Some(scalar_str), is_on_chain, balance).unwrap();
         println!("account {:?}", account);
     }
     #[test]
@@ -437,5 +437,64 @@ use std::time::Duration;
         // let size = crate::db_ops::delete_account_by_id(count, &mut conn).unwrap();
        // println!("size {:?}", size);
     }
- 
+    #[test]
+       fn test_create_null_string_account_db(){
+        dotenv::dotenv().expect("Failed loading dotenv");
+        let mut conn = crate::db_ops::establish_connection();
+        let pk_address = "0c1473fc6e097057d678c9c5cfa886e084bc2a425671200bc6d931d682c1623a6d7e6fb5a6381c7cef4b42875655b5aa78141f2dda25ea2f7585e0ca2b4402b70cd8f694dc";
+        let scalar_str = None;
+        let is_on_chain = false;
+        let balance = 0;
+        let account = crate::db_ops::create_account(&mut conn, pk_address, scalar_str, is_on_chain, balance).unwrap();
+        println!("account {:?}", account);
+        // get account id
+        let id = account.id;
+        // get account by id
+        let account_id = crate::db_ops::get_account_by_id(id, &mut conn).unwrap();
+        println!("fetched from DB account_id {:?}", account_id);
+        // delete the account by id
+        let size = crate::db_ops::delete_account_by_id(id, &mut conn).unwrap();
+        println!("deleted account size {:?}", size);
+    }
+
+    #[test]
+    fn test_get_accounts_with_null_scalar_str_db(){
+        dotenv::dotenv().expect("Failed loading dotenv");
+        let mut conn = crate::db_ops::establish_connection();
+        let accounts = crate::db_ops::get_accounts_with_null_scalar_str(&mut conn).unwrap();
+        
+        println!("accounts {:?}", accounts);
+        print!("Number of accounts {:?}", accounts.len());
+    }
+    #[test]
+    fn create_account_with_null_str_db()
+    {
+        dotenv::dotenv().expect("Failed loading dotenv");
+        let mut conn = crate::db_ops::establish_connection();
+        for _i in 0..5{
+        let pk_address = "0c1473fc6e097057d678c9c5cfa886e084bc2a425671200bc6d931d682c1623a6d7e6fb5a6381c7cef4b42875655b5aa78141f2dda25ea2f7585e0ca2b4402b80cd8e694dd";
+        let scalar_str = None;
+        let is_on_chain = false;
+        let balance = 0;
+        let account = crate::db_ops::create_account(&mut conn, pk_address, scalar_str, is_on_chain, balance).unwrap();
+        }
+        //println!("account {:?}", account);
+    }
+     #[test]
+    fn test_get_accounts_with_scalar_str_db(){
+        dotenv::dotenv().expect("Failed loading dotenv");
+        let mut conn = crate::db_ops::establish_connection();
+        let accounts = crate::db_ops::get_accounts_with_not_null_scalar_str(&mut conn).unwrap();
+        
+        println!("accounts {:?}", accounts);
+        print!("Number of accounts {:?}", accounts.len());
+    }
+    #[test]
+    fn test_delete_account_by_address(){
+        dotenv::dotenv().expect("Failed loading dotenv");
+        let mut conn = crate::db_ops::establish_connection();
+        let pk_address = "0c1473fc6e097057d678c9c5cfa886e084bc2a425671200bc6d931d682c1623a6d7e6fb5a6381c7cef4b42875655b5aa78141f2dda25ea2f7585e0ca2b4402b80cd8e694dd";
+        let size = crate::db_ops::delete_account_by_pk_address(pk_address, &mut conn).unwrap();
+        println!("size {:?}", size);
+    }
 }

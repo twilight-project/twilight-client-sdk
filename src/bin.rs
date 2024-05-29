@@ -38,17 +38,20 @@ lazy_static! {
 
 fn main() {
     dotenv::dotenv().expect("Failed loading dotenv");
-
-    println!("Hello, world!");
+    let sk = <RistrettoSecretKey as SecretKey>::from_bytes(RELAYER_SEED_PHRASE.as_bytes());
+    
+    // Create accounts from main trading account
+    create_db_accounts_from_main_trading_account(sk);
+    
     //println!("LONG Order ");
     //println!("SHORT Order ");
 
-    let sk = <RistrettoSecretKey as SecretKey>::from_bytes(RELAYER_SEED_PHRASE.as_bytes());
+    
 
     // AHMAD TEST FUNCTION FOR ACCOUNTS
     //test_tx_commit_rpc(sk);
-    let client_address = "0c50ce9927c331c653294d0f4f31faea7323855fe742bd5cb72105d11ebebe383db0058b2abb32745547ea815305e93d86c73c3bee9e79db1ffe413dec917332644ac29a0d";
-    let initial_amount: u64 = 10000;
+   // let client_address = "0c50ce9927c331c653294d0f4f31faea7323855fe742bd5cb72105d11ebebe383db0058b2abb32745547ea815305e93d86c73c3bee9e79db1ffe413dec917332644ac29a0d";
+   // let initial_amount: u64 = 10000;
 
     //zkos_client_wallet::agent::auto_accounts::add_accounts_to_db(sk, client_address.to_string(), initial_amount);
           
@@ -73,7 +76,11 @@ fn main() {
     //    }
 }
 
-
+fn create_db_accounts_from_main_trading_account(sk: RistrettoSecretKey){
+    let client_address = "0cb07c38631715b7cae2155ba2b8aa614915a05ebcb41945540fa25c24d1c15270720e3cae8a3e786f3e5d26bc0263ac49f774b306bf8805366debe98844bec70fcb22ea1e";
+    let initial_amount: u64 = 16000;
+    zkos_client_wallet::agent::auto_accounts::load_accounts_to_db_from_main_account(sk, client_address.to_string(), initial_amount);
+}
 
 
 

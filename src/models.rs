@@ -24,7 +24,7 @@ impl AccountDB {
 pub struct NewAccount<'a> {
     pub pk_address: &'a str,
     pub is_on_chain: bool, 
-    pub scalar_str: &'a str,
+    pub scalar_str: Option<&'a str>,
     pub balance: i32,
 }
 
