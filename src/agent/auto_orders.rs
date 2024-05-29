@@ -1,3 +1,4 @@
+use crate::models::OrderDB;
 use crate::relayer_rpcclient::method::{
     ByteRec, GetCreateTraderOrderResponse, GetTransactionHashResponse, TransactionHashArgs,
 };
@@ -7,27 +8,27 @@ use crate::schema::orders::order_type;
 use jsonrpc::client;
 use rand::Rng;
 
+use crate::relayer_types::CreateTraderOrderZkos;
+use crate::relayer_types::{OrderType, PositionType};
 use address::{Address, Network};
 use curve25519_dalek::scalar::Scalar;
 use jsonrpc_http_server::tokio::time::sleep;
+use lazy_static::lazy_static;
 use quisquislib::accounts::Account;
 use quisquislib::elgamal::ElGamalCommitment;
 use quisquislib::keys::{PublicKey, SecretKey};
 use quisquislib::ristretto::{RistrettoPublicKey, RistrettoSecretKey};
 use rand::rngs::OsRng;
+use std::env;
 use std::time::Duration;
 use zkvm::{program::Program, Commitment};
 use zkvm::{
     zkos_types::{InputData, OutputCoin, OutputMemo, OutputState, Utxo},
     Input, Output,
 };
-use crate::relayer_types::{OrderType, PositionType};
-use crate::relayer_types::CreateTraderOrderZkos;
-use lazy_static::lazy_static;
-use std::env;
 
 fn helper_random_values() -> (f64, PositionType) {
-   // select a random value between 0 to 50 for Leverage
+    // select a random value between 0 to 50 for Leverage
     let random_point = rand::thread_rng().gen_range(1, 50);
     let leverage = random_point as f64;
     // select order side randomly
@@ -39,6 +40,9 @@ fn helper_random_values() -> (f64, PositionType) {
     (leverage, order_side)
 }
 
+// Function to place a random Market order on the exchange
+// creates the trade tx and broadcasts it to the chain
+// adds the order to the db
 pub fn place_random_market_trader_order(
     sk: RistrettoSecretKey,
     accountdb: crate::models::AccountDB,
@@ -48,9 +52,8 @@ pub fn place_random_market_trader_order(
     let value = accountdb.balance as u64;
     let rscalar = crate::util::hex_to_scalar(accountdb.scalar_str.unwrap()).unwrap();
     let coin_address = accountdb.pk_address;
-    let input_coin = crate::chain::get_transaction_coin_input_from_address_fast(
-        coin_address.clone(),
-    )?;
+    let input_coin =
+        crate::chain::get_transaction_coin_input_from_address_fast(coin_address.clone())?;
     let (leverage, order_side) = helper_random_values();
     let position_value = value * leverage as u64;
     let position_size = position_value * entry_price;
@@ -78,29 +81,35 @@ pub fn place_random_market_trader_order(
     )
     .map_err(|e| e.to_string())?;
     // send to chain
-    let response = crate::relayer_types::CreateTraderOrderZkos::submit_order(order_tx_message.clone())?;
-    
+    let response =
+        crate::relayer_types::CreateTraderOrderZkos::submit_order(order_tx_message.clone())?;
+
     //add to order db
     // create a db connection
     let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
     let order_status = "FILLED"; //Ignoring the order Status for now. Should be fetched from Tx Hashes
 
     let _ = crate::db_ops::create_order(
-            &mut conn,
-            &coin_address,
-            "MARKET",
-            &order_side.to_str(),
-            order_status,
-            value as i64,
-    ).map_err(|e|e.to_string())?;
+        &mut conn,
+        &coin_address,
+        "MARKET",
+        &order_side.to_str(),
+        order_status,
+        value as i64,
+    )
+    .map_err(|e| e.to_string())?;
 
-    //delete account from db now. Account should be deleted in the calling function 
-   // let _ = crate::db_ops::delete_account_by_id(accountdb.id, &mut conn).map_err(|e|e.to_string())?;
+    //delete account from db now. Account should be deleted in the calling function
+    // let _ = crate::db_ops::delete_account_by_id(accountdb.id, &mut conn).map_err(|e|e.to_string())?;
     Ok(response)
 }
 
+// Function to place a random limit order on the exchange
+// creates the trade tx and broadcasts it to the chain
+// adds the order to the db
+//
 pub fn place_random_limit_trader_order(
-     sk: RistrettoSecretKey,
+    sk: RistrettoSecretKey,
     accountdb: crate::models::AccountDB,
     entry_price: u64,
 ) -> Result<GetCreateTraderOrderResponse, String> {
@@ -108,9 +117,8 @@ pub fn place_random_limit_trader_order(
     let value = accountdb.balance as u64;
     let rscalar = crate::util::hex_to_scalar(accountdb.scalar_str.unwrap()).unwrap();
     let coin_address = accountdb.pk_address;
-    let input_coin = crate::chain::get_transaction_coin_input_from_address_fast(
-        coin_address.clone(),
-    )?;
+    let input_coin =
+        crate::chain::get_transaction_coin_input_from_address_fast(coin_address.clone())?;
     let (leverage, order_side) = helper_random_values();
 
     let position_value = value * leverage as u64;
@@ -120,7 +128,7 @@ pub fn place_random_limit_trader_order(
     let entry_price_local = match order_side {
         PositionType::LONG => entry_price - random_price_variance,
         PositionType::SHORT => entry_price + random_price_variance,
-    }; 
+    };
     let position_size = position_value * entry_price_local;
     let contract_path = "./relayerprogram.json";
     let programs = crate::programcontroller::ContractManager::import_program(&contract_path);
@@ -146,125 +154,190 @@ pub fn place_random_limit_trader_order(
     )
     .map_err(|e| e.to_string())?;
     // send to chain
-    let response = crate::relayer_types::CreateTraderOrderZkos::submit_order(order_tx_message.clone())?;
+    let response =
+        crate::relayer_types::CreateTraderOrderZkos::submit_order(order_tx_message.clone())?;
     // add the order to db
     let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
     let order_status = "PENDING"; //Ignoring the order Status for now. Should be fetched from Tx Hashes
     let _ = crate::db_ops::create_order(
-            &mut conn,
-            &coin_address,
-            "LIMIT",
-            &order_side.to_str(),
-            order_status,
-            value as i64,
-    ).map_err(|e|e.to_string())?;
+        &mut conn,
+        &coin_address,
+        "LIMIT",
+        &order_side.to_str(),
+        order_status,
+        value as i64,
+    )
+    .map_err(|e| e.to_string())?;
 
-    //delete account from db now. Account should be deleted in the calling function 
-   // let _ = crate::db_ops::delete_account_by_id(accountdb.id, &mut conn).map_err(|e|e.to_string())?;
+    //delete account from db now. Account should be deleted in the calling function
+    // let _ = crate::db_ops::delete_account_by_id(accountdb.id, &mut conn).map_err(|e|e.to_string())?;
     Ok(response)
 }
 
-// pub fn create_order_broadcast_and_add_to_db(
-//     sk: RistrettoSecretKey,
-//     accountdb: crate::models::AccountDB,
-//     ord_type: crate::relayer_types::OrderType, // "LIMIT" or "MARKET"
-// ) -> Result<GetCreateTraderOrderResponse, String> {
-    
-    
-//     let btc_price = crate::relayer_rpcclient::txrequest::get_recent_price_from_relayer()?;
-//     let value = accountdb.balance as u64;
-//     let entry_price = btc_price.result.price as u64;
-//     let scalar = crate::util::hex_to_scalar(accountdb.scalar_str.unwrap()).unwrap();
-//     let order_tx_message: String;
+// Autonomous function to place limit orders on exchange
+//
+pub fn limit_order_service(sk: RistrettoSecretKey) -> Result<String, String> {
+    println!("Starting Limit Order Service");
+    // get a subset of 100 accounts that have their scalar available and are on chain
+    let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
+    let accounts = crate::db_ops::get_accounts_with_not_null_scalar_str(&mut conn, 100).unwrap();
+    for acc in accounts.iter() {
+        //get the latest price from the exchange
+        let btc_price = crate::relayer_rpcclient::txrequest::get_recent_price_from_relayer()?;
+        let entry_price = btc_price.result.price as u64;
+        let response = place_random_limit_trader_order(sk, acc.clone(), entry_price);
+        if response.is_ok() {
+            // delete the account from db
+            let _ = crate::db_ops::delete_account_by_id(acc.id, &mut conn)
+                .map_err(|e| e.to_string())?;
+            println!(
+                "Order Placed Successfully for Account: {:?}",
+                acc.pk_address
+            );
+        }
+        let _ = sleep(Duration::from_secs(3));
+    }
 
-//     // create order based on order type
-//     if ord_type == crate::relayer_types::OrderType::LIMIT {
-//         order_tx_message = create_random_limit_trader_order(
-//             value,
-//             sk,
-//             accountdb.pk_address.clone(),
-//             scalar,
-//             entry_price,
-//         )?;
-//     } else {
-//         order_tx_message = create_random_market_trader_order(
-//             value,
-//             sk,
-//             accountdb.pk_address.clone(),
-//             scalar,
-//             entry_price,
-//         )?;
-//     }
+    Ok("Limit Orders Placed Successfully".to_string())
+}
 
-//     //send the order tx to the chain
-//    let response =  crate::relayer_types::CreateTraderOrderZkos::submit_order(order_tx_message.clone())?;
-//     if response.is_ok() {
-//         //add to order db
-//         // create a db connection
-//         let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
-//         let position_type = "LONG"; // could be anything for now. NOT using it anywhere for search
-//         let order_status = order_info.result[0].order_status.clone();
+// Autonomous function to place Market orders on exchange
+//
+pub fn market_order_service(sk: RistrettoSecretKey) -> Result<String, String> {
+    println!("Starting Market Order Service");
+    // get a subset of 100 accounts that have their scalar available and are on chain
+    let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
+    let accounts = crate::db_ops::get_accounts_with_not_null_scalar_str(&mut conn, 100).unwrap();
+    for acc in accounts.iter() {
+        //get the latest price from the exchange
+        let btc_price = crate::relayer_rpcclient::txrequest::get_recent_price_from_relayer()?;
+        let entry_price = btc_price.result.price as u64;
+        let response = place_random_market_trader_order(sk, acc.clone(), entry_price);
+        if response.is_ok() {
+            // delete the account from db
+            let _ = crate::db_ops::delete_account_by_id(acc.id, &mut conn)
+                .map_err(|e| e.to_string())?;
+            println!(
+                "Order Placed Successfully for Account: {:?}",
+                acc.pk_address
+            );
+        }
+        let _ = sleep(Duration::from_secs(3));
+    }
 
-//         let _ = crate::db_ops::create_order(
-//             &mut conn,
-//             &order_id,
-//             &order_type.to_str(),
-//             position_type,
-//             &order_status.to_str(),
-//             value as i64,
-//         );
-//     }
-//     response
-// }
+    Ok("Market Orders Placed Successfully".to_string())
+}
 
-pub fn single_settle_order_add_coin_to_db(sk: RistrettoSecretKey, account_address: String) -> Result<crate::relayer_rpcclient::method::GetExecuteTraderOrderResponse, String> {
+// Autonomous service to settle Market orders
+//
+pub fn settle_market_orders_service(sk: RistrettoSecretKey) -> Result<String, String> {
+    println!("Starting Settle Market(FILLED) Orders Service");
+    // get a list of all market orders
+    let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
+    let orders =
+        crate::db_ops::get_subset_order_by_status(&mut conn, "FILLED", 10).map_err(|e| e.to_string())?;
+    for order in orders.iter() {
+        let response = single_settle_order_request(sk, order.clone());
+        if response.is_ok() {
+            println!("Order Settled Successfully");
+            // delete the order from db
+            let _ = crate::db_ops::delete_order_by_id(order.id,&mut conn ).map_err(|e| e.to_string())?;
+            // add the account back to the db
+            let _ = crate::db_ops::create_account(
+                &mut conn,
+                &order.order_id,
+                None,
+                true,
+                0 as i32,
+            );
+        }
+        let _ = sleep(Duration::from_secs(5));
+    }
+    Ok("Market Orders Settled Successfully".to_string())
+}
+
+// Autonomous service to Find Limit orders that have been Executed
+//
+pub fn find_executed_limit_orders_service(sk: RistrettoSecretKey) -> Result<String, String> {
+    println!("Starting Find Executed Limit Orders Service");
+    // get a list of all limit orders
+    let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
+    let orders =
+        crate::db_ops::get_orders_by_type(&mut conn, "LIMIT").map_err(|e| e.to_string())?;
+    let order_staus = crate::relayer_types::OrderStatus::FILLED;
+    for order in orders.iter() {
+        let address_hex = order.order_id.clone();
+        // create zkos query to get the order details
+        let query_msg = crate::relayer::query_trader_order_zkos(
+            address_hex.clone(),
+            &sk,
+            address_hex.clone(),
+            order.order_status.clone(),
+        );
+
+        // get the order details from the chain
+        let order_info = crate::relayer_rpcclient::txrequest::get_trader_order_info(query_msg)?;
+        // check if the order has been Filled
+        if order_info.result.order_status == order_staus {
+            // update the order status in the db
+            let _ = crate::db_ops::update_order_status_by_order_id(&mut conn, order.id, "FILLED")
+                .map_err(|e| e.to_string())?;
+        }
+    }
+    Ok("Executed Limit Orders Found Successfully".to_string())
+}
+// Settle single order
+// create a settlement request
+// send the settlement request
+//
+pub fn single_settle_order_request(
+    sk: RistrettoSecretKey,
+    order: crate::models::OrderDB,
+) -> Result<crate::relayer_rpcclient::method::GetExecuteTraderOrderResponse, String> {
     // fetch order details
+    let order_address = order.order_id.clone();
 
     let order_info: crate::relayer_rpcclient::method::GetTransactionHashResponse =
         crate::relayer_rpcclient::txrequest::get_order_details_transactiion_hashes(
-            account_address.clone(),
+            order_address.clone(),
         )?;
-    // get Output to use in settlement
-    let output = order_info.result[0].output.clone().unwrap();
-    // convert hex string to Output
-    let output =crate::util::hex_to_output(output);
-    let uuid_str = order_info.result[0].order_id.clone();
-    let uuid = uuid::Uuid::parse_str(&uuid_str).unwrap();
 
-    // get order infor from db
-    let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
-    let _order = crate::db_ops::get_order_by_order_id(&account_address, &mut conn).unwrap();
+    let result = order_info.result;
+    if result.len() == 0 {
+        return Err("No Order Found".to_string());
+    }
+    let mut output: Option<String> = None;
+    for hash in result.iter() {
+        if hash.output.is_some() {
+            output = hash.output.clone();
+            break;
+        }
+    }
+    if output.is_none() {
+        return Err("No Output Found".to_string());
+    }
+
+    // convert hex string to Output
+    let output = crate::util::hex_to_output(output.unwrap());
+    let uuid_str = result[0].order_id.clone();
+    let uuid = uuid::Uuid::parse_str(&uuid_str).unwrap();
 
     // create settlement reqest
     let settle_msg = crate::relayer::execute_order_zkos(
         output,
         &sk,
-        account_address.clone(),
+        order_address.clone(),
         uuid,
         "MARKET".to_string(),
         0.0,
-        "PENDING".to_string(),
+        "FILLED".to_string(),
         0.0,
         TXType::ORDERTX,
     );
-
     // send settlement request
-    let response = crate::relayer_types::ExecuteTraderOrderZkos::submit_order(settle_msg.clone());
-    if response.is_ok() {
-        // add this in accounts db. 
-        // Check back after some time to see if the order has been settled
-         let _ = crate::db_ops::create_account(
-                            &mut conn,
-                            &account_address,
-                            None,
-                            false,
-                            0 as i32,
-                        );
-    }
-    response
+    crate::relayer_types::ExecuteTraderOrderZkos::submit_order(settle_msg.clone())
+   
 }
-
-
 
 // add test for random values
 #[cfg(test)]

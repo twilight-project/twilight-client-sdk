@@ -484,10 +484,11 @@ use std::time::Duration;
     fn test_get_accounts_with_scalar_str_db(){
         dotenv::dotenv().expect("Failed loading dotenv");
         let mut conn = crate::db_ops::establish_connection();
-        let accounts = crate::db_ops::get_accounts_with_not_null_scalar_str(&mut conn).unwrap();
-        
-        println!("accounts {:?}", accounts);
+        let accounts = crate::db_ops::get_all_accounts_with_not_null_scalar_str(&mut conn).unwrap();
+        let account_subset = crate::db_ops::get_accounts_with_not_null_scalar_str(&mut conn, 15).unwrap();
+        println!("accounts {:?}", account_subset);
         print!("Number of accounts {:?}", accounts.len());
+        print!("Number of accounts {:?}", account_subset.len());
     }
     #[test]
     fn test_delete_account_by_address(){

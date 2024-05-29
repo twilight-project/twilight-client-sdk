@@ -39,9 +39,16 @@ pub fn get_accounts_with_null_scalar_str(conn: &mut PgConnection) -> Result<Vec<
     accounts.filter(scalar_str.is_null()).load(conn)
 }
 
-pub fn get_accounts_with_not_null_scalar_str(conn: &mut PgConnection) -> Result<Vec<AccountDB>, diesel::result::Error> {
+
+
+pub fn get_all_accounts_with_not_null_scalar_str(conn: &mut PgConnection) -> Result<Vec<AccountDB>, diesel::result::Error> {
     use crate::schema::accounts::dsl::*;
     accounts.filter(scalar_str.is_not_null()).load(conn)
+}
+
+pub fn get_accounts_with_not_null_scalar_str(conn: &mut PgConnection, size: i64) -> Result<Vec<AccountDB>, diesel::result::Error> {
+    use crate::schema::accounts::dsl::*;
+    accounts.filter(scalar_str.is_not_null()).limit(size).load(conn)
 }
 
 pub fn delete_account_by_pk_address(address: &str, conn: &mut PgConnection) -> Result<usize, diesel::result::Error> {
@@ -69,7 +76,7 @@ pub fn delete_all_accounts(conn: &mut PgConnection) -> Result<usize, diesel::res
     diesel::delete(accounts).execute(conn)
 }
 
-pub fn get_order_by_order_id(order_idd: &str, connection: &mut PgConnection) -> Result<OrderDB, diesel::result::Error> {
+pub fn get_order_by_order_id_address(order_idd: &str, connection: &mut PgConnection) -> Result<OrderDB, diesel::result::Error> {
     use crate::schema::orders::dsl::*;
     orders.filter(order_id.eq(order_idd))
     .select(OrderDB::as_select())
@@ -115,10 +122,18 @@ pub fn get_orders_by_type(conn: &mut PgConnection, ord_type: &str) -> Result<Vec
     .load(conn)
 }
 
-pub fn get_orders_by_status(conn: &mut PgConnection, ord_status: &str) -> Result<Vec<OrderDB>, diesel::result::Error> {
+pub fn get_all_orders_by_status(conn: &mut PgConnection, ord_status: &str) -> Result<Vec<OrderDB>, diesel::result::Error> {
 
     use crate::schema::orders::dsl::*;
     orders.filter(order_status.eq(ord_status))
+    .load(conn)
+}
+
+pub fn get_subset_order_by_status(conn: &mut PgConnection, ord_status: &str, size:i64) -> Result<Vec<OrderDB>, diesel::result::Error> {
+
+    use crate::schema::orders::dsl::*;
+    orders.filter(order_status.eq(ord_status))
+    .limit(size)
     .load(conn)
 }
 
@@ -129,4 +144,12 @@ pub fn get_orders_by_position_type(conn: &mut PgConnection, pos_type: &str) -> R
     .load(conn)
 }
 
+// Update order status by order id
+pub fn update_order_status_by_order_id(conn: &mut PgConnection, idd: i32, new_status: &str) -> Result<usize, diesel::result::Error> {
+    use crate::schema::orders::dsl::*;
+    diesel::update(orders.filter(id.eq(idd))
+    .filter(order_status.eq("pending")))
+    .set(order_status.eq(new_status))
+    .execute(conn)
+}
 

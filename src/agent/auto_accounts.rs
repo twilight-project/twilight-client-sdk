@@ -50,7 +50,52 @@ pub fn load_accounts_to_db_from_main_account(
                 println!("Error in creating accounts: {:?}", e);
             }
         };
+        if initial_balance < 800 {
+            println!("Remaining Balance: {:?} too low. Please top up the base account", initial_balance);
+            break;
+        }
         println!("Balance: {:?}", initial_balance);
+    }
+}
+
+// Check if the settled accounts are in the utxoset and update them
+pub fn update_settled_accounts_in_db_service(sk: RistrettoSecretKey) {
+    let mut conn = crate::db_ops::establish_connection();
+    let settled_accounts = crate::db_ops::get_accounts_with_null_scalar_str(&mut conn)
+        .unwrap();
+    for account in settled_accounts {
+        let pk_address = account.pk_address.clone();
+        // get accounts from chain
+        let input = match crate::chain::get_transaction_coin_input_from_address_fast(pk_address.clone()){
+            Ok(inp) => inp,
+            Err(e) => {
+                println!("Error in Fetching Utxo: {:?}", e);
+                continue;
+            },
+        };
+        // decrypt the account to know the balance
+        let qq_account = input.to_quisquis_account().unwrap();
+        let balance = qq_account.decrypt_account_balance_value(&sk).unwrap();
+        // reconstruct u64 from scalar
+         let scalar_bytes = balance.to_bytes();
+        // Convert [u8; 32] into [u8; 8]
+        let array_8: [u8; 8] = scalar_bytes[0..8].try_into().unwrap();
+        let value = u64::from_le_bytes(array_8);
+
+        // creata s single transfer function to create scalar based account
+        match convert_encrypted_trading_account_to_scalar_based_account_db(pk_address.clone(), sk, value){
+            Ok(_) => {
+                println!("Account Updated");
+                // delete this account from db
+                let _ = crate::db_ops::delete_account_by_pk_address(&pk_address, &mut conn);
+            },
+            Err(e) => {
+                println!("Error in updating account: {:?}", e);
+                
+            }
+        }
+
+        
     }
 }
 
