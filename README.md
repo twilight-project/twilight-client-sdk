@@ -10,7 +10,8 @@ cargo install diesel_cli --no-default-features --features postgres
 
 This will create a new DB named order_book_staging as defined in the .env file
 
-run diesel setup
+run the following command to setup the diesel 
+diesel setup
 
 The migrations are already set up
 
