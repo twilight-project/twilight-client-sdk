@@ -1,15 +1,14 @@
 use super::id::Id;
 use super::method::{Method, TransactionHashArgs, UtxoRequest};
 // use curve25519_dalek::digest::Output;
-use jsonrpc_core::response::{self, Failure, Output, Success};
-use jsonrpc_core::Response as JsonRPCResponse;
+use jsonrpc_core::response::Output;
+
 use jsonrpc_core::Version;
 use serde::{Deserialize, Serialize};
 // use super::method::Method;
 use reqwest::blocking::Response;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONTENT_TYPE, USER_AGENT};
-use serde_json::Error;
-use transaction::Transaction;
+
 // pub type TransactionStatusId = String;
 use crate::relayer_rpcclient::method::ByteRec;
 lazy_static! {
@@ -537,7 +536,7 @@ mod test {
     use super::RELAYER_RPC_SERVER_URL;
     use crate::relayer_rpcclient::method::*;
     use crate::relayer_rpcclient::txrequest::{
-        Resp, RpcBody, RpcRequest, PUBLIC_API_RPC_SERVER_URL,
+        RpcBody, RpcRequest, PUBLIC_API_RPC_SERVER_URL,
     };
     use std::fs::File;
     use std::io::prelude::*;

@@ -10,9 +10,8 @@ use serde::Deserialize;
 use zkvm::Address;
 use core::convert::TryInto;
 use curve25519_dalek::scalar::Scalar;
-use zkschnorr::Signature;
 use zkvm::zkos_types::{
-    IOType, Input, InputData, Output, OutputCoin, OutputData, OutputMemo, Utxo,
+    IOType, Output, OutputCoin, OutputData,
 };
 
 //Utility function used for converting seed to Ristretto secret Key

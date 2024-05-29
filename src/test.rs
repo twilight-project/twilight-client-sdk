@@ -12,29 +12,24 @@ const RELAYER_SEED: &str =
    //LPf7DBZSdlKYSk7i0qfB+V0dKw7Ul6NxcbuPufKPuUFj/mV0KJL+w1GTUlzHG6vyM1LLEuN+yaPyddveiUC+ag==
 #[cfg(test)]
 mod tests {
-    use crate::relayer_rpcclient::method::{ByteRec, GetCreateTraderOrderResponse, GetTransactionHashResponse, TransactionHashArgs};
+    use crate::relayer_rpcclient::method::{GetTransactionHashResponse, TransactionHashArgs};
     use crate::relayer_rpcclient::txrequest::{RpcBody, RpcRequest, PUBLIC_API_RPC_SERVER_URL};
-    use crate::relayer_types::CreateTraderOrderClientZkos;
     use crate::test::{TEST_SEED, RELAYER_SEED};
     use crate::*;
     use crate::zk_account::ZkAccount;
-    use address::{Address, Network};
+    use address::Network;
     use curve25519_dalek::scalar::Scalar;
-    use jsonrpc_http_server::tokio::time::sleep;
     use quisquislib::accounts::Account;
     use quisquislib::elgamal::ElGamalCommitment;
     use quisquislib::keys::{PublicKey, SecretKey};
     use quisquislib::ristretto::{RistrettoPublicKey, RistrettoSecretKey};
     use rand::rngs::OsRng;
-    use transaction::vm_run::{Prover, Verifier};
-    use zkvm::{program::Program, Commitment};
+    
 use std::time::Duration;
     use zkvm::{
-        zkos_types::{InputData, OutputCoin, OutputMemo, OutputState, Utxo},
+        zkos_types::Utxo,
         Input, Output,
     };
-
-    use self::relayer_types::CreateTraderOrderZkos;
 
     #[test]
     fn test_keypair_verification() {
@@ -81,7 +76,7 @@ use std::time::Duration;
         // get Account from Output
         let account : Account = Output::to_quisquis_account(&coin_output).unwrap();
         let amount = 1233u64;
-        let commitment_scalar_hex: &str =
+        let _commitment_scalar_hex: &str =
             "785c75ead6cea37bcebe13654be574151077a398e73c64a393f65a5e667efa04";
         // let encryption_commitment_scalar =
         //     crate::util::hex_to_scalar(commitment_scalar_hex.to_string()).unwrap();
@@ -339,7 +334,7 @@ use std::time::Duration;
             &programs,
             0u32,
         ).unwrap();
-       //println!("order_hex: {:?}", order_tx_message.clone());
+       println!("order_hex: {:?}", order_tx_message.clone());
 
        // recreate trader order
        //let client_order: CreateTraderOrderClientZkos = CreateTraderOrderClientZkos::decode_from_hex_string(order_tx_message).unwrap();
@@ -429,7 +424,7 @@ use std::time::Duration;
     #[test]
     fn delete_last_100_entries_accounts(){
         dotenv::dotenv().expect("Failed loading dotenv");
-        let mut count = 6089;
+        let mut _count = 6089;
         // for _i in 0..100{
         //     count += 1;
         // }
@@ -476,7 +471,7 @@ use std::time::Duration;
         let scalar_str = None;
         let is_on_chain = false;
         let balance = 0;
-        let account = crate::db_ops::create_account(&mut conn, pk_address, scalar_str, is_on_chain, balance).unwrap();
+        let _account = crate::db_ops::create_account(&mut conn, pk_address, scalar_str, is_on_chain, balance).unwrap();
         }
         //println!("account {:?}", account);
     }

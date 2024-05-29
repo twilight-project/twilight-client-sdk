@@ -103,19 +103,19 @@ pub fn get_public_key(secret_key: RistrettoSecretKey, file_path: String) -> Rist
 
 // }
 
-pub fn main() {
-    let password = b"your_password_here";
-    let iv = b"your_password_here"; // Use a secure way to handle the password
-    let seed =
-        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
-    let wallet = init_wallet(
-        password,
-        "wallet.txt".to_string(),
-        iv,
-        Some(seed.to_string()),
-    );
-    // let loaded_wallet = Wallet::load_from_file("wallet.json".to_string());
-}
+// pub fn main() {
+//     let password = b"your_password_here";
+//     let iv = b"your_password_here"; // Use a secure way to handle the password
+//     let seed =
+//         "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+//     let _wallet = init_wallet(
+//         password,
+//         "wallet.txt".to_string(),
+//         iv,
+//         Some(seed.to_string()),
+//     );
+//     // let loaded_wallet = Wallet::load_from_file("wallet.json".to_string());
+// }
 
 //Utility function used for converting seed to Ristretto secret Key
 //UPDATE the function to reflect Hash of seed to increase security

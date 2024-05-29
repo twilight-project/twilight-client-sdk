@@ -1,31 +1,12 @@
-use crate::models::OrderDB;
-use crate::relayer_rpcclient::method::{
-    ByteRec, GetCreateTraderOrderResponse, GetTransactionHashResponse, TransactionHashArgs,
-};
-use crate::relayer_rpcclient::txrequest::{RpcBody, RpcRequest, PUBLIC_API_RPC_SERVER_URL};
-use crate::relayer_types::{CreateTraderOrderClientZkos, TXType};
-use crate::schema::orders::order_type;
-use jsonrpc::client;
-use rand::Rng;
 
-use crate::relayer_types::CreateTraderOrderZkos;
-use crate::relayer_types::{OrderType, PositionType};
-use address::{Address, Network};
-use curve25519_dalek::scalar::Scalar;
+use crate::relayer_rpcclient::method::GetCreateTraderOrderResponse;
+use crate::relayer_types::TXType;
+use rand::Rng;
+use crate::relayer_types::PositionType;
 use jsonrpc_http_server::tokio::time::sleep;
-use lazy_static::lazy_static;
-use quisquislib::accounts::Account;
-use quisquislib::elgamal::ElGamalCommitment;
-use quisquislib::keys::{PublicKey, SecretKey};
-use quisquislib::ristretto::{RistrettoPublicKey, RistrettoSecretKey};
-use rand::rngs::OsRng;
-use std::env;
+use quisquislib::ristretto::RistrettoSecretKey;
+
 use std::time::Duration;
-use zkvm::{program::Program, Commitment};
-use zkvm::{
-    zkos_types::{InputData, OutputCoin, OutputMemo, OutputState, Utxo},
-    Input, Output,
-};
 
 fn helper_random_values() -> (f64, PositionType) {
     // select a random value between 0 to 50 for Leverage

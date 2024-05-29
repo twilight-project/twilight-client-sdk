@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_this_or_that::as_f64;
 use sha2::{Digest, Sha256};
 use std::{hash::Hash, time::SystemTime};
-use uuid::{timestamp, Uuid};
+use uuid:: Uuid;
 use zkvm::{IOType, Output, Utxo};
 /// Serialized as the "method" field of JSON-RPC/HTTP requests.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
@@ -367,7 +367,7 @@ impl RequestID {
 mod test {
     use super::RequestResponse;
     // use hex_literal::hex;
-    use sha2::{Digest, Sha256};
+    
     #[test]
     fn request_id_test() {
         let id  =  RequestResponse::new("order success".to_string(), "0ce8ffc7587e8ac1c8328f44b5219834b98125c7ef176a31f3ac7201b749ad913b84b8600e6d2a6f607454a9527238f6978f31102d308f3acb3599e7b725163117df5cb11c".to_string());

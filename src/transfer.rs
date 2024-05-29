@@ -1,21 +1,19 @@
-use address::{Address, AddressType, Network, Script, Standard};
+use address::{Address, AddressType, Network};
 use core::convert::TryInto;
 use curve25519_dalek::scalar::Scalar;
 use transaction::quisquislib::{
     accounts::Account,
-    elgamal::ElGamalCommitment,
-    keys::{PublicKey, SecretKey},
-    ristretto::{RistrettoPublicKey, RistrettoSecretKey},
+    
+    ristretto::RistrettoSecretKey,
 };
 
 use transaction::reference_tx::{Receiver, Sender};
 use transaction::{Transaction, TransferTransaction};
-use zkvm::{zkos_types::{Input, InputData, OutputCoin, Utxo}, Tx};
+use zkvm::zkos_types::{Input, InputData, OutputCoin, Utxo};
 
 use crate::*;
 use hex;
 
-use serde::{Deserialize, Serialize};
 
 //Rename dark to stealth in all functions
 ///Neeeded to stroe the encrypt scalar for future

@@ -1,40 +1,20 @@
-use jsonrpc::client;
-use rand::Rng;
-use crate::relayer_rpcclient::method::{
-    ByteRec, GetCreateTraderOrderResponse, GetTransactionHashResponse, TransactionHashArgs,
-};
-use crate::relayer_rpcclient::txrequest::{
-    RpcBody, RpcRequest, PUBLIC_API_RPC_SERVER_URL,
-};
-use crate::relayer_types::CreateTraderOrderClientZkos;
-
-use address::{Address, Network};
 use curve25519_dalek::scalar::Scalar;
-use jsonrpc_http_server::tokio::time::sleep;
 use quisquislib::accounts::Account;
-use quisquislib::elgamal::ElGamalCommitment;
-use quisquislib::keys::{PublicKey, SecretKey};
+use quisquislib::keys::PublicKey;
 use quisquislib::ristretto::{RistrettoPublicKey, RistrettoSecretKey};
 use rand::rngs::OsRng;
 use std::time::Duration;
-use transaction::vm_run::{Prover, Verifier};
+
 use crate::transfer::TransferTxWallet;
-use crate::zk_account::ZkAccount;
-use zkvm::{program::Program, Commitment};
-use zkvm::{
-    zkos_types::{InputData, OutputCoin, OutputMemo, OutputState, Utxo},
-    Input, Output,
-};
 
-use lazy_static::lazy_static;
-use std::env;
-use crate::relayer_types::CreateTraderOrderZkos;
 
+// Load accounts into db from main trading account
+//
 pub fn load_accounts_to_db_from_main_account(
     sk: RistrettoSecretKey,
     sender_address: String,
     mut initial_balance: u64,
-) {
+){
     // create a loop ove main sender account and create multiple accounts
     // each iteration adds 7 accounts
     println!("Loading accounts into DB!");
@@ -59,6 +39,7 @@ pub fn load_accounts_to_db_from_main_account(
 }
 
 // Check if the settled accounts are in the utxoset and update them
+// This function is called by the agent
 pub fn update_settled_accounts_in_db_service(sk: RistrettoSecretKey) {
     let mut conn = crate::db_ops::establish_connection();
     let settled_accounts = crate::db_ops::get_accounts_with_null_scalar_str(&mut conn)
@@ -91,7 +72,7 @@ pub fn update_settled_accounts_in_db_service(sk: RistrettoSecretKey) {
             },
             Err(e) => {
                 println!("Error in updating account: {:?}", e);
-                
+
             }
         }
 
@@ -100,7 +81,10 @@ pub fn update_settled_accounts_in_db_service(sk: RistrettoSecretKey) {
 }
 
 // created for testing tx_commit with multiple requests
-fn test_tx_commit_rpc(sk: RistrettoSecretKey) {
+// Used for stress testing the rpc server and Oracle connections
+//
+#[allow(dead_code)]
+pub fn test_tx_commit_rpc(sk: RistrettoSecretKey) {
     let coin_address = "0c042724dc1f37fc1157dcb234d45d035df66b1b62db7f445811dc3248ea981368b2f476e79bf8cd4922c3892184ed21486a94968b57a34c0cb59e68b8ad34910359036d0f".to_string();
     let value: u64 = 8821;
     println!("value: {:?}", value);
