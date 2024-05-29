@@ -37,22 +37,22 @@ jsonrpc-core = "18.0.0"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 serde-this-or-that = "0.4.2"
 [dependencies.zkvm]
-git = "ssh://github.com/twilight-project/ZkOS.git"
+git = "ssh://github.com/twilight-project/zkos-rust.git"
 branch = "develop"
 
 
 [dependencies.transaction]
-git = "ssh://github.com/twilight-project/ZkOS.git"
+git = "ssh://github.com/twilight-project/zkos-rust.git"
 branch = "develop"
 
 
 [dependencies.transactionapi]
-git = "ssh://github.com/twilight-project/ZkOS.git"
+git = "ssh://github.com/twilight-project/zkos-rust.git"
 branch = "develop"
 
 
 [dependencies.address]
-git = "ssh://github.com/twilight-project/ZkOS.git"
+git = "ssh://github.com/twilight-project/zkos-rust.git"
 branch = "develop"
 
 
