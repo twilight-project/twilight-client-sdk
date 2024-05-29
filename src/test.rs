@@ -39,7 +39,7 @@ use std::time::Duration;
         // Load chain Metadata
         dotenv::dotenv().expect("Failed loading dotenv");
 
-        let coin_address: String = "0cca73b4d0d2fe98f3f392f5c9940b89d8a62d42418f5f128adad1aeeea51309329c46551c578c1b17ee9aa184198582095700d71dd2802e996c8eba97b680a915969ec3f3".to_string();
+        let coin_address: String = "0c3023e2e4de3790b6f632086916d96bc4cf72c57e5e490567c09bcd24e7561547c0bf4e2050597b3bc097bd3e2100eb29e4407cdbc1a043cc92e255e5eadf026df814f9a6".to_string();
     
         // //get coin output from chain    
         let utxo_id_vec = crate::chain::get_coin_utxo_by_address_hex(coin_address).unwrap();

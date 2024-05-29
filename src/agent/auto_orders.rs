@@ -134,6 +134,7 @@ pub fn place_random_limit_trader_order(
         0u32,
     )
     .map_err(|e| e.to_string())?;
+    println!("Order Tx Message: {:?}", order_tx_message);
     // send to chain
     let response =
         crate::relayer_types::CreateTraderOrderZkos::submit_order(order_tx_message.clone())?;
@@ -157,11 +158,11 @@ pub fn place_random_limit_trader_order(
 
 // Autonomous function to place limit orders on exchange
 //
-pub fn limit_order_service(sk: RistrettoSecretKey) -> Result<String, String> {
+pub fn limit_order_service(sk: RistrettoSecretKey, num_of_orders: i64, sleep_time:u64) -> Result<String, String> {
     println!("Starting Limit Order Service");
     // get a subset of 100 accounts that have their scalar available and are on chain
     let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
-    let accounts = crate::db_ops::get_accounts_with_not_null_scalar_str(&mut conn, 100).unwrap();
+    let accounts = crate::db_ops::get_accounts_with_not_null_scalar_str(&mut conn, num_of_orders).unwrap();
     for acc in accounts.iter() {
         //get the latest price from the exchange
         let btc_price = crate::relayer_rpcclient::txrequest::get_recent_price_from_relayer()?;
