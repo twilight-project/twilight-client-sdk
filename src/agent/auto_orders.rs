@@ -177,7 +177,7 @@ pub fn limit_order_service(sk: RistrettoSecretKey, num_of_orders: i64, sleep_tim
                 acc.pk_address
             );
         }
-        let _ = sleep(Duration::from_secs(3));
+        let _ = sleep(Duration::from_secs(sleep_time));
     }
 
     Ok("Limit Orders Placed Successfully".to_string())
@@ -185,11 +185,11 @@ pub fn limit_order_service(sk: RistrettoSecretKey, num_of_orders: i64, sleep_tim
 
 // Autonomous function to place Market orders on exchange
 //
-pub fn market_order_service(sk: RistrettoSecretKey) -> Result<String, String> {
+pub fn market_order_service(sk: RistrettoSecretKey, num_order:i64, sleep_time: u64) -> Result<String, String> {
     println!("Starting Market Order Service");
     // get a subset of 100 accounts that have their scalar available and are on chain
     let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
-    let accounts = crate::db_ops::get_accounts_with_not_null_scalar_str(&mut conn, 100).unwrap();
+    let accounts = crate::db_ops::get_accounts_with_not_null_scalar_str(&mut conn, num_order).unwrap();
     for acc in accounts.iter() {
         //get the latest price from the exchange
         let btc_price = crate::relayer_rpcclient::txrequest::get_recent_price_from_relayer()?;
@@ -204,7 +204,7 @@ pub fn market_order_service(sk: RistrettoSecretKey) -> Result<String, String> {
                 acc.pk_address
             );
         }
-        let _ = sleep(Duration::from_secs(3));
+        let _ = sleep(Duration::from_secs(sleep_time));
     }
 
     Ok("Market Orders Placed Successfully".to_string())
@@ -212,12 +212,12 @@ pub fn market_order_service(sk: RistrettoSecretKey) -> Result<String, String> {
 
 // Autonomous service to settle Market orders
 //
-pub fn settle_market_orders_service(sk: RistrettoSecretKey) -> Result<String, String> {
+pub fn settle_market_orders_service(sk: RistrettoSecretKey, num_orders:i64, sleep_time: u64) -> Result<String, String> {
     println!("Starting Settle Market(FILLED) Orders Service");
     // get a list of all market orders
     let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
     let orders =
-        crate::db_ops::get_subset_order_by_status(&mut conn, "FILLED", 10).map_err(|e| e.to_string())?;
+        crate::db_ops::get_subset_order_by_status(&mut conn, "FILLED", num_orders).map_err(|e| e.to_string())?;
     for order in orders.iter() {
         let response = single_settle_order_request(sk, order.clone());
         if response.is_ok() {
@@ -233,7 +233,7 @@ pub fn settle_market_orders_service(sk: RistrettoSecretKey) -> Result<String, St
                 0 as i32,
             );
         }
-        let _ = sleep(Duration::from_secs(5));
+        let _ = sleep(Duration::from_secs(sleep_time));
     }
     Ok("Market Orders Settled Successfully".to_string())
 }
