@@ -1,11 +1,12 @@
-
 use crate::relayer_rpcclient::method::GetCreateTraderOrderResponse;
+use crate::relayer_types::OrderStatus;
+use crate::relayer_types::PositionType;
 use crate::relayer_types::TXType;
 use rand::Rng;
-use crate::relayer_types::PositionType;
-use jsonrpc_http_server::tokio::time::sleep;
+// use jsonrpc_http_server::tokio::time::sleep;
 use quisquislib::ristretto::RistrettoSecretKey;
 
+use std::thread::sleep;
 use std::time::Duration;
 
 fn helper_random_values() -> (f64, PositionType) {
@@ -134,7 +135,7 @@ pub fn place_random_limit_trader_order(
         0u32,
     )
     .map_err(|e| e.to_string())?;
-    println!("Order Tx Message: {:?}", order_tx_message);
+    // println!("Order Tx Message: {:?}", order_tx_message);
     // send to chain
     let response =
         crate::relayer_types::CreateTraderOrderZkos::submit_order(order_tx_message.clone())?;
@@ -158,11 +159,16 @@ pub fn place_random_limit_trader_order(
 
 // Autonomous function to place limit orders on exchange
 //
-pub fn limit_order_service(sk: RistrettoSecretKey, num_of_orders: i64, sleep_time:u64) -> Result<String, String> {
+pub fn limit_order_service(
+    sk: RistrettoSecretKey,
+    num_of_orders: i64,
+    sleep_time: u64,
+) -> Result<String, String> {
     println!("Starting Limit Order Service");
     // get a subset of 100 accounts that have their scalar available and are on chain
     let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
-    let accounts = crate::db_ops::get_accounts_with_not_null_scalar_str(&mut conn, num_of_orders).unwrap();
+    let accounts =
+        crate::db_ops::get_accounts_with_not_null_scalar_str(&mut conn, num_of_orders).unwrap();
     for acc in accounts.iter() {
         //get the latest price from the exchange
         let btc_price = crate::relayer_rpcclient::txrequest::get_recent_price_from_relayer()?;
@@ -185,11 +191,16 @@ pub fn limit_order_service(sk: RistrettoSecretKey, num_of_orders: i64, sleep_tim
 
 // Autonomous function to place Market orders on exchange
 //
-pub fn market_order_service(sk: RistrettoSecretKey, num_order:i64, sleep_time: u64) -> Result<String, String> {
+pub fn market_order_service(
+    sk: RistrettoSecretKey,
+    num_order: i64,
+    sleep_time: u64,
+) -> Result<String, String> {
     println!("Starting Market Order Service");
     // get a subset of 100 accounts that have their scalar available and are on chain
     let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
-    let accounts = crate::db_ops::get_accounts_with_not_null_scalar_str(&mut conn, num_order).unwrap();
+    let accounts =
+        crate::db_ops::get_accounts_with_not_null_scalar_str_market(&mut conn, num_order).unwrap();
     for acc in accounts.iter() {
         //get the latest price from the exchange
         let btc_price = crate::relayer_rpcclient::txrequest::get_recent_price_from_relayer()?;
@@ -212,26 +223,35 @@ pub fn market_order_service(sk: RistrettoSecretKey, num_order:i64, sleep_time: u
 
 // Autonomous service to settle Market orders
 //
-pub fn settle_market_orders_service(sk: RistrettoSecretKey, num_orders:i64, sleep_time: u64) -> Result<String, String> {
+pub fn settle_market_orders_service(
+    sk: RistrettoSecretKey,
+    num_orders: i64,
+    sleep_time: u64,
+) -> Result<String, String> {
     println!("Starting Settle Market(FILLED) Orders Service");
     // get a list of all market orders
     let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
-    let orders =
-        crate::db_ops::get_subset_order_by_status(&mut conn, "FILLED", num_orders).map_err(|e| e.to_string())?;
+    let orders = crate::db_ops::get_subset_order_by_status(&mut conn, "FILLED", num_orders)
+        .map_err(|e| e.to_string())?;
     for order in orders.iter() {
         let response = single_settle_order_request(sk, order.clone());
         if response.is_ok() {
             println!("Order Settled Successfully");
             // delete the order from db
-            let _ = crate::db_ops::delete_order_by_id(order.id,&mut conn ).map_err(|e| e.to_string())?;
+            let _ = crate::db_ops::delete_order_by_id(order.id, &mut conn)
+                .map_err(|e| e.to_string())?;
             // add the account back to the db
-            let _ = crate::db_ops::create_account(
-                &mut conn,
-                &order.order_id,
-                None,
-                true,
-                0 as i32,
-            );
+            let _ = crate::db_ops::create_account(&mut conn, &order.order_id, None, true, 0 as i32);
+        }
+        match response {
+            Ok(_) => {}
+            Err(arg) => {
+                if arg == "Order liquidated".to_string() {
+                    println!("Order Liquidated ");
+                    let _ = crate::db_ops::delete_order_by_id(order.id, &mut conn)
+                        .map_err(|e| e.to_string())?;
+                }
+            }
         }
         let _ = sleep(Duration::from_secs(sleep_time));
     }
@@ -244,26 +264,30 @@ pub fn find_executed_limit_orders_service(sk: RistrettoSecretKey) -> Result<Stri
     println!("Starting Find Executed Limit Orders Service");
     // get a list of all limit orders
     let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
-    let orders =
-        crate::db_ops::get_orders_by_type(&mut conn, "LIMIT").map_err(|e| e.to_string())?;
-    let order_staus = crate::relayer_types::OrderStatus::FILLED;
-    for order in orders.iter() {
-        let address_hex = order.order_id.clone();
-        // create zkos query to get the order details
-        let query_msg = crate::relayer::query_trader_order_zkos(
-            address_hex.clone(),
-            &sk,
-            address_hex.clone(),
-            order.order_status.clone(),
-        );
+    loop {
+        let orders =
+            crate::db_ops::get_orders_by_type(&mut conn, "LIMIT", 20).map_err(|e| e.to_string())?;
+        let order_staus = crate::relayer_types::OrderStatus::FILLED;
+        for order in orders.iter() {
+            let address_hex = order.order_id.clone();
+            // create zkos query to get the order details
+            let query_msg = crate::relayer::query_trader_order_zkos(
+                address_hex.clone(),
+                &sk,
+                address_hex.clone(),
+                order.order_status.clone(),
+            );
 
-        // get the order details from the chain
-        let order_info = crate::relayer_rpcclient::txrequest::get_trader_order_info(query_msg)?;
-        // check if the order has been Filled
-        if order_info.result.order_status == order_staus {
-            // update the order status in the db
-            let _ = crate::db_ops::update_order_status_by_order_id(&mut conn, order.id, "FILLED")
-                .map_err(|e| e.to_string())?;
+            // get the order details from the chain
+            let order_info = crate::relayer_rpcclient::txrequest::get_trader_order_info(query_msg)?;
+            // check if the order has been Filled
+            // println!("order status : {:?}", order_info);
+            if order_info.result.order_status == order_staus {
+                // update the order status in the db
+                let _ =
+                    crate::db_ops::update_order_status_by_order_id(&mut conn, order.id, "FILLED")
+                        .map_err(|e| e.to_string())?;
+            }
         }
     }
     Ok("Executed Limit Orders Found Successfully".to_string())
@@ -289,10 +313,20 @@ pub fn single_settle_order_request(
         return Err("No Order Found".to_string());
     }
     let mut output: Option<String> = None;
+    // let mut liquidate = false;
     for hash in result.iter() {
-        if hash.output.is_some() {
-            output = hash.output.clone();
-            break;
+        match hash.order_status {
+            OrderStatus::LIQUIDATE => {
+                // liquidate = true;
+                return Err("Order liquidated".to_string());
+            }
+            OrderStatus::FILLED => {
+                if hash.output.is_some() {
+                    output = hash.output.clone();
+                    // break;
+                }
+            }
+            _ => {}
         }
     }
     if output.is_none() {
@@ -318,7 +352,6 @@ pub fn single_settle_order_request(
     );
     // send settlement request
     crate::relayer_types::ExecuteTraderOrderZkos::submit_order(settle_msg.clone())
-   
 }
 
 // add test for random values
