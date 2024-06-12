@@ -65,6 +65,7 @@ pub fn get_accounts_with_not_null_scalar_str(
     use crate::schema::accounts::dsl::*;
     accounts
         .filter(scalar_str.is_not_null())
+        .order(id.asc())
         .limit(size)
         .load(conn)
 }
@@ -75,9 +76,9 @@ pub fn get_accounts_with_not_null_scalar_str_market(
     use crate::schema::accounts::dsl::*;
     accounts
         .filter(scalar_str.is_not_null())
+        .order(id.asc())
         .limit(size)
-        .order(id.desc())
-        .offset(20)
+        .offset(100)
         .load(conn)
 }
 

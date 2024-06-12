@@ -3,6 +3,7 @@ use quisquislib::accounts::Account;
 use quisquislib::keys::PublicKey;
 use quisquislib::ristretto::{RistrettoPublicKey, RistrettoSecretKey};
 use rand::rngs::OsRng;
+use std::fs;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -10,10 +11,36 @@ use crate::transfer::TransferTxWallet;
 
 // Load accounts into db from main trading account
 //
+pub fn get_account_balance(path: &str) -> u64 {
+    let balance = match fs::read_to_string(path) {
+        Ok(balance_str) => match balance_str.trim().parse::<u64>() {
+            Ok(balance) => balance,
+            Err(_) => {
+                eprintln!("Failed to parse block height");
+                0
+            }
+        },
+        Err(e) => {
+            eprintln!("Failed to read block height: {}", e);
+            0
+        }
+    };
+    balance
+}
+pub fn set_account_balance(path: &str, balance: u64) {
+    match fs::write(path, balance.to_string()) {
+        Ok(_) => {
+            // println!("Successfully wrote balance to file");
+        }
+        Err(e) => eprintln!("Failed to write balance height: {}", e),
+    }
+}
+
 pub fn load_accounts_to_db_from_main_account(
     sk: RistrettoSecretKey,
     sender_address: String,
     mut initial_balance: u64,
+    path: &str,
 ) {
     // create a loop ove main sender account and create multiple accounts
     // each iteration adds 7 accounts
@@ -55,9 +82,11 @@ pub fn load_accounts_to_db_from_main_account(
                 "Remaining Balance: {:?} too low. Please top up the base account",
                 initial_balance
             );
+            set_account_balance(path, initial_balance);
             break;
         }
         println!("Balance: {:?}", initial_balance);
+        set_account_balance(path, initial_balance);
         let _ = sleep(Duration::from_secs(3));
     }
 }
@@ -67,9 +96,9 @@ pub fn load_accounts_to_db_from_main_account(
 pub fn update_settled_accounts_in_db_service(sk: RistrettoSecretKey) {
     let mut conn = crate::db_ops::establish_connection();
     loop {
-        sleep(Duration::from_secs(10));
+        sleep(Duration::from_secs(30));
         let settled_accounts =
-            crate::db_ops::get_accounts_with_null_scalar_str(&mut conn, 20).unwrap();
+            crate::db_ops::get_accounts_with_null_scalar_str(&mut conn, 5).unwrap();
         for account in settled_accounts {
             let pk_address = account.pk_address.clone();
             // get accounts from chain

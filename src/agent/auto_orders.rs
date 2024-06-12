@@ -241,6 +241,7 @@ pub fn settle_market_orders_service(
             let _ = crate::db_ops::delete_order_by_id(order.id, &mut conn)
                 .map_err(|e| e.to_string())?;
             // add the account back to the db
+            sleep(Duration::from_secs(5));
             let _ = crate::db_ops::create_account(&mut conn, &order.order_id, None, true, 0 as i32);
         }
         match response {
