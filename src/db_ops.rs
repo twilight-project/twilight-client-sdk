@@ -193,6 +193,7 @@ pub fn get_orders_by_type(
     use crate::schema::orders::dsl::*;
     orders
         .filter(order_type.eq(ord_type))
+        .order(id.asc())
         .limit(limit)
         .load(conn)
 }
@@ -213,6 +214,7 @@ pub fn get_subset_order_by_status(
     use crate::schema::orders::dsl::*;
     orders
         .filter(order_status.eq(ord_status))
+        .order(id.asc())
         .limit(size)
         .load(conn)
 }

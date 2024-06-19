@@ -1,3 +1,4 @@
+use crate::agent::threadpool::ThreadPool;
 use crate::relayer_rpcclient::method::GetCreateTraderOrderResponse;
 use crate::relayer_types::OrderStatus;
 use crate::relayer_types::PositionType;
@@ -5,10 +6,14 @@ use crate::relayer_types::TXType;
 use rand::Rng;
 // use jsonrpc_http_server::tokio::time::sleep;
 use quisquislib::ristretto::RistrettoSecretKey;
-
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread::sleep;
 use std::time::Duration;
-
+lazy_static! {
+    pub static ref PSQL_THREADPOOL: Arc<Mutex<ThreadPool>> =
+        Arc::new(Mutex::new(ThreadPool::new(1, String::from("THREADPOOL"))));
+}
 fn helper_random_values() -> (f64, PositionType) {
     // select a random value between 0 to 50 for Leverage
     let random_point = rand::thread_rng().gen_range(1, 50);
@@ -285,9 +290,20 @@ pub fn find_executed_limit_orders_service(sk: RistrettoSecretKey) -> Result<Stri
             // println!("order status : {:?}", order_info);
             if order_info.result.order_status == order_staus {
                 // update the order status in the db
-                let _ =
-                    crate::db_ops::update_order_status_by_order_id(&mut conn, order.id, "FILLED")
-                        .map_err(|e| e.to_string())?;
+                let order_id = order.id.clone();
+                let mut pqsl_threadpool = PSQL_THREADPOOL.lock().unwrap();
+                pqsl_threadpool.execute(move || {
+                    sleep(Duration::from_secs(4));
+                    let mut conn1: diesel::prelude::PgConnection =
+                        crate::db_ops::establish_connection();
+                    let _ = crate::db_ops::update_order_status_by_order_id(
+                        &mut conn1, order_id, "FILLED",
+                    )
+                    .map_err(|e| e.to_string())
+                    .unwrap_or_default();
+                });
+
+                drop(pqsl_threadpool);
             }
         }
     }
