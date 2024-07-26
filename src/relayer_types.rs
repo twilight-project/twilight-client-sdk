@@ -94,6 +94,7 @@ pub enum OrderStatus {
     SerializationError,
     RequestSubmitted,
     OrderNotFound,
+    FilledUpdated,
 }
 impl OrderStatus {
     //from string
@@ -114,6 +115,7 @@ impl OrderStatus {
             "SerializationError" => Some(OrderStatus::SerializationError),
             "OrderNotFound" => Some(OrderStatus::OrderNotFound),
             "RejectedFromChain" => Some(OrderStatus::RejectedFromChain),
+            "FilledUpdated" => Some(OrderStatus::FilledUpdated),
             _ => None,
         }
     }
@@ -136,6 +138,7 @@ pub enum RequestStatus {
     RequestSubmitted,
     OrderNotFound,
     RejectedFromChain,
+    FilledUpdated,
 }
 impl RequestStatus {
     //from string
@@ -156,6 +159,7 @@ impl RequestStatus {
             "SerializationError" => Some(RequestStatus::SerializationError),
             "OrderNotFound" => Some(RequestStatus::OrderNotFound),
             "RejectedFromChain" => Some(RequestStatus::RejectedFromChain),
+            "FilledUpdated" => Some(RequestStatus::FilledUpdated),
             _ => None,
         }
     }
