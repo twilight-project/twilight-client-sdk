@@ -47,6 +47,7 @@ pub fn get_accounts_with_null_scalar_str(
     use crate::schema::accounts::dsl::*;
     accounts
         .filter(scalar_str.is_null())
+        .order(id.asc())
         .limit(limit)
         .load(conn)
 }
