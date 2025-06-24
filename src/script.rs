@@ -315,17 +315,17 @@ mod test {
     }
     #[test]
     fn create_chain_deploy_tx() {
-        let seed = "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY33S8ZYMoVzj8tybCB/Okwt+cblM0l3a8/eEJtfBpPcJwfZw++";
+        let seed = "uhv30yu9rNNRH7RIEIBcN+PgZ46y7C8ebc+IvJWgzQx3vjF9JP2VJZpJzLyUfKJ0W2nue6x00pTMA69X0fERlw==";
         let sk: quisquislib::ristretto::RistrettoSecretKey =
             quisquislib::keys::SecretKey::from_bytes(seed.as_bytes());
         println!("sk {:?}", sk);
         dotenv::dotenv().expect("Failed loading dotenv");
 
         // data for contract initialization
-        let value_sats: u64 = 20000000000u64;
-        let coin_address: String = "0ca01385e8e9cea89a187e0b0ab2b1caaf713df527acdb88f764358d8d657db34ca2df7eb6c3673d2c7b34c836e5c5bb4fc1d91df3185a576084134bd8ff120d1b9e2eebef".to_string();
+        let value_sats: u64 = 100000000u64;
+        let coin_address: String = "0cec9fa058edf1593596efb5cb122c59831ff9b31aed173be1bdcbf734e6bc206d56f677eb72325d28dd8bd999aaff1e4eaf315d2defc2c370c839d706620c1b195b9048c1".to_string();
         let commitment_scalar_hex: &str =
-            "2398cadb6f3f9fa7314b1d0192fd66998541c77b9e2029aa3e6ffea9b340ce0b";
+            "2a99114d927b092b2543392dc25ef0957b1216243a3bd3486161035f3d5cab0b";
         // let scalar_bytes = hex::decode(&commitment_scalar_hex).unwrap();
         // let ecryption_commitment_scalar = curve25519_dalek::scalar::Scalar::from_bytes_mod_order(
         //     scalar_bytes.try_into().unwrap(),
@@ -335,9 +335,9 @@ mod test {
         //let ecryption_commitment_scalar = curve25519_dalek::scalar::Scalar::random(&mut OsRng);
         let program_json_path: &str = "./relayerprogram.json";
         let chain_net = address::Network::default();
-        let state_variables: Vec<u64> = vec![2000000];
+        let state_variables: Vec<u64> = vec![1000000];
         let program_tag: String = "RelayerInitializer".to_string();
-        let pool_share = 2000000u64;
+        let pool_share = 1000000u64;
         // create tx
         let tx = crate::script::create_contract_deploy_transaction(
             sk,

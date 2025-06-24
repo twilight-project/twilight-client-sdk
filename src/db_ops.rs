@@ -198,6 +198,18 @@ pub fn get_orders_by_type(
         .limit(limit)
         .load(conn)
 }
+pub fn get_orders_by_type_limit(
+    conn: &mut PgConnection,
+    ord_type: &str,
+    limit: i64,
+) -> Result<Vec<OrderDB>, diesel::result::Error> {
+    use crate::schema::orders::dsl::*;
+    orders
+        .filter(order_type.eq(ord_type).and(order_status.eq("PENDING")))
+        .order(id.asc())
+        .limit(limit)
+        .load(conn)
+}
 
 pub fn get_all_orders_by_status(
     conn: &mut PgConnection,

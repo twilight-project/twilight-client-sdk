@@ -3,36 +3,84 @@ use quisquislib::accounts::Account;
 use quisquislib::keys::PublicKey;
 use quisquislib::ristretto::{RistrettoPublicKey, RistrettoSecretKey};
 use rand::rngs::OsRng;
+
 use std::fs;
 use std::thread::sleep;
 use std::time::Duration;
 
 use crate::transfer::TransferTxWallet;
 
-// Load accounts into db from main trading account
-//
-pub fn get_account_balance(path: &str) -> u64 {
-    let balance = match fs::read_to_string(path) {
+// Function to read environment variable with default value
+pub fn get_env_var_balance(env_var_name: &str) -> u64 {
+    match std::env::var(env_var_name) {
         Ok(balance_str) => match balance_str.trim().parse::<u64>() {
             Ok(balance) => balance,
             Err(_) => {
-                eprintln!("Failed to parse block height");
+                eprintln!(
+                    "Failed to parse balance from environment variable {}",
+                    env_var_name
+                );
                 0
             }
         },
-        Err(e) => {
-            eprintln!("Failed to read block height: {}", e);
+        Err(_) => {
+            eprintln!("Environment variable {} not found", env_var_name);
             0
         }
-    };
-    balance
+    }
 }
-pub fn set_account_balance(path: &str, balance: u64) {
-    match fs::write(path, balance.to_string()) {
-        Ok(_) => {
-            // println!("Successfully wrote balance to file");
+
+// Function to update environment variable in .env file
+pub fn update_env_var_balance(env_var_name: &str, balance: u64) -> Result<(), String> {
+    let env_file_path = ".env";
+
+    // Read the current .env file
+    let env_content = match fs::read_to_string(env_file_path) {
+        Ok(content) => content,
+        Err(e) => return Err(format!("Failed to read .env file: {}", e)),
+    };
+
+    let mut lines: Vec<String> = env_content.lines().map(|s| s.to_string()).collect();
+    let mut found = false;
+
+    // Update the line if it exists
+    for line in lines.iter_mut() {
+        if line.starts_with(&format!("{}=", env_var_name)) {
+            *line = format!("{}={}", env_var_name, balance);
+            found = true;
+            break;
         }
-        Err(e) => eprintln!("Failed to write balance height: {}", e),
+    }
+
+    // Add the line if it doesn't exist
+    if !found {
+        lines.push(format!("{}={}", env_var_name, balance));
+    }
+
+    // Write back to the .env file
+    let updated_content = lines.join("\n");
+    match fs::write(env_file_path, updated_content) {
+        Ok(_) => {
+            // Update the environment variable in the current process
+            std::env::set_var(env_var_name, balance.to_string());
+            Ok(())
+        }
+        Err(e) => Err(format!("Failed to write .env file: {}", e)),
+    }
+}
+
+// Load accounts into db from main trading account
+//
+pub fn get_account_balance(env_var_name: &str) -> u64 {
+    get_env_var_balance(env_var_name)
+}
+
+pub fn set_account_balance(env_var_name: &str, balance: u64) {
+    match update_env_var_balance(env_var_name, balance) {
+        Ok(_) => {
+            // println!("Successfully updated balance in .env file");
+        }
+        Err(e) => eprintln!("Failed to update balance in .env file: {}", e),
     }
 }
 
@@ -40,7 +88,7 @@ pub fn load_accounts_to_db_from_main_account(
     sk: RistrettoSecretKey,
     sender_address: String,
     mut initial_balance: u64,
-    path: &str,
+    env_var_name: &str,
 ) {
     // create a loop ove main sender account and create multiple accounts
     // each iteration adds 7 accounts
@@ -82,11 +130,11 @@ pub fn load_accounts_to_db_from_main_account(
                 "Remaining Balance: {:?} too low. Please top up the base account",
                 initial_balance
             );
-            set_account_balance(path, initial_balance);
+            set_account_balance(env_var_name, initial_balance);
             break;
         }
         println!("Balance: {:?}", initial_balance);
-        set_account_balance(path, initial_balance);
+        set_account_balance(env_var_name, initial_balance);
         let _ = sleep(Duration::from_secs(3));
     }
 }

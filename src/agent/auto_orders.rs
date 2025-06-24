@@ -232,6 +232,7 @@ pub fn settle_market_orders_service(
     sk: RistrettoSecretKey,
     num_orders: i64,
     sleep_time: u64,
+    order_type: String,
 ) -> Result<String, String> {
     println!("Starting Settle Market(FILLED) Orders Service");
     // get a list of all market orders
@@ -239,7 +240,7 @@ pub fn settle_market_orders_service(
     let orders = crate::db_ops::get_subset_order_by_status(&mut conn, "FILLED", num_orders)
         .map_err(|e| e.to_string())?;
     for order in orders.iter() {
-        let response = single_settle_order_request(sk, order.clone());
+        let response = single_settle_order_request(sk, order.clone(), order_type.clone());
         if response.is_ok() {
             println!("Order Settled Successfully");
             // delete the order from db
@@ -271,18 +272,22 @@ pub fn find_executed_limit_orders_service(sk: RistrettoSecretKey) -> Result<Stri
     // get a list of all limit orders
     let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
     loop {
-        let orders =
-            crate::db_ops::get_orders_by_type(&mut conn, "LIMIT", 20).map_err(|e| e.to_string())?;
+        sleep(Duration::from_secs(5));
+        let orders = crate::db_ops::get_orders_by_type_limit(&mut conn, "LIMIT", 20)
+            .map_err(|e| e.to_string())?;
         let order_staus = crate::relayer_types::OrderStatus::FILLED;
+        let order_staus_liquidate = crate::relayer_types::OrderStatus::LIQUIDATE;
         for order in orders.iter() {
             let address_hex = order.order_id.clone();
             // create zkos query to get the order details
+            println!("address_hex : {:?}", address_hex);
             let query_msg = crate::relayer::query_trader_order_zkos(
                 address_hex.clone(),
                 &sk,
                 address_hex.clone(),
                 order.order_status.clone(),
             );
+            println!("query_msg : {:?}", query_msg);
 
             // get the order details from the chain
             let order_info = crate::relayer_rpcclient::txrequest::get_trader_order_info(query_msg)?;
@@ -304,6 +309,23 @@ pub fn find_executed_limit_orders_service(sk: RistrettoSecretKey) -> Result<Stri
                 });
 
                 drop(pqsl_threadpool);
+            } else if order_info.result.order_status == order_staus_liquidate {
+                // update the order status in the db
+                let order_id = order.id.clone();
+                let account_id = order.order_id.clone();
+                let mut pqsl_threadpool = PSQL_THREADPOOL.lock().unwrap();
+                pqsl_threadpool.execute(move || {
+                    sleep(Duration::from_secs(1));
+                    let mut conn1: diesel::prelude::PgConnection =
+                        crate::db_ops::establish_connection();
+
+                    let _ = crate::db_ops::delete_order_by_id(order_id.clone(), &mut conn1)
+                        .map_err(|e| e.to_string())
+                        .unwrap_or_default();
+                    // add the account back to the db
+                });
+
+                drop(pqsl_threadpool);
             }
         }
     }
@@ -316,6 +338,7 @@ pub fn find_executed_limit_orders_service(sk: RistrettoSecretKey) -> Result<Stri
 pub fn single_settle_order_request(
     sk: RistrettoSecretKey,
     order: crate::models::OrderDB,
+    order_type: String,
 ) -> Result<crate::relayer_rpcclient::method::GetExecuteTraderOrderResponse, String> {
     // fetch order details
     let order_address = order.order_id.clone();
@@ -355,16 +378,29 @@ pub fn single_settle_order_request(
     let uuid_str = result[0].order_id.clone();
     let uuid = uuid::Uuid::parse_str(&uuid_str).unwrap();
 
+    // limit type settlement
+    let mut entry_price_local = 0;
+    if order_type == "LIMIT" {
+        let random_price_variance = rand::thread_rng().gen_range(10, 500);
+        let btc_price = crate::relayer_rpcclient::txrequest::get_recent_price_from_relayer()?;
+        let entry_price = btc_price.result.price as u64;
+        entry_price_local = match order.position_type.as_str() {
+            "LONG" => entry_price + random_price_variance,
+            "SHORT" => entry_price - random_price_variance,
+            _ => entry_price,
+        };
+    }
+
     // create settlement reqest
     let settle_msg = crate::relayer::execute_order_zkos(
         output,
         &sk,
         order_address.clone(),
         uuid,
-        "MARKET".to_string(),
+        order_type.clone(),
         0.0,
         "FILLED".to_string(),
-        0.0,
+        entry_price_local as f64,
         TXType::ORDERTX,
     );
     // send settlement request
