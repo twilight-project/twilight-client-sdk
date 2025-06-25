@@ -693,4 +693,26 @@ mod test {
             hex::encode(bincode::serialize(&derser_utxo).unwrap())
         );
     }
+
+    #[test]
+    pub fn test_query_trader_order_broadcast_data() {
+        dotenv::dotenv().expect("Failed loading dotenv");
+
+        // let seed = "8vKfd6kCrttU4n17u5OKUVbJqIXyCqZc/9f7t8a8tEJwm0ATbL96mtPjW79f6cH/8FtF/KrjeMKUfndchD74tg==";
+        // let seed = "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY33S8ZYMoVzj8tybCB/Okwt+cblM0l3a8/eEJtfBpPcJwfZw++";
+        // let seed = "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+        let seed = "LPf7DBZSdlKYSk7i0qfB+V0dKw7Ul6NxcbuPufKPuUFj/mV0KJL+w1GTUlzHG6vyM1LLEuN+yaPyddveiUC+ag==";
+
+        let sk = SecretKey::from_bytes(seed.as_bytes());
+        let client_address = "0c542afdbbd1c818b591fd4d8ac92d0c524ba6dfad6f7602a97948ffa443971d5d4820ae39a02b1a6e1310e217c36368865a4fd8144779924d194ca3980a4a8c2101c339a4";
+
+        let order_message = query_trader_order_zkos(
+            client_address.to_string().clone(), //hex address string
+            &sk,
+            client_address.to_string(),
+            "PENDING".to_string(),
+        );
+        println!("order_hex: {:?}", order_message);
+        // println!("order_hex: {:?}", order_msg.encode_as_hex_string());
+    }
 }

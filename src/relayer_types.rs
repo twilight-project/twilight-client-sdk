@@ -4,13 +4,14 @@ use crate::relayer_rpcclient::txrequest::{Resp, RpcBody, RpcRequest};
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::SigmaProof;
 use serde::{Deserialize, Serialize};
+use serde_this_or_that::as_f64;
+use transaction::Transaction;
 use uuid::Uuid;
 use zkschnorr::Signature;
 use zkvm::{
     zkos_types::{Input, ValueWitness},
     Output,
 };
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum TXType {
     ORDERTX, //TraderOrder
@@ -83,6 +84,17 @@ pub enum OrderStatus {
     CANCELLED,
     PENDING, // change it to New
     FILLED,  //executed on price ticker
+    DuplicateOrder,
+    UtxoError,
+    Error,
+    NoResponseFromChain,
+    RejectedFromChain,
+    BincodeError,
+    HexCodeError,
+    SerializationError,
+    RequestSubmitted,
+    OrderNotFound,
+    FilledUpdated,
 }
 impl OrderStatus {
     //from string
@@ -94,8 +106,83 @@ impl OrderStatus {
             "CANCELLED" => Some(OrderStatus::CANCELLED),
             "PENDING" => Some(OrderStatus::PENDING),
             "FILLED" => Some(OrderStatus::FILLED),
+            "DuplicateError" => Some(OrderStatus::DuplicateOrder),
+            "UtxoError" => Some(OrderStatus::UtxoError),
+            "Error" => Some(OrderStatus::Error),
+            "NoResponseFromChain" => Some(OrderStatus::NoResponseFromChain),
+            "BincodeError" => Some(OrderStatus::BincodeError),
+            "HexCodeError" => Some(OrderStatus::HexCodeError),
+            "SerializationError" => Some(OrderStatus::SerializationError),
+            "OrderNotFound" => Some(OrderStatus::OrderNotFound),
+            "RejectedFromChain" => Some(OrderStatus::RejectedFromChain),
+            "FilledUpdated" => Some(OrderStatus::FilledUpdated),
             _ => None,
         }
+    }
+}
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum RequestStatus {
+    SETTLED,
+    LENDED,
+    LIQUIDATE,
+    CANCELLED,
+    PENDING, // change it to New
+    FILLED,
+    DuplicateOrder,
+    UtxoError,
+    Error,
+    NoResponseFromChain,
+    BincodeError,
+    HexCodeError,
+    SerializationError,
+    RequestSubmitted,
+    OrderNotFound,
+    RejectedFromChain,
+    FilledUpdated,
+}
+impl RequestStatus {
+    //from string
+    pub fn from_str(s: &str) -> Option<RequestStatus> {
+        match s {
+            "SETTLED" => Some(RequestStatus::SETTLED),
+            "LENDED" => Some(RequestStatus::LENDED),
+            "LIQUIDATE" => Some(RequestStatus::LIQUIDATE),
+            "CANCELLED" => Some(RequestStatus::CANCELLED),
+            "PENDING" => Some(RequestStatus::PENDING),
+            "FILLED" => Some(RequestStatus::FILLED),
+            "DuplicateError" => Some(RequestStatus::DuplicateOrder),
+            "UtxoError" => Some(RequestStatus::UtxoError),
+            "Error" => Some(RequestStatus::Error),
+            "NoResponseFromChain" => Some(RequestStatus::NoResponseFromChain),
+            "BincodeError" => Some(RequestStatus::BincodeError),
+            "HexCodeError" => Some(RequestStatus::HexCodeError),
+            "SerializationError" => Some(RequestStatus::SerializationError),
+            "OrderNotFound" => Some(RequestStatus::OrderNotFound),
+            "RejectedFromChain" => Some(RequestStatus::RejectedFromChain),
+            "FilledUpdated" => Some(RequestStatus::FilledUpdated),
+            _ => None,
+        }
+    }
+}
+/// type defined for Realyer to use in case of client Orders
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientMemoTx {
+    pub tx: Transaction,
+    pub output: Output,
+}
+impl ClientMemoTx {
+    pub fn new(tx: Transaction, output: Output) -> Self {
+        Self { tx, output }
+    }
+    pub fn get_tx(&self) -> Transaction {
+        self.tx.clone()
+    }
+    pub fn get_output(&self) -> Output {
+        self.output.clone()
+    }
+    pub fn encode_as_hex_string(&self) -> String {
+        let byt = bincode::serialize(&self).unwrap();
+        hex::encode(&byt)
     }
 }
 
@@ -293,6 +380,34 @@ impl CreateLendOrderZkos {
             Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
         };
         response_unwrap
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateTraderOrderClientZkos {
+    pub create_trader_order: CreateTraderOrder,
+    pub tx: Transaction,
+}
+impl CreateTraderOrderClientZkos {
+    pub fn new(create_trader_order: CreateTraderOrder, tx: Transaction) -> Self {
+        Self {
+            create_trader_order,
+            tx,
+        }
+    }
+    pub fn encode_as_hex_string(&self) -> Result<String, String> {
+        let byt = bincode::serialize(&self).map_err(|e| format!("Error:{:?}", e))?;
+        Ok(hex::encode(&byt))
+    }
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
     }
 }
 
@@ -700,4 +815,129 @@ impl QueryLendOrderZkos {
         };
         hex_decode
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TraderOrder {
+    pub uuid: Uuid,
+    pub account_id: String,
+    pub position_type: PositionType,
+    pub order_status: OrderStatus,
+    pub order_type: OrderType,
+    #[serde(deserialize_with = "as_f64")]
+    pub entryprice: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub execution_price: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub positionsize: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub leverage: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub initial_margin: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub available_margin: f64,
+    pub timestamp: String,
+    #[serde(deserialize_with = "as_f64")]
+    pub bankruptcy_price: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub bankruptcy_value: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub maintenance_margin: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub liquidation_price: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub unrealized_pnl: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub settlement_price: f64,
+    pub entry_nonce: usize,
+    pub exit_nonce: usize,
+    pub entry_sequence: usize,
+}
+impl TraderOrder {
+    pub fn encode_as_hex_string(&self) -> String {
+        let byt = bincode::serialize(&self).unwrap();
+        hex::encode(&byt)
+    }
+
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(trader_order) => Ok(trader_order),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct LendOrder {
+    pub uuid: Uuid,
+    pub account_id: String,
+    #[serde(deserialize_with = "as_f64")]
+    pub balance: f64,
+    pub order_status: OrderStatus, //lend or settle
+    pub order_type: OrderType,     // LEND
+    pub entry_nonce: usize,        // change it to u256
+    pub exit_nonce: usize,         // change it to u256
+    #[serde(deserialize_with = "as_f64")]
+    pub deposit: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub new_lend_state_amount: f64,
+    pub timestamp: String,
+    #[serde(deserialize_with = "as_f64")]
+    pub npoolshare: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub nwithdraw: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub payment: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub tlv0: f64, //total locked value before lend tx
+    #[serde(deserialize_with = "as_f64")]
+    pub tps0: f64, // total poolshare before lend tx
+    #[serde(deserialize_with = "as_f64")]
+    pub tlv1: f64, // total locked value after lend tx
+    #[serde(deserialize_with = "as_f64")]
+    pub tps1: f64, // total poolshre value after lend tx
+    #[serde(deserialize_with = "as_f64")]
+    pub tlv2: f64, // total locked value before lend payment/settlement
+    #[serde(deserialize_with = "as_f64")]
+    pub tps2: f64, // total poolshare before lend payment/settlement
+    #[serde(deserialize_with = "as_f64")]
+    pub tlv3: f64, // total locked value after lend payment/settlement
+    #[serde(deserialize_with = "as_f64")]
+    pub tps3: f64, // total poolshare after lend payment/settlement
+    pub entry_sequence: usize,
+}
+
+impl LendOrder {
+    pub fn encode_as_hex_string(&self) -> String {
+        let byt = bincode::serialize(&self).unwrap();
+        hex::encode(&byt)
+    }
+
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(trader_order) => Ok(trader_order),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TxHash {
+    pub id: i64,
+    pub order_id: String,
+    pub account_id: String,
+    pub tx_hash: String,
+    pub order_type: OrderType,
+    pub order_status: OrderStatus,
+    pub datetime: String,
+    pub output: Option<String>,
+    pub request_id: Option<String>,
 }
