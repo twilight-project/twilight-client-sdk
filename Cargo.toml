@@ -33,16 +33,16 @@ reqwest = { version = "0.11", features = ["blocking", "json"] }
 serde-this-or-that = "0.4.2"
 [dependencies.zkvm]
 git = "https://github.com/twilight-project/zkos-rust.git"
-branch = "updated-rpc"
+branch = "develop"
 [dependencies.transaction]
 git = "https://github.com/twilight-project/zkos-rust.git"
-branch = "updated-rpc"
+branch = "develop"
 [dependencies.transactionapi]
 git = "https://github.com/twilight-project/zkos-rust.git"
-branch = "updated-rpc"
+branch = "develop"
 [dependencies.address]
 git = "https://github.com/twilight-project/zkos-rust.git"
-branch = "updated-rpc"
+branch = "develop"
 [dependencies.zkschnorr]
 #path = "../zk-schnorr"
 git = "https://github.com/twilight-project/zk-schnorr.git"

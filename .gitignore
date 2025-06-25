@@ -16,3 +16,9 @@ Cargo.lock
 #Ignore .DS_Store
 **/.DS_Store
 .vscode
+
+.env
+
+foo.txt
+
+foo_response.txt
