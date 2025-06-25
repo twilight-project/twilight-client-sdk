@@ -1,11 +1,11 @@
+use crate::relayer_rpcclient::method::{UtxoDetailResponse, UtxoRequest};
 use curve25519_dalek::scalar::Scalar;
 use hex;
 use transactionapi::rpcclient::{method::*, txrequest::*};
 use zkvm::{
     zkos_types::{Input, Output, Utxo},
-    String as ZkvmString,
+    IOType, String as ZkvmString,
 };
-
 lazy_static! {
     pub static ref ZKOS_SERVER_URL: String =
         std::env::var("ZKOS_SERVER_URL").expect("missing environment variable ZKOS_SERVER_URL");
@@ -41,7 +41,7 @@ pub fn get_transaction_memo_input_from_address(
     address_hex: String,
     memo_output: Output,
     withdraw_amount: u64,
-) -> Result<(Input,Scalar), String> {
+) -> Result<(Input, Scalar), String> {
     let coin_utxo_vec_result = get_memo_utxo_by_address_hex(address_hex);
     match coin_utxo_vec_result {
         Ok(utxo_vec_hex) => {
@@ -179,6 +179,35 @@ pub fn tx_commit_broadcast_transaction(tx: transaction::Transaction) -> Result<S
         },
         Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
     }
+}
+
+pub fn get_utxo_details_by_address(
+    address_hex: String,
+    out_type: IOType,
+) -> Result<UtxoDetailResponse, String> {
+    let utxo_request_arg = UtxoRequest {
+        address_or_id: address_hex.clone(),
+        input_type: out_type,
+    };
+
+    let tx_send: crate::relayer_rpcclient::txrequest::RpcBody<UtxoRequest> =
+        crate::relayer_rpcclient::txrequest::RpcRequest::new(
+            utxo_request_arg,
+            crate::relayer_rpcclient::method::Method::get_utxos_detail,
+        );
+    let res: Result<
+        crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        reqwest::Error,
+    > = crate::relayer_rpcclient::txrequest::RpcRequest::send(tx_send, ZKOS_SERVER_URL.clone());
+
+    let response_unwrap = match res {
+        Ok(rpc_response) => match UtxoDetailResponse::get_response(rpc_response) {
+            Ok(response) => Ok(response),
+            Err(arg) => Err(arg),
+        },
+        Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
+    };
+    response_unwrap
 }
 
 #[cfg(test)]
