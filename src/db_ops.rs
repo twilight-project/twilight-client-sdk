@@ -56,7 +56,9 @@ pub fn get_all_accounts_with_not_null_scalar_str(
     conn: &mut PgConnection,
 ) -> Result<Vec<AccountDB>, diesel::result::Error> {
     use crate::schema::accounts::dsl::*;
-    accounts.filter(scalar_str.is_not_null()).load(conn)
+    accounts
+        .filter(scalar_str.is_not_null().and(balance.gt(0)))
+        .load(conn)
 }
 
 pub fn get_accounts_with_not_null_scalar_str(
@@ -65,7 +67,7 @@ pub fn get_accounts_with_not_null_scalar_str(
 ) -> Result<Vec<AccountDB>, diesel::result::Error> {
     use crate::schema::accounts::dsl::*;
     accounts
-        .filter(scalar_str.is_not_null())
+        .filter(scalar_str.is_not_null().and(balance.gt(0)))
         .order(id.asc())
         .limit(size)
         .load(conn)
@@ -76,10 +78,10 @@ pub fn get_accounts_with_not_null_scalar_str_market(
 ) -> Result<Vec<AccountDB>, diesel::result::Error> {
     use crate::schema::accounts::dsl::*;
     accounts
-        .filter(scalar_str.is_not_null())
+        .filter(scalar_str.is_not_null().and(balance.gt(0)))
         .order(id.asc())
         .limit(size)
-        .offset(100)
+        .offset(0)
         .load(conn)
 }
 

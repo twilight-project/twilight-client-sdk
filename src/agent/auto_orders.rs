@@ -236,6 +236,7 @@ pub fn settle_market_orders_service(
 ) -> Result<String, String> {
     println!("Starting Settle Market(FILLED) Orders Service");
     // get a list of all market orders
+
     let mut conn: diesel::prelude::PgConnection = crate::db_ops::establish_connection();
     let orders = crate::db_ops::get_subset_order_by_status(&mut conn, "FILLED", num_orders)
         .map_err(|e| e.to_string())?;
@@ -262,6 +263,7 @@ pub fn settle_market_orders_service(
         }
         let _ = sleep(Duration::from_secs(sleep_time));
     }
+    sleep(Duration::from_secs(15));
     Ok("Market Orders Settled Successfully".to_string())
 }
 
@@ -280,14 +282,12 @@ pub fn find_executed_limit_orders_service(sk: RistrettoSecretKey) -> Result<Stri
         for order in orders.iter() {
             let address_hex = order.order_id.clone();
             // create zkos query to get the order details
-            println!("address_hex : {:?}", address_hex);
             let query_msg = crate::relayer::query_trader_order_zkos(
                 address_hex.clone(),
                 &sk,
                 address_hex.clone(),
                 order.order_status.clone(),
             );
-            println!("query_msg : {:?}", query_msg);
 
             // get the order details from the chain
             let order_info = crate::relayer_rpcclient::txrequest::get_trader_order_info(query_msg)?;
@@ -384,13 +384,15 @@ pub fn single_settle_order_request(
         let random_price_variance = rand::thread_rng().gen_range(10, 500);
         let btc_price = crate::relayer_rpcclient::txrequest::get_recent_price_from_relayer()?;
         let entry_price = btc_price.result.price as u64;
+        println!("entry_price : {:?}", entry_price);
         entry_price_local = match order.position_type.as_str() {
             "LONG" => entry_price + random_price_variance,
             "SHORT" => entry_price - random_price_variance,
             _ => entry_price,
         };
+        println!("entry_price_local : {:?}", entry_price_local);
     }
-
+    println!("order_addresss : {:?}", order_address);
     // create settlement reqest
     let settle_msg = crate::relayer::execute_order_zkos(
         output,
