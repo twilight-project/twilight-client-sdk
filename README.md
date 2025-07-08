@@ -1,31 +1,34 @@
-# ZkOS Client Wallet
+# Twilight Client SDK
 
-A comprehensive Rust library for building privacy-preserving wallet applications on the Twilight blockchain ecosystem. This library provides complete client-side functionality for managing zero-knowledge transactions, interacting with Twilight relayers, and handling decentralized trading operations.
+A comprehensive Rust SDK for interacting with the Twilight blockchain ecosystem. This SDK provides client-side functionality for managing transactions, interacting with Twilight relayers, and handling decentralized trading operations.
 
 ## 🚀 Features
 
-### Core Wallet Functionality
-- **🔐 Secure Key Management**: AES-128-CBC encrypted private key storage with password protection
-- **💰 Private Transfers**: Zero-knowledge transaction creation and verification
-- **🔄 ZkOS Account Management**: Burn and mint transactions for Dark Accounts
-- **📊 UTXO Management**: Complete support for Coin, Memo, and State UTXOs
+### Core Functionality
+- **Secure Key Management**: AES-128-CBC encrypted key storage with password protection
+- **Private Transfers**: Zero-knowledge transaction creation and verification
+- **UTXO Management**: Complete support for Coin, Memo, and State UTXOs
+- **Account Operations**: Account management and transaction handling
 
-### Trading & DeFi Integration
-- **📈 Trading Orders**: Create, execute, and cancel trader orders with leverage support
-- **🏦 Lending Operations**: Lending functionality for Twilight pool
-- **💱 Order Management**: Position tracking, margin calculations, and order status management
-- **🔍 Market Data**: Real-time price feeds and Relayer integration
+### Trading & DeFi Features
+- **Trading Orders**: Create, execute, and cancel trader orders with leverage support
+- **Lending Operations**: Lending functionality for Twilight pool
+- **Order Management**: Position tracking, margin calculations, and order status management
+- **Market Data**: Real-time price feeds and Relayer integration
 
 ### Smart Contract System
-- **📜 Program Management**: Add, import, and export smart contract programs
-- **🌳 Merkle Tree Verification**: Cryptographic proof generation for contract calls
-- **📍 Contract Addressing**: Script address generation and management
-- **⚡ VM Integration**: ZkOS virtual machine interaction
+- **Program Management**: Add, import, and export smart contract programs
+- **Merkle Tree Verification**: Cryptographic proof generation for contract calls
+- **Contract Addressing**: Script address generation and management
+- **VM Integration**: ZkOS virtual machine interaction
 
 ### Privacy & Security
-- **🛡️ Zero-Knowledge Proofs**: Quisquis protocol integration for transaction privacy
-- **🔒 Schnorr Signatures**: Advanced cryptographic signature schemes
-- **🎭 Anonymous Transactions**: Complete transaction anonymity and unlinkability
+- **Zero-Knowledge Proofs**: Quisquis protocol integration for transaction privacy
+- **Schnorr Signatures**: Advanced cryptographic signature schemes
+- **Anonymous Transactions**: Complete transaction anonymity and unlinkability
+
+### Advanced Features
+- **Network Communication**: Robust RPC client implementation
 
 ## 📦 Installation
 
@@ -33,7 +36,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-zkos-client-wallet = { git = "https://github.com/twilight-project/zkos-client-wallet.git" }
+twilight-client-sdk = { git = "https://github.com/usmanshahid86/twilight-client-sdk.git" }
 ```
 
 ## 🛠️ Setup
@@ -56,14 +59,14 @@ Run the migrations to set up the database schema:
 diesel migration run
 ```
 
-## 📖 Usage
+## 📖 Usage Examples
 
-### Basic Wallet Operations
+### Basic Key Operations
 
 ```rust
-use zkoswalletlib::*;
+use twilight_client_sdk::*;
 
-// Initialize a new wallet
+// Initialize a new key storage
 let password = b"your_secure_password";
 let iv = b"initialization_vec";
 let seed = "your_wallet_seed_here";
@@ -79,7 +82,7 @@ let wallet = keys_management::init_wallet(
 ### Creating Private Transfers
 
 ```rust
-use zkoswalletlib::transfer::*;
+use twilight_client_sdk::transfer::*;
 
 // Create a private transfer transaction
 let tx_hex = create_private_transfer_tx_single(
@@ -96,7 +99,7 @@ let tx_hex = create_private_transfer_tx_single(
 ### Trading Operations
 
 ```rust
-use zkoswalletlib::relayer::*;
+use twilight_client_sdk::relayer::*;
 
 // Create a trader order
 let order_hex = create_trader_order_zkos(
@@ -120,13 +123,25 @@ let order_hex = create_trader_order_zkos(
 ### Blockchain Interaction
 
 ```rust
-use zkoswalletlib::chain::*;
+use twilight_client_sdk::chain::*;
 
 // Get UTXOs for an address
 let utxos = get_coin_utxo_by_address_hex(address_hex)?;
 
 // Broadcast a transaction
 let tx_hash = tx_commit_broadcast_transaction(transaction)?;
+```
+
+---
+
+### 📝 More Examples
+
+You can find runnable examples in the [`examples/`](./examples) directory.
+
+#### Run the Basic Example
+
+```bash
+cargo run --example basic
 ```
 
 ## 🏗️ Architecture
@@ -141,6 +156,7 @@ let tx_hash = tx_commit_broadcast_transaction(transaction)?;
 | `chain` | Blockchain | RPC communication, UTXO queries, transaction broadcasting |
 | `programcontroller` | Smart Contracts | Program management, call proofs, contract addresses |
 | `script` | VM Operations | Script execution and virtual machine interaction |
+
 
 ### Supported Transaction Types
 
@@ -194,22 +210,26 @@ Generate and view the documentation:
 cargo doc --open
 ```
 
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
 ## 📄 License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
-
 ## 🔗 Related Projects
 
+- [Twilight Protocol App](https://frontend.twilight.rest)
+- [Twilight Documentation](https://docs.twilight.org)
 - [zkos-rust](https://github.com/twilight-project/zkos-rust) - Core ZkOS blockchain implementation
 - [quisquis-rust](https://github.com/twilight-project/quisquis-rust) - Privacy protocol implementation
 - [zk-schnorr](https://github.com/twilight-project/zk-schnorr) - Schnorr signature library
 
-## 📞 Support
+## Support
 
 For support and questions:
 - Open an issue on GitHub
-- Check the documentation at [docs.zkos.org](https://docs.zkos.org)
 
 ## ⚠️ Security Notice
 
@@ -222,4 +242,5 @@ This wallet handles cryptographic keys and financial transactions. Always:
 ---
 
 **Built with privacy and security in mind for the Twilight ecosystem** 🔒
+
  
