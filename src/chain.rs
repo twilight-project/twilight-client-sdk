@@ -215,28 +215,34 @@ mod test {
     use super::*;
     #[test]
     fn get_coin_utxo_by_address_hex_test() {
-        dotenv::dotenv().expect("Failed loading dotenv");
-        let address="0c0a2555a4de4e44e9f10e8d682b1e63f58216ec3ae0d5947e6c65fd1efa952433e0a226db8e1ab54305ce578e39a305871ada6037e76a2ba74bc86e5c8011d736be751ed4".to_string();
+        dotenvy::dotenv().expect("Failed loading dotenv");
+        let address = std::env::var("TEST_ADDRESS")
+            .unwrap_or_else(|_| "0c0a2555a4de4e44e9f10e8d682b1e63f58216ec3ae0d5947e6c65fd1efa952433e0a226db8e1ab54305ce578e39a305871ada6037e76a2ba74bc86e5c8011d736be751ed4".to_string());
 
         println!("utxo_vec:{:?}", get_coin_utxo_by_address_hex(address));
     }
     #[test]
     fn get_state_utxo_by_address_hex_test() {
-        dotenv::dotenv().expect("Failed loading dotenv");
-        let address="0c9ee2f0ef12a12745c0ad1111363f82134c426964ea2e985e6c3c3f7a0ee6d72b867e73d765be00ff4c8866ca142b3e3aa82dd75079b5ee514baf4e2ac7fc7e75f2daabc9".to_string();
+        dotenvy::dotenv().expect("Failed loading dotenv");
+        let address = std::env::var("TEST_STATE_ADDRESS")
+            .unwrap_or_else(|_| "0c9ee2f0ef12a12745c0ad1111363f82134c426964ea2e985e6c3c3f7a0ee6d72b867e73d765be00ff4c8866ca142b3e3aa82dd75079b5ee514baf4e2ac7fc7e75f2daabc9".to_string());
         println!("utxo_vec:{:?}", get_state_utxo_by_address_hex(address));
     }
 
     #[test]
     fn get_coin_output_by_utxo_id_hex_test() {
-        dotenv::dotenv().expect("Failed loading dotenv");
-        let utxo = "bc289213b0185f115e88bec0900a80669243980e9666e11c7cbb14fc1271b0bc00".to_string();
+        dotenvy::dotenv().expect("Failed loading dotenv");
+        let utxo = std::env::var("TEST_COIN_UTXO").unwrap_or_else(|_| {
+            "bc289213b0185f115e88bec0900a80669243980e9666e11c7cbb14fc1271b0bc00".to_string()
+        });
         println!("output:{:?}", get_coin_output_by_utxo_id_hex(utxo));
     }
     #[test]
     fn get_state_output_by_utxo_id_hex_test() {
-        dotenv::dotenv().expect("Failed loading dotenv");
-        let utxo = "1e5010f69f1fce18e5e93e715358112e35e75ce2118939f0e7a7baecfc15d1ab01".to_string();
+        dotenvy::dotenv().expect("Failed loading dotenv");
+        let utxo = std::env::var("TEST_STATE_UTXO").unwrap_or_else(|_| {
+            "1e5010f69f1fce18e5e93e715358112e35e75ce2118939f0e7a7baecfc15d1ab01".to_string()
+        });
         println!("output:{:?}", get_state_output_by_utxo_id_hex(utxo));
     }
 }

@@ -1,5 +1,3 @@
-use core::time;
-
 use address::{Address, AddressType};
 
 use curve25519_dalek::scalar::Scalar;
@@ -9,7 +7,7 @@ use transaction::quisquislib::{
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
 };
 
-use zkvm::{zkos_types::OutputMemo, InputData, OutputData, ScalarWitness};
+use zkvm::{zkos_types::OutputMemo, InputData, OutputData};
 use zkvm::{
     zkos_types::{IOType, Input, Output, OutputCoin, Utxo},
     Commitment, String as ZkvmString,
