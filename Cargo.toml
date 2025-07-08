@@ -44,7 +44,6 @@ branch = "develop"
 git = "https://github.com/twilight-project/zkos-rust.git"
 branch = "develop"
 [dependencies.zkschnorr]
-#path = "../zk-schnorr"
 git = "https://github.com/twilight-project/zk-schnorr.git"
 [dependencies.quisquis-rust]
 git = "https://github.com/twilight-project/quisquis-rust.git"
