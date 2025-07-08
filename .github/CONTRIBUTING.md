@@ -107,7 +107,7 @@ Please follow these steps to have your contribution considered by the maintainer
    ```
 3. Clone the repository:
    ```bash
-   git clone https://github.com/usmanshahid86/twilight-client-sdk.git
+   git clone https://github.com/twilight-project/twilight-client-sdk.git
    cd twilight-client-sdk
    ```
 4. Build the project:
