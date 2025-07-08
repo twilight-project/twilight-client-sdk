@@ -1,10 +1,15 @@
 [package]
-name = "zkos-client-wallet"
+name = "twilight-client-sdk"
 version = "0.1.0"
 edition = "2021"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Client SDK for Twilight blockchain operations with WASM support"
+license = "Apache-2.0"
+repository = "https://github.com/twilight-project/twilight-client-sdk"
+readme = "README.md"
+keywords = ["blockchain", "zero-knowledge", "twilight", "wasm", "trading"]
+categories = ["cryptography", "web-programming", "wasm"]
 [lib]
-name = "zkoswalletlib"
+name = "twilight_client_sdk"
 path = "src/lib.rs"
 #[bin]
 #name = "zkoswalletbin"
@@ -30,19 +35,19 @@ lazy_static = "1.4.0"
 #jsonrpc-core = "18.0.0"
 #reqwest = { version = "0.11", features = ["blocking", "json"] }
 [dependencies.zkvm]
-git = "ssh://github.com/twilight-project/zkos-rust.git"
+git = "https://github.com/twilight-project/zkos-rust.git"
 branch = "develop"
 [dependencies.transaction]
-git = "ssh://github.com/twilight-project/zkos-rust.git"
+git = "https://github.com/twilight-project/zkos-rust.git"
 branch = "develop"
 #[dependencies.transactionapi]
 #git = "ssh://github.com/twilight-project/zkos-rust.git"
 #branch = "develop"
 [dependencies.address]
-git = "ssh://github.com/twilight-project/zkos-rust.git"
+git = "https://github.com/twilight-project/zkos-rust.git"
 branch = "develop"
 [dependencies.zkschnorr]
-git = "ssh://github.com/twilight-project/zk-schnorr.git"
+git = "https://github.com/twilight-project/zk-schnorr.git"
 [dependencies.quisquis-rust]
-git = "ssh://github.com/twilight-project/quisquis-rust.git"
+git = "https://github.com/twilight-project/quisquis-rust.git"
 branch = "develop"

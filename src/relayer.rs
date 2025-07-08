@@ -1,9 +1,13 @@
 use crate::programcontroller::ContractManager;
+use crate::relayer_types::{
+    CancelTraderOrder, CancelTraderOrderZkos, CreateLendOrder, CreateLendOrderZkos,
+    CreateTraderOrder, CreateTraderOrderClientZkos, CreateTraderOrderZkos, ExecuteLendOrder,
+    ExecuteLendOrderZkos, ExecuteTraderOrder, ExecuteTraderOrderZkos, PositionType, QueryLendOrder,
+    QueryLendOrderZkos, QueryTraderOrder, QueryTraderOrderZkos, TXType, ZkosCancelMsg,
+    ZkosCreateOrder, ZkosQueryMsg, ZkosSettleMsg,
+};
 use crate::script;
 use crate::transaction::{self, ScriptTransaction, Transaction};
-use crate::relayer_types::{
-    CancelTraderOrder, CancelTraderOrderZkos, CreateLendOrder, CreateLendOrderZkos, CreateTraderOrder, CreateTraderOrderClientZkos, CreateTraderOrderZkos, ExecuteLendOrder, ExecuteLendOrderZkos, ExecuteTraderOrder, ExecuteTraderOrderZkos, PositionType, QueryLendOrder, QueryLendOrderZkos, QueryTraderOrder, QueryTraderOrderZkos, TXType, ZkosCancelMsg, ZkosCreateOrder, ZkosQueryMsg, ZkosSettleMsg
-};
 use address::{Address, AddressType};
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
 use quisquislib::{
@@ -55,9 +59,14 @@ pub fn create_zkos_order(
         rscalar,
     );
 
-    //verify the witness 
-  
-    let verify_witness = witness.verify_value_witness(input.clone(), pubkey.clone(), enc_acc.clone(), pedersen_commitment);
+    //verify the witness
+
+    let verify_witness = witness.verify_value_witness(
+        input.clone(),
+        pubkey.clone(),
+        enc_acc.clone(),
+        pedersen_commitment,
+    );
     println!("verify_witness: {:?}", verify_witness);
     ZkosCreateOrder::new(input, output, witness)
 }
@@ -80,15 +89,15 @@ pub fn create_trader_order_zkos(
     position_value: u64,
     position_size: u64,
     order_side: PositionType,
-    programs: &ContractManager,   
-    timebounds: u32,    
+    programs: &ContractManager,
+    timebounds: u32,
 ) -> Result<String, &'static str> {
-     // extract owner address from input
+    // extract owner address from input
     let owner_address = match input_coin.as_owner_address() {
         Some(owner_address) => owner_address.clone(),
         None => return Err("Error extracting owner address"),
     };
-    
+
     // create TraderOrder type for relayer
     let create_order: CreateTraderOrder = CreateTraderOrder::new(
         owner_address.clone(),
@@ -102,12 +111,10 @@ pub fn create_trader_order_zkos(
         execution_price,
     );
     // create Trader Order transaction
-    
+
     // load the contract_manager
     //let programs = crate::programcontroller::ContractManager::import_program(&contract_path);
-    let contract_address = programs
-        .create_contract_address(address::Network::default())?;
-    
+    let contract_address = programs.create_contract_address(address::Network::default())?;
 
     // create memo output
     let memo = crate::util::create_output_memo_for_trader(
@@ -134,7 +141,7 @@ pub fn create_trader_order_zkos(
         1u64,
         programs.clone(),
     )?;
-    
+
     let create_zkos_order_full: CreateTraderOrderClientZkos =
         CreateTraderOrderClientZkos::new(create_order, order_tx);
     let order_hex: String = create_zkos_order_full.encode_as_hex_string()?;
@@ -323,19 +330,25 @@ pub fn query_lend_order_zkos(
 /// @return : Transaction
 ///
 pub fn create_trade_order_client_transaction(
-    input_coin: Input,    // Input received from the trader
+    input_coin: Input,   // Input received from the trader
     output_memo: Output, // Output Memo created by the trader (C(Initial Margin), PositionSize, C(Leverage), EntryPrice, OrderSide
     secret_key: RistrettoSecretKey,
-    rscalar: Scalar, // Hex string of Scalar
-    value: u64, // Margin Value
+    rscalar: Scalar,     // Hex string of Scalar
+    value: u64,          // Margin Value
     position_value: u64, // Position Value
     chain_network: address::Network,
     fee: u64, // in satoshis
     contract_manager: crate::programcontroller::ContractManager,
 ) -> Result<transaction::Transaction, &'static str> {
-    // create same value proof 
-    let zkos_order = create_zkos_order(input_coin.clone(), output_memo.clone(), secret_key, rscalar, value);
-    
+    // create same value proof
+    let zkos_order = create_zkos_order(
+        input_coin.clone(),
+        output_memo.clone(),
+        secret_key,
+        rscalar,
+        value,
+    );
+
     //create Value witness as the witness for coin input
     let witness = zkvm::Witness::ValueWitness(ValueWitness::set_value_witness(
         zkos_order.signature.clone(),
@@ -354,10 +367,11 @@ pub fn create_trade_order_client_transaction(
     let order_tag = "CreateTraderOrder";
 
     let single_program = contract_manager.get_program_by_tag(order_tag);
-   // println!("single_program: {:?}", single_program);
+    // println!("single_program: {:?}", single_program);
 
     // create positionValue as String
-    let position_value_string: ZkvmString = crate::util::u64_commitment_to_zkvm_string(position_value);
+    let position_value_string: ZkvmString =
+        crate::util::u64_commitment_to_zkvm_string(position_value);
     let tx_data = Some(position_value_string);
     // execute the program and create a proof for computations
     let program_proof = transaction::vm_run::Prover::build_proof(
@@ -368,7 +382,7 @@ pub fn create_trade_order_client_transaction(
         tx_data.clone(),
     );
 
-    println!("program_proof: {:?}", program_proof );
+    println!("program_proof: {:?}", program_proof);
 
     let (program, proof) = match program_proof {
         Ok((program, proof)) => (program, proof),
@@ -376,21 +390,21 @@ pub fn create_trade_order_client_transaction(
     };
 
     // converts inputs and outputs to hide the encrypted data using verifier view and update witness index
-   //let (inputs, outputs, tx_data) = ScriptTransaction::create_verifier_view(&inputs, &outputs, Some(position_value_string));
+    //let (inputs, outputs, tx_data) = ScriptTransaction::create_verifier_view(&inputs, &outputs, Some(position_value_string));
 
     // create callproof for the program
     let call_proof = contract_manager.create_call_proof(chain_network, order_tag)?;
 
-         // verify the r1cs proof
-        // let verify = transaction::vm_run::Verifier::verify_r1cs_proof(
-        //     &proof,
-        //     &program,
-        //     &inputs,
-        //     &outputs,
-        //     false,
-        //     tx_data.clone(),
-        // );
-        // println!("verify Program proof: {:?}", verify);
+    // verify the r1cs proof
+    // let verify = transaction::vm_run::Verifier::verify_r1cs_proof(
+    //     &proof,
+    //     &program,
+    //     &inputs,
+    //     &outputs,
+    //     false,
+    //     tx_data.clone(),
+    // );
+    // println!("verify Program proof: {:?}", verify);
 
     let script_tx = ScriptTransaction::set_script_transaction(
         0u64,
@@ -411,7 +425,6 @@ pub fn create_trade_order_client_transaction(
     // let verify_call_proof = script_tx.verify_call_proof();
     // println!("verify_call_proof: {:?}", verify_call_proof);
 
-   
     Ok(Transaction::from(script_tx))
 }
 
@@ -626,10 +639,9 @@ mod test {
 
         println!("settle_msg: {:?}", settle_msg);
     }
-    
+
     #[test]
     pub fn test_create_trader_order_client_tx() {
-
         let mut rng = rand::thread_rng();
         let seed =
         "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
@@ -640,7 +652,7 @@ mod test {
         let add: Address = Address::standard_address(Network::default(), pk_in.clone());
         let rscalar: Scalar = Scalar::random(&mut rng);
         let value = 100000u64;
-        
+
         // create input coin
         let commit_in =
             ElGamalCommitment::generate_commitment(&pk_in, rscalar, Scalar::from(value));
@@ -652,14 +664,14 @@ mod test {
         };
         let in_data: InputData = InputData::coin(Utxo::default(), coin, 0);
         let coin_in: Input = Input::coin(in_data.clone());
-        
+
         let leverage = 10.0;
         let position_value = value * leverage as u64;
         let entry_price = 56436u64;
         let position_size = position_value * entry_price;
         let order_side = PositionType::LONG;
         let contract_path = "./relayerprogram.json";
-        
+
         let programs = crate::programcontroller::ContractManager::import_program(&contract_path);
 
         let order_tx_message = create_trader_order_zkos(
@@ -684,7 +696,8 @@ mod test {
         println!("order_hex: {:?}", order_tx_message);
 
         // recreate clientZkos struct
-        let client_zkos = CreateTraderOrderClientZkos::decode_from_hex_string(order_tx_message.unwrap()).unwrap();
+        let client_zkos =
+            CreateTraderOrderClientZkos::decode_from_hex_string(order_tx_message.unwrap()).unwrap();
         let order_tx = client_zkos.tx;
         // verify the transaction
         let verify_tx = order_tx.verify();

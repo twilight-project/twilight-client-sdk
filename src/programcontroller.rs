@@ -187,21 +187,21 @@ mod tests {
     // }
 
     // program to prove IM * Leverage = positionvalue
-// Stack -> C(IM) -> PositionSize-> C(Leverage) -> EntryPrice -> OrderSide -> tx_Data(C(PositionValue))
-   pub fn get_trader_order_program() -> Program {
+    // Stack -> C(IM) -> PositionSize-> C(Leverage) -> EntryPrice -> OrderSide -> tx_Data(C(PositionValue))
+    pub fn get_trader_order_program() -> Program {
         let order_prog = Program::build(|p| {
             p.roll(3) // Get Leverage to top of stack
                 .commit()
                 .expr()
                 .roll(5) // Get IM to top of stack
                 .commit()
-                .expr() 
+                .expr()
                 .mul() // IM * Leverage
                 .eq() // Leverage * IM == PositionValue
                 .verify()
-                .drop()// drop orderSide
+                .drop() // drop orderSide
                 .drop() // drop EntryPrice
-                .drop(); // drop PositionSize    
+                .drop(); // drop PositionSize
         });
         order_prog
     }
