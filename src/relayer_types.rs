@@ -852,6 +852,10 @@ pub struct TraderOrder {
     pub entry_nonce: usize,
     pub exit_nonce: usize,
     pub entry_sequence: usize,
+    #[serde(deserialize_with = "as_f64")]
+    pub fee_filled: f64,
+    #[serde(deserialize_with = "as_f64")]
+    pub fee_settled: f64,
 }
 impl TraderOrder {
     pub fn encode_as_hex_string(&self) -> String {
