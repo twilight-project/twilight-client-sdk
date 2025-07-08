@@ -1,15 +1,20 @@
 [package]
-name = "zkos-client-wallet"
+name = "twilight-client-sdk"
 version = "0.1.0"
 edition = "2021"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "A Rust SDK for interacting with the Twilight blockchain relayer"
+license = "Apache-2.0"
+repository = "https://github.com/usmanshahid86/relayer-client-sdk"
+readme = "README.md"
+keywords = ["blockchain", "crypto", "sdk", "twilight", "relayer"]
+categories = ["cryptography", "api-bindings"]
 
 [lib]
-name = "zkoswalletlib"
+name = "twilight_client_sdk"
 path = "src/lib.rs"
 
 #[bin]
-#name = "zkoswalletbin"
+#name = "clientsdkbin"
 #path = "src/bin.rs"
 
 [profile.release]
