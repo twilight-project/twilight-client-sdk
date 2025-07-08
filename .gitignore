@@ -22,3 +22,12 @@ Cargo.lock
 foo.txt
 
 foo_response.txt
+# Wallet and sensitive files
+wallet.txt
+*.wallet
+*.seed
+*.key
+
+# System files
+.DS_Store
+**/.DS_Store

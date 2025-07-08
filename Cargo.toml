@@ -40,11 +40,9 @@ serde-this-or-that = "0.4.2"
 git = "https://github.com/twilight-project/zkos-rust.git"
 branch = "develop"
 
-
 [dependencies.transaction]
 git = "https://github.com/twilight-project/zkos-rust.git"
 branch = "develop"
-
 
 [dependencies.transactionapi]
 git = "https://github.com/twilight-project/zkos-rust.git"
@@ -58,10 +56,8 @@ branch = "develop"
 
 
 [dependencies.zkschnorr]
-#path = "../zk-schnorr"
 git = "https://github.com/twilight-project/zk-schnorr.git"
 
 [dependencies.quisquis-rust]
-
 git = "https://github.com/twilight-project/quisquis-rust.git"
 branch = "develop"
