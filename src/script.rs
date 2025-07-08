@@ -8,38 +8,6 @@ use zkvm::{
     zkos_types::{Input, Output, OutputMemo, OutputState, Utxo},
     Commitment, InputData, OutputData, String as ZkvmString,
 };
-// Broadcasts a contract deploy transaction to the ZKOS Server on chain.
-// @param sk: RistrettoSecretKey of the coin owner
-// @param value_sats: value in sats to be deposited in the contract
-// @param coin_address: on-chain address of the coin owner
-// @param ecryption_commitment_scalar: commitment scalar used for Elgamal encryption of QQ Account and memo commitment
-// @param program_json_path: path to the json file containing the contract program
-// @param chain_net: Network address indicator i.e., Main or TestNet
-// @param state_variables: vector of state variables to be initialized
-// @param program_tag: tag of the program to be deployed
-// @return transaction id
-// pub fn broadcast_contract_deploy_transaction(
-//     sk: RistrettoSecretKey,
-//     value_sats: u64,
-//     coin_address: String,
-//     ecryption_commitment_scalar: Scalar,
-//     program_json_path: &str,
-//     chain_net: Network, // Main / TestNet
-//     state_variables: Vec<u64>,
-//     program_tag: String,
-// ) -> Result<(String,Output), String> {
-//     let (tx, out) = create_contract_deploy_transaction(
-//         sk,
-//         value_sats,
-//         coin_address,
-//         ecryption_commitment_scalar,
-//         program_json_path,
-//         chain_net,
-//         state_variables,
-//         program_tag,
-//     )?;
-//     tx_commit_broadcast_transaction(tx)
-// }
 
 /// Creates a contract deploy transaction
 /// @param sk: RistrettoSecretKey of the coin owner
@@ -155,7 +123,6 @@ pub fn create_state_for_deployment(
     };
     // create zero proof vector for input state
     //stores witness for value commitment and state commitments
-    //let zero_proof: Vec<Scalar> = vec![scalar_commitment; state_variables.len() + 1];
 
     // convert to input state
     let input_state: Input = Input::state(InputData::state(
@@ -186,7 +153,6 @@ pub fn create_state_for_deployment(
     };
     // create output from state
     let output: Output = Output::state(OutputData::State(out_state));
-    //return input state, output state and zero proof
     (input_state, output)
 }
 
@@ -241,8 +207,9 @@ mod test {
     };
     #[test]
     fn get_transaction_coin_input_from_address_test() {
-        dotenv::dotenv().expect("Failed loading dotenv");
-        let address="0c0a2555a4de4e44e9f10e8d682b1e63f58216ec3ae0d5947e6c65fd1efa952433e0a226db8e1ab54305ce578e39a305871ada6037e76a2ba74bc86e5c8011d736be751ed4".to_string();
+        dotenvy::dotenv().expect("Failed loading dotenv");
+        let address = std::env::var("TEST_ADDRESS")
+            .unwrap_or_else(|_| "0c0a2555a4de4e44e9f10e8d682b1e63f58216ec3ae0d5947e6c65fd1efa952433e0a226db8e1ab54305ce578e39a305871ada6037e76a2ba74bc86e5c8011d736be751ed4".to_string());
         println!(
             "utxo_vec:{:?}",
             get_transaction_coin_input_from_address(address)
@@ -315,24 +282,22 @@ mod test {
     }
     #[test]
     fn create_chain_deploy_tx() {
-        let seed = "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY33S8ZYMoVzj8tybCB/Okwt+cblM0l3a8/eEJtfBpPcJwfZw++";
-        let sk: quisquislib::ristretto::RistrettoSecretKey =
-            quisquislib::keys::SecretKey::from_bytes(seed.as_bytes());
-        println!("sk {:?}", sk);
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
+        // Generate a test key for demonstration purposes - never use hardcoded seeds in production
+        // Load RELAYER_SEED from .env
+        let seed = std::env::var("RELAYER_SEED").expect("Failed to load SEED from .env");
+        //derive private key;
+        let sk = SecretKey::from_bytes(seed.as_bytes());
 
         // data for contract initialization
         let value_sats: u64 = 20000000000u64;
-        let coin_address: String = "0ca01385e8e9cea89a187e0b0ab2b1caaf713df527acdb88f764358d8d657db34ca2df7eb6c3673d2c7b34c836e5c5bb4fc1d91df3185a576084134bd8ff120d1b9e2eebef".to_string();
-        let commitment_scalar_hex: &str =
-            "2398cadb6f3f9fa7314b1d0192fd66998541c77b9e2029aa3e6ffea9b340ce0b";
-        // let scalar_bytes = hex::decode(&commitment_scalar_hex).unwrap();
-        // let ecryption_commitment_scalar = curve25519_dalek::scalar::Scalar::from_bytes_mod_order(
-        //     scalar_bytes.try_into().unwrap(),
-        // );
+        let coin_address = std::env::var("TEST_COIN_ADDRESS")
+            .unwrap_or_else(|_| "0ca01385e8e9cea89a187e0b0ab2b1caaf713df527acdb88f764358d8d657db34ca2df7eb6c3673d2c7b34c836e5c5bb4fc1d91df3185a576084134bd8ff120d1b9e2eebef".to_string());
+        let commitment_scalar_hex = std::env::var("TEST_COMMITMENT_SCALAR").unwrap_or_else(|_| {
+            "2398cadb6f3f9fa7314b1d0192fd66998541c77b9e2029aa3e6ffea9b340ce0b".to_string()
+        });
         let encryption_commitment_scalar =
             crate::util::hex_to_scalar(commitment_scalar_hex.to_string()).unwrap();
-        //let ecryption_commitment_scalar = curve25519_dalek::scalar::Scalar::random(&mut OsRng);
         let program_json_path: &str = "./relayerprogram.json";
         let chain_net = address::Network::default();
         let state_variables: Vec<u64> = vec![2000000];

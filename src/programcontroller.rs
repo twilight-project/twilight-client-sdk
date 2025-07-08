@@ -146,8 +146,8 @@ mod tests {
         let prog = Program::build(|p| {
             // TVL 0 and TPS0 are not pushed on stack. Zero value proof provided in witness
             p.commit()
-            .expr() // TPS added to constraint
-            .roll(2) // get PoolShare to top of stack
+                .expr() // TPS added to constraint
+                .roll(2) // get PoolShare to top of stack
                 .commit()
                 .expr()
                 .eq() // PoolShare == TPS
@@ -158,7 +158,7 @@ mod tests {
                 .commit()
                 .expr()
                 .eq() // Deposit == TLV
-                .and()// PoolShare == TPS && Deposit == TLV
+                .and() // PoolShare == TPS && Deposit == TLV
                 .verify();
         });
         return prog;
@@ -252,7 +252,7 @@ mod tests {
         return settle_prog;
     }
 
-     pub fn get_settle_trader_order_negative_margin_difference_program() -> Program {
+    pub fn get_settle_trader_order_negative_margin_difference_program() -> Program {
         let settle_prog = Program::build(|p| {
             p.roll(3) //drop TPS1
                 .drop()
@@ -318,7 +318,6 @@ mod tests {
         });
         return settle_prog;
     }
-
 
     pub fn lend_order_deposit_program() -> Program {
         let lend_order_prog = Program::build(|p| {
@@ -422,13 +421,13 @@ mod tests {
         });
         return lend_settle_prog;
     }
-      pub fn get_liquidate_order_program() -> Program {
+    pub fn get_liquidate_order_program() -> Program {
         let prog = Program::build(|p| {
-                p.drop() //drop settle_price
-                .drop()   //drop mD
+            p.drop() //drop settle_price
+                .drop() //drop mD
                 .drop() //error
                 .drop() //TPS1
-                .drop( ) //drop TPS0
+                .drop() //drop TPS0
                 .commit() //commit on TVL1
                 .expr()
                 .roll(1) //get TVL0
@@ -437,7 +436,7 @@ mod tests {
                 .roll(7) // Get IM to top of stack
                 .commit()
                 .expr()
-                .add( ) //TVL0 + IM
+                .add() //TVL0 + IM
                 .eq() // TVL1 = TVL0 + IM
                 .verify()
                 .drop() // drop leverage
@@ -448,22 +447,22 @@ mod tests {
         });
         prog
     }
-        
+
     #[test]
     fn load_relayer_contract_program_into_json() {
         let mut contract_manager = ContractManager::new();
         let path = "./relayerprogram.json";
-        contract_manager.add_program(
-            "RelayerInitializer",
-            relayer_contract_initialize_program(),
-        );
+        contract_manager.add_program("RelayerInitializer", relayer_contract_initialize_program());
 
         contract_manager.add_program("CreateTraderOrder", get_trader_order_program());
         contract_manager.add_program("SettleTraderOrder", get_settle_trader_order_program());
         contract_manager.add_program("CreateLendOrder", lend_order_deposit_program());
         contract_manager.add_program("SettleLendOrder", lend_order_settle_program());
         contract_manager.add_program("LiquidateOrder", get_liquidate_order_program());
-        contract_manager.add_program("SettleTraderOrderNegativeMarginDifference", get_settle_trader_order_negative_margin_difference_program());
+        contract_manager.add_program(
+            "SettleTraderOrderNegativeMarginDifference",
+            get_settle_trader_order_negative_margin_difference_program(),
+        );
         contract_manager.export_program(path);
     }
 

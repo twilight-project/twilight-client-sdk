@@ -33,7 +33,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-zkos-client-wallet = { git = "https://github.com/your-org/zkos-client-wallet.git" }
+zkos-client-wallet = { git = "https://github.com/twilight-project/zkos-client-wallet.git" }
 ```
 
 ## 🛠️ Setup
@@ -145,7 +145,7 @@ let tx_hash = tx_commit_broadcast_transaction(transaction)?;
 ### Supported Transaction Types
 
 - **Private Transfers**: Zero-knowledge transfers between dark accounts
-- **Burn Messages**: Transfer to Satandard cosmos chain account with cryptographic proofs  
+- **Burn Messages**: Transfer to Standard cosmos chain account with cryptographic proofs  
 - **Script Transactions**: ZK Smart contract interactions
 - **Trader Orders**: Leveraged trading with margin support
 - **Lending Orders**: Twilight pool lending 
@@ -196,7 +196,7 @@ cargo doc --open
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
 
 ## 🔗 Related Projects

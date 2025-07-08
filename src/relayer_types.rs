@@ -1,6 +1,6 @@
 use crate::relayer_rpcclient::method::*;
 use crate::relayer_rpcclient::txrequest::RELAYER_RPC_SERVER_URL;
-use crate::relayer_rpcclient::txrequest::{Resp, RpcBody, RpcRequest};
+use crate::relayer_rpcclient::txrequest::{RpcBody, RpcRequest};
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::SigmaProof;
 use serde::{Deserialize, Serialize};

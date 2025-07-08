@@ -1,7 +1,5 @@
 //! JSON-RPC IDs
 
-use core::fmt;
-
 use serde::{Deserialize, Serialize};
 
 use super::utils::uuid_str;
