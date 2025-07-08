@@ -31,3 +31,26 @@ wallet.txt
 # System files
 .DS_Store
 **/.DS_Store
+
+# Temporary and test files
+foo*.txt
+*_response.txt
+test_*.txt
+*.tmp
+*.temp
+
+# Coverage reports
+cobertura.xml
+coverage/
+tarpaulin-report.html
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+Thumbs.db
+ehthumbs.db

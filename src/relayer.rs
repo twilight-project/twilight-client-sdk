@@ -14,7 +14,7 @@ use quisquislib::{
 };
 use uuid::Uuid;
 use zkschnorr::Signature;
-use zkvm::{zkos_types::ValueWitness, Input, Output, Utxo};
+use zkvm::{zkos_types::ValueWitness, Input, Output};
 
 ///Create a ZkosCreateTraderOrder OR ZkosCreateLendOrder from ZkosAccount
 /// Returns ZkosCreateOrder as string
@@ -276,24 +276,23 @@ pub fn query_lend_order_zkos(
 
 #[cfg(test)]
 mod test {
-    use std::f32::MIN_POSITIVE;
 
+    use crate::relayer_types;
     use address::{Address, Network};
-    use curve25519_dalek::scalar::{self, Scalar};
+    use curve25519_dalek::scalar::Scalar;
     use quisquislib::{
         accounts::Account,
         elgamal::ElGamalCommitment,
         keys::{PublicKey, SecretKey},
         ristretto::{RistrettoPublicKey, RistrettoSecretKey},
     };
+    use rand::rngs::OsRng;
     use zkvm::{zkos_types::OutputCoin, Commitment, InputData, OutputData, Utxo, Witness};
-
-    use crate::{keys_management, relayer_types};
 
     use super::*;
     #[test]
     fn test_create_trader_order() {
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
         let create_trader_order: CreateTraderOrder = CreateTraderOrder::new(
             "account_id".to_string(),
             "LONG".to_string(),
@@ -307,9 +306,11 @@ mod test {
         );
         // create input coin
         //create InputCoin and OutputMemo
-        let mut rng = rand::thread_rng();
-        let sk_in: RistrettoSecretKey = RistrettoSecretKey::random(&mut rng);
-        let pk_in: RistrettoPublicKey = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+        let seed = std::env::var("TEST_SEED").expect("Failed to load SEED from .env");
+        let mut rng = OsRng;
+        //derive private key;
+        let sk = SecretKey::from_bytes(seed.as_bytes());
+        let pk_in: RistrettoPublicKey = RistrettoPublicKey::from_secret_key(&sk, &mut rng);
 
         let add: Address = Address::standard_address(Network::default(), pk_in.clone());
         let rscalar: Scalar = Scalar::random(&mut rng);
@@ -343,7 +344,7 @@ mod test {
         // create InputCoin Witness
         let witness = Witness::ValueWitness(ValueWitness::create_value_witness(
             coin_in.clone(),
-            sk_in,
+            sk,
             //  out_memo.clone(),
             enc_acc,
             pk_in.clone(),
@@ -365,18 +366,9 @@ mod test {
 
     #[test]
     pub fn test_create_trader_order_broadcast_data() {
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
 
-        // // get private key from keys management
-        // let sk = keys_management::load_wallet(
-        //     "your_password_he".as_bytes(),
-        //     "./wallet.txt".to_string(),
-        //     "your_password_he".as_bytes(),
-        // )
-        // .unwrap();
-
-        let seed =
-        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+        let seed = std::env::var("TEST_SEED").expect("Failed to load SEED from .env");
 
         //derive private key;
         let sk = SecretKey::from_bytes(seed.as_bytes());
@@ -476,11 +468,10 @@ mod test {
 
     #[test]
     fn test_settle_trader_order_message() {
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
 
         // get private key for the memo
-        let seed =
-        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+        let seed = std::env::var("TEST_SEED").expect("Failed to load SEED from .env");
 
         //derive private key;
         let sk = SecretKey::from_bytes(seed.as_bytes());
@@ -512,10 +503,9 @@ mod test {
 
     #[test]
     pub fn test_create_lend_order_broadcast_data() {
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
 
-        let seed =
-        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+        let seed = std::env::var("TEST_SEED").expect("Failed to load SEED from .env");
 
         //derive private key;
         let sk = SecretKey::from_bytes(seed.as_bytes());
@@ -564,10 +554,9 @@ mod test {
     }
     #[test]
     pub fn test_create_lend_order_broadcast_data1() {
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
 
-        let seed =
-        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+        let seed = std::env::var("TEST_SEED").expect("Failed to load SEED from .env");
 
         //derive private key;
         let sk = SecretKey::from_bytes(seed.as_bytes());
@@ -619,8 +608,7 @@ mod test {
     #[test]
     fn test_settle_lend_order_message() {
         // get private key for the memo
-        let seed =
-        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+        let seed = std::env::var("TEST_SEED").expect("Failed to load SEED from .env");
 
         //derive private key;
         let sk = SecretKey::from_bytes(seed.as_bytes());
@@ -648,8 +636,7 @@ mod test {
     #[test]
     fn test_settle_lend_order_message1() {
         // get private key for the memo
-        let seed =
-        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+        let seed = std::env::var("TEST_SEED").expect("Failed to load SEED from .env");
 
         //derive private key;
         let sk = SecretKey::from_bytes(seed.as_bytes());
@@ -696,13 +683,11 @@ mod test {
 
     #[test]
     pub fn test_query_trader_order_broadcast_data() {
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
 
-        // let seed = "8vKfd6kCrttU4n17u5OKUVbJqIXyCqZc/9f7t8a8tEJwm0ATbL96mtPjW79f6cH/8FtF/KrjeMKUfndchD74tg==";
-        // let seed = "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY33S8ZYMoVzj8tybCB/Okwt+cblM0l3a8/eEJtfBpPcJwfZw++";
-        // let seed = "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
-        let seed = "LPf7DBZSdlKYSk7i0qfB+V0dKw7Ul6NxcbuPufKPuUFj/mV0KJL+w1GTUlzHG6vyM1LLEuN+yaPyddveiUC+ag==";
+        let seed = std::env::var("TEST_SEED").expect("Failed to load SEED from .env");
 
+        //derive private key;
         let sk = SecretKey::from_bytes(seed.as_bytes());
         let client_address = "0c542afdbbd1c818b591fd4d8ac92d0c524ba6dfad6f7602a97948ffa443971d5d4820ae39a02b1a6e1310e217c36368865a4fd8144779924d194ca3980a4a8c2101c339a4";
 
@@ -713,6 +698,5 @@ mod test {
             "PENDING".to_string(),
         );
         println!("order_hex: {:?}", order_message);
-        // println!("order_hex: {:?}", order_msg.encode_as_hex_string());
     }
 }

@@ -37,10 +37,6 @@ pub fn read_bytes_from_file<P: AsRef<Path>>(file_path: P) -> io::Result<Vec<u8>>
 }
 
 pub fn new_wallet(password: &[u8], file_path: String, iv: &[u8], seed: &str) -> RistrettoSecretKey {
-    //let seed =
-    //  "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
-    // let secret_key: quisquislib::ristretto::RistrettoSecretKey =
-    //   quisquislib::keys::SecretKey::random(&mut OsRng);
     let secret_key = hex_str_to_secret_key(seed);
     let private_key_bytes = secret_key.as_bytes();
     let encrypted_private_key = encrypt(&private_key_bytes, password, iv);
@@ -83,7 +79,6 @@ pub fn init_wallet(
 }
 
 pub fn get_public_key(secret_key: RistrettoSecretKey, file_path: String) -> RistrettoPublicKey {
-    // let file_path = "public_key.txt";
     if Path::new(&file_path).exists() {
         let public_key_bytes = read_bytes_from_file(file_path.to_string()).unwrap();
         let public_key = RistrettoPublicKey::from_bytes(&public_key_bytes.as_slice()).unwrap();
@@ -104,29 +99,29 @@ pub fn get_public_key(secret_key: RistrettoSecretKey, file_path: String) -> Rist
 // }
 
 pub fn main() {
-    let password = b"your_password_here";
-    let iv = b"your_password_here"; // Use a secure way to handle the password
-    let seed =
-        "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
-    let wallet = init_wallet(
-        password,
-        "wallet.txt".to_string(),
-        iv,
-        Some(seed.to_string()),
+    // Example usage - in production, use secure password management and random seed generation
+    println!(
+        "Warning: This is example code only. Never use hardcoded passwords or seeds in production!"
     );
-    // let loaded_wallet = Wallet::load_from_file("wallet.json".to_string());
+
+    // Example of how to use the wallet functions:
+    // 1. Generate a secure password and IV
+    // 2. Generate or input a secure seed
+    // 3. Initialize wallet with proper error handling
+
+    // let password = // Get from secure input
+    // let iv = // Generate random IV
+    // let seed = // Generate or input secure seed
+    // let wallet = init_wallet(password, "wallet.txt".to_string(), iv, Some(seed));
 }
 
-//Utility function used for converting seed to Ristretto secret Key
-//UPDATE the function to reflect Hash of seed to increase security
-//************************ */
+/// Utility function used for converting seed to Ristretto secret Key
+/// TODO: Update the function to reflect Hash of seed to increase security
 pub fn hex_str_to_secret_key(seed: &str) -> RistrettoSecretKey {
-    //doing hash for more security and restricting size to 32 bytes
-    //let mut hasher = Keccak256::new();
-    //hasher.update(seed);
-    //let hash_32: [u8; 32] = hasher.finalize().try_into().unwrap();
+    // Future enhancement: Add proper hashing for security and restrict size to 32 bytes
+    // Example: Use SHA-256 or similar cryptographic hash function
 
-    //derive private key
+    // Derive private key (currently using direct conversion)
     SecretKey::from_bytes(seed.as_bytes())
 }
 
@@ -135,16 +130,24 @@ mod test {
     use super::init_wallet;
     #[test]
     pub fn get_key_test() {
-        let password = b"your_password_he";
-        let iv = b"your_password_he"; // Use a secure way to handle the password
-        let seed =
-     "UTQTkXOhF+D550+JW9A1rEQaXDtX9CYqbDOFqCY44S8ZYMoVzj8tybCB/Okwt+pblM0l3t9/eEJtfBpPcJwfZw==";
+        // Generate test credentials for testing purposes only
+        let password = b"test_password_16"; // 16 bytes for AES128
+        let iv = b"test_iv_16_bytes"; // 16 bytes IV
+
+        // Get test seed from environment variable or use fallback
+        let test_seed = std::env::var("TEST_SEED").unwrap_or_else(|_| {
+            "test_seed_for_unit_testing_only_do_not_use_in_production_environment".to_string()
+        });
+
         let wallet = init_wallet(
             password,
-            "wallet.txt".to_string(),
+            "test_wallet.txt".to_string(),
             iv,
-            Some(seed.to_string()),
+            Some(test_seed.to_string()),
         );
         println!("wallet {:?}", wallet);
+
+        // Clean up test file
+        std::fs::remove_file("test_wallet.txt").ok();
     }
 }

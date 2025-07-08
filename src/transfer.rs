@@ -1,12 +1,7 @@
-use address::{Address, AddressType, Network, Script, Standard};
+use address::{Address, AddressType, Network};
 use core::convert::TryInto;
 use curve25519_dalek::scalar::Scalar;
-use transaction::quisquislib::{
-    accounts::Account,
-    elgamal::ElGamalCommitment,
-    keys::{PublicKey, SecretKey},
-    ristretto::{RistrettoPublicKey, RistrettoSecretKey},
-};
+use transaction::quisquislib::{accounts::Account, ristretto::RistrettoSecretKey};
 
 use transaction::reference_tx::{Receiver, Sender};
 use transaction::{Transaction, TransferTransaction};
@@ -18,7 +13,8 @@ use hex;
 use serde::{Deserialize, Serialize};
 
 //Rename dark to stealth in all functions
-///Neeeded to stroe the encrypt scalar for future
+/// Needed to store the encrypt scalar for future
+#[allow(dead_code)]
 pub struct TransferTxWallet {
     tx_hex: String,
     encrypt_scalar_hex: String,
@@ -112,8 +108,8 @@ fn preprocess_tx_request_frontend(
     Vec<Sender>,
     Vec<Input>,
 ) {
-    // reconstruct tx_vector for WASM
-    let tx_vector: Vec<QqSender> = serde_json::from_str(&tx_vec).unwrap();
+    // reconstruct tx_vector for WASM (currently unused)
+    let _tx_vector: Vec<QqSender> = serde_json::from_str(&tx_vec).unwrap();
 
     //reconstruct sender balance for WASM
     let updated_sender_balance: Vec<u64> =
@@ -132,8 +128,8 @@ fn preprocess_tx_request_frontend(
     let sk_vector = vec![sk; updated_sender_balance.len()];
     //Create TX_VECTOR for Tx
 
-    let mut sender_array = Vec::<Sender>::new();
-    let mut input_vector = Vec::<Input>::new();
+    let sender_array = Vec::<Sender>::new();
+    let input_vector = Vec::<Input>::new();
     //println!("tx_vector: {:?}", tx_vector);
     // for sender_obj in tx_vector.iter() {
     //     let mut recievers = Vec::<Receiver>::new();
@@ -251,7 +247,7 @@ pub fn create_quisquis_transaction_single(
     address_input: bool,
     updated_sender_balance: u64,
     anonymity_set: String,
-    fee:u64,
+    fee: u64,
 ) -> String {
     let updated_sender_balance = vec![updated_sender_balance];
     let updated_reciever_value = vec![amount];
@@ -382,7 +378,7 @@ pub fn create_private_transfer_tx_single(
     amount: u64,
     address_input: bool,
     updated_sender_balance: u64,
-    fee:u64,
+    fee: u64,
 ) -> TransferTxWallet {
     let updated_sender_balance = vec![updated_sender_balance];
     let updated_reciever_balance = vec![amount];
@@ -474,7 +470,7 @@ pub fn create_private_transfer_transaction(
     sk: RistrettoSecretKey,
     updated_sender_balance_ser: String,
     updated_balance_reciever_ser: String,
-    fee:u64,
+    fee: u64,
 ) -> String {
     let (updated_sender_balance, updated_reciever_balance, sk_vector, sender_array, inputs_sender) =
         preprocess_tx_request_frontend(

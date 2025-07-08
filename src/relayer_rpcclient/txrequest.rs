@@ -1,15 +1,12 @@
 use super::id::Id;
 use super::method::{Method, TransactionHashArgs, UtxoRequest};
 // use curve25519_dalek::digest::Output;
-use jsonrpc_core::response::{Failure, Output, Success};
-use jsonrpc_core::Response as JsonRPCResponse;
+use jsonrpc_core::response::Output;
 use jsonrpc_core::Version;
 use serde::{Deserialize, Serialize};
 // use super::method::Method;
 use reqwest::blocking::Response;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONTENT_TYPE, USER_AGENT};
-use serde_json::Error;
-use transaction::Transaction;
 // pub type TransactionStatusId = String;
 use crate::relayer_rpcclient::method::ByteRec;
 lazy_static! {
@@ -476,7 +473,7 @@ mod test {
     use crate::relayer_rpcclient::order_test_hex::*;
     #[test]
     fn create_trader_order_test() {
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
 
         let order_string = trader_test_order();
 
@@ -513,7 +510,7 @@ mod test {
 
     #[test]
     fn query_trader_order_test() {
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
 
         let query_string = query_test_string();
 
@@ -550,7 +547,7 @@ mod test {
 
     #[test]
     fn query_transaction_hash_test() {
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
 
         let tx_hash_arg1 = TransactionHashArgs::AccountId {
             id: "0cce46bfaf011e10a7ce54eb2ae0c1ced04150db04b640650d5d6b742eaf777e7c32444c7282842029780a82a715f6ecf39a627ece9e9ea5559aac0447714493675725dace".to_string(),
@@ -594,7 +591,7 @@ mod test {
 
     #[test]
     fn get_utxo_id_test() {
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
 
         let utxo_request_arg = UtxoRequest {
             address_or_id: "0c4846130acc477b3026998b495e880f4ee199ea1ad8955f6983c58a06b10b4a65fe34bdce04a9eed97518362577314dcb8bd5b0c15de0e0c7f0fba90c7e42a65b5d945ea4".to_string(),
@@ -633,7 +630,7 @@ mod test {
     }
     #[test]
     fn get_utxos_detail_test() {
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
 
         let utxo_request_arg = UtxoRequest {
             address_or_id: "0c4846130acc477b3026998b495e880f4ee199ea1ad8955f6983c58a06b10b4a65fe34bdce04a9eed97518362577314dcb8bd5b0c15de0e0c7f0fba90c7e42a65b5d945ea4".to_string(),
@@ -673,7 +670,7 @@ mod test {
 
     #[test]
     fn get_utxo_output_test() {
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
 
         let utxo_request_arg = UtxoRequest {
             address_or_id: "8d14201652ddaf19b48d2274532671035d4db40e72e585354689a83b76f35ba407"
@@ -714,7 +711,7 @@ mod test {
 
     #[test]
     fn query_btc_price_test() {
-        dotenv::dotenv().expect("Failed loading dotenv");
+        dotenvy::dotenv().expect("Failed loading dotenv");
 
         let tx_send: RpcBody<Option<String>> = RpcRequest::new(
             None,

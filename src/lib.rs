@@ -11,6 +11,7 @@ pub extern crate zkschnorr;
 pub extern crate zkvm;
 
 pub mod chain;
+// pub mod db; // Temporarily disabled due to compilation issues
 pub mod keys_management;
 pub mod programcontroller;
 pub mod relayer;
@@ -19,4 +20,3 @@ pub mod relayer_types;
 pub mod script;
 pub mod transfer;
 pub mod util;
-
