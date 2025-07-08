@@ -36,7 +36,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-twilight-client-sdk = { git = "https://github.com/usmanshahid86/twilight-client-sdk.git" }
+twilight-client-sdk = { git = "https://github.com/twilight-project/twilight-client-sdk.git" }
 ```
 
 ## 🛠️ Setup
