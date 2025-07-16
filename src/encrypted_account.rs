@@ -32,7 +32,7 @@ pub struct KeyManager {
 impl KeyManager {
     /// Creates a new `KeyManager` by deriving a master key from a Cosmos signature.
     /// The signature should be from signing the constant `DERIVATION_MESSAGE`.
-    pub fn from_cosmos_signature(cosmos_signature_bytes: &[u8; 64]) -> Self {
+    pub fn from_cosmos_signature(cosmos_signature_bytes: &[u8]) -> Self {
         Self {
             master_key: derive_master_ristretto_key(cosmos_signature_bytes),
         }
@@ -124,6 +124,12 @@ impl EncryptedAccount {
         } else {
             false
         }
+    }
+    pub fn get_address(&self) -> String {
+        self.address.clone()
+    }
+    pub fn get_encrypt(&self) -> ElGamalCommitment {
+        self.encrypt.clone()
     }
 }
 // create EncryptedAccount from Taditional quisquis Account
