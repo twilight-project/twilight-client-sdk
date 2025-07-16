@@ -46,7 +46,7 @@ impl KeyManager {
 
 /// Derives the single, master Ristretto secret key from a user's Cosmos signature.
 /// This function is deterministic. The same signature will always produce the same key.
-fn derive_master_ristretto_key(cosmos_signature_bytes: &[u8; 64]) -> RistrettoSecretKey {
+fn derive_master_ristretto_key(cosmos_signature_bytes: &[u8]) -> RistrettoSecretKey {
     // The `from_bytes` function internally uses a strong hash (KDF), which is exactly
     // what we need to securely convert the signature into a key.
     SecretKey::from_bytes(cosmos_signature_bytes)
