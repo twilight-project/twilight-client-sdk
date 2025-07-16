@@ -1,5 +1,14 @@
-//#![allow(dead_code)]
-//#![allow(unused_imports)]
+//! Manages ZkVM smart contract programs, including their storage, retrieval,
+//! and the creation of cryptographic proofs and addresses.
+//!
+//! This module provides the `ContractManager`, a central struct for handling a
+//! collection of ZkVM programs. It allows developers to:
+//! - Add and index programs with unique tags.
+//! - Import and export the entire collection of programs to and from a JSON file.
+//! - Retrieve individual programs or the entire set.
+//! - Generate Merkle `CallProof`s required for executing specific contract functions.
+//! - Derive a unique contract address from the Merkle root of all managed programs.
+
 use address::{Address, Network};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -11,12 +20,19 @@ pub type Tag = String;
 use zkvm::encoding::Encodable;
 use zkvm::{Hasher, MerkleTree, Program};
 
+/// Manages a collection of ZkVM programs for a smart contract.
+///
+/// It holds programs as hex-encoded strings and uses a `HashMap` to index them
+/// by a human-readable `Tag`. This allows for easy retrieval and management.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ContractManager {
+    /// A map from a unique string tag to the index of a program in the `program` vector.
     pub program_index: HashMap<Tag, usize>,
+    /// A vector of hex-encoded ZkVM programs.
     pub program: Vec<String>,
 }
 impl ContractManager {
+    /// Creates a new, empty `ContractManager`.
     pub fn new() -> Self {
         ContractManager {
             program_index: HashMap::new(),
@@ -24,6 +40,17 @@ impl ContractManager {
         }
     }
 
+    /// Adds a new program to the manager.
+    ///
+    /// The program is encoded into a hex string and stored. Its tag is mapped to its
+    /// new index in the program vector.
+    ///
+    /// # Parameters
+    /// - `tag`: A unique string slice to identify the program.
+    /// - `program`: The ZkVM `Program` to add.
+    ///
+    /// # Returns
+    /// `Ok(())` on success, or an `Err` if the tag already exists.
     pub fn add_program(&mut self, tag: &str, program: Program) -> Result<(), &'static str> {
         let encoded_program_data = program.encode_to_vec();
         let program_hex_encoded = hex::encode(encoded_program_data);
@@ -37,6 +64,15 @@ impl ContractManager {
         }
     }
 
+    /// Imports a `ContractManager` instance from a JSON file.
+    ///
+    /// If the file does not exist or fails to be read, a new, empty `ContractManager` is returned.
+    ///
+    /// # Parameters
+    /// - `path`: The file path to the JSON file.
+    ///
+    /// # Panics
+    /// Panics if the file data is not valid JSON for a `ContractManager`.
     pub fn import_program(path: &str) -> ContractManager {
         let read_data = fs::read(path);
         let decode_data: ContractManager;
@@ -54,12 +90,26 @@ impl ContractManager {
         decode_data
     }
 
+    /// Exports the current `ContractManager` instance to a JSON file.
+    ///
+    /// The instance is pretty-printed for human readability.
+    ///
+    /// # Parameters
+    /// - `path`: The file path where the JSON data will be written.
+    ///
+    /// # Panics
+    /// Panics if the file cannot be created or written to, or if serialization fails.
     pub fn export_program(&self, path: &str) {
         let mut file = File::create(path).unwrap();
         file.write_all(&serde_json::to_vec_pretty(&self.clone()).unwrap())
             .unwrap();
     }
 
+    /// Retrieves a program by its tag.
+    ///
+    /// # Returns
+    /// A `Result` containing the parsed `Program` on success, or an `Err` if the
+    /// tag doesn't exist, or if hex decoding or program parsing fails.
     pub fn get_program_by_tag(&self, tag: &str) -> Result<Program, &'static str> {
         match self.program_index.get(tag) {
             Some(index) => match hex::decode(self.program[*index].clone()) {
@@ -73,6 +123,11 @@ impl ContractManager {
         }
     }
 
+    /// Returns all managed programs as a vector of `Program` structs.
+    ///
+    /// # Returns
+    /// A `Result` containing a `Vec<Program>` on success, or an `Err` if any program
+    /// fails to be decoded or parsed.
     pub fn get_program_vec(&self) -> Result<Vec<Program>, &'static str> {
         let vec_program_len: usize = self.program.len();
         let mut programs: Vec<Program> = Vec::new();
@@ -92,6 +147,19 @@ impl ContractManager {
             Err("Program doesn't exist")
         }
     }
+
+    /// Creates a Merkle `CallProof` for a program specified by its tag.
+    ///
+    /// This proof is required to execute a function in a smart contract, proving that
+    /// the function's program is part of the contract's verified code.
+    ///
+    /// # Parameters
+    /// - `network`: The target network (`Main` or `TestNet`).
+    /// - `tag`: The tag of the program for which to create the proof.
+    ///
+    /// # Returns
+    /// A `Result` containing the `CallProof` on success, or an `Err` if the program
+    /// doesn't exist or the proof cannot be created.
     pub fn create_call_proof(
         &self,
         network: Network,
@@ -117,6 +185,17 @@ impl ContractManager {
         }
     }
 
+    /// Creates a unique script address for the contract.
+    ///
+    /// The address is derived from the Merkle root of all the programs managed by this instance.
+    /// Any change to any program will result in a different contract address.
+    ///
+    /// # Parameters
+    /// - `network`: The target network (`Main` or `TestNet`).
+    ///
+    /// # Returns
+    /// A `Result` containing the hex-encoded script address string, or an `Err` if
+    /// the program vector could not be retrieved.
     pub fn create_contract_address(&self, network: Network) -> Result<String, &'static str> {
         //get vector of programs
         let progs = self.get_program_vec()?;

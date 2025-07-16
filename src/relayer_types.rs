@@ -1,3 +1,12 @@
+//! Defines the data structures and types used for communication with the Twilight Relayer.
+//!
+//! This module contains all the necessary request and response types for creating,
+//! executing, and querying trade and lend orders. It includes various enums for
+//! categorizing orders (e.g., `OrderType`, `PositionType`, `OrderStatus`) and
+//! structs that wrap the zero-knowledge components (`ZkosCreateOrder`, `ZkosSettleMsg`)
+//! with the order metadata. These types are serialized and sent to the relayer's
+//! private API endpoints.
+
 use crate::relayer_rpcclient::method::*;
 use crate::relayer_rpcclient::txrequest::RELAYER_RPC_SERVER_URL;
 use crate::relayer_rpcclient::txrequest::{RpcBody, RpcRequest};
@@ -12,15 +21,18 @@ use zkvm::{
     zkos_types::{Input, ValueWitness},
     Output,
 };
+
+/// The type of transaction being submitted, distinguishing between trading and lending.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum TXType {
-    ORDERTX, //TraderOrder
-    LENDTX,  //LendOrder
+    /// A standard perpetual contract trade order.
+    ORDERTX,
+    /// A lending or borrowing order for the DeFi pool.
+    LENDTX,
 }
 
-//implement enum for TXType
 impl TXType {
-    //from string
+    /// Creates a `TXType` from a string slice.
     pub fn from_str(s: &str) -> Option<TXType> {
         match s {
             "ORDERTX" => Some(TXType::ORDERTX),
@@ -29,15 +41,21 @@ impl TXType {
         }
     }
 }
+
+/// The execution type of an order.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum OrderType {
+    /// A limit order, which executes at a specified price or better.
     LIMIT,
+    /// A market order, which executes immediately at the current market price.
     MARKET,
+    /// A dark order, not currently implemented.
     DARK,
+    /// A lend order for the lending pool.
     LEND,
 }
 impl OrderType {
-    //from string
+    /// Creates an `OrderType` from a string slice.
     pub fn from_str(s: &str) -> Option<OrderType> {
         match s {
             "LIMIT" => Some(OrderType::LIMIT),
@@ -49,13 +67,16 @@ impl OrderType {
     }
 }
 
+/// The direction of a trading position.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum PositionType {
+    /// A long position, betting on a price increase.
     LONG,
+    /// A short position, betting on a price decrease.
     SHORT,
 }
 impl PositionType {
-    //from string
+    /// Creates a `PositionType` from a string slice.
     pub fn from_str(s: &str) -> Option<PositionType> {
         match s {
             "LONG" => Some(PositionType::LONG),
@@ -63,12 +84,17 @@ impl PositionType {
             _ => None,
         }
     }
+
+    /// Converts the position type to a scalar value for use in ZK proofs.
+    /// `LONG` is -1, `SHORT` is 1.
     pub fn to_scalar(&self) -> Scalar {
         match self {
             PositionType::LONG => Scalar::zero() - Scalar::from(1u64),
             PositionType::SHORT => Scalar::from(1u64),
         }
     }
+
+    /// Converts the position type back to its string representation.
     pub fn to_str(&self) -> String {
         match self {
             PositionType::LONG => "LONG".to_string(),
@@ -76,28 +102,47 @@ impl PositionType {
         }
     }
 }
+
+/// Represents the various states an order can be in throughout its lifecycle.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum OrderStatus {
+    /// The order has been successfully settled.
     SETTLED,
+    /// The lend order is active in the pool.
     LENDED,
+    /// The position has been liquidated.
     LIQUIDATE,
+    /// The order has been cancelled.
     CANCELLED,
-    PENDING, // change it to New
-    FILLED,  //executed on price ticker
+    /// The order has been submitted but not yet processed.
+    PENDING,
+    /// The order has been matched and executed by the engine.
+    FILLED,
+    /// The order was rejected as a duplicate.
     DuplicateOrder,
+    /// An error occurred with the UTXO.
     UtxoError,
+    /// A generic error occurred.
     Error,
+    /// The relayer received no response from the chain.
     NoResponseFromChain,
+    /// The transaction was rejected by the chain.
     RejectedFromChain,
+    /// An error occurred during bincode serialization/deserialization.
     BincodeError,
+    /// An error occurred during hex encoding/decoding.
     HexCodeError,
+    /// A generic serialization error.
     SerializationError,
+    /// The order was submitted successfully to the relayer.
     RequestSubmitted,
+    /// The requested order could not be found.
     OrderNotFound,
+    /// The order has been filled and its state updated, awaiting settlement.
     FilledUpdated,
 }
 impl OrderStatus {
-    //from string
+    /// Creates an `OrderStatus` from a string slice.
     pub fn from_str(s: &str) -> Option<OrderStatus> {
         match s {
             "SETTLED" => Some(OrderStatus::SETTLED),
@@ -120,13 +165,16 @@ impl OrderStatus {
         }
     }
 }
+
+/// Represents the status of a request made to the relayer.
+/// Note: This is largely identical to `OrderStatus` and could potentially be consolidated.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum RequestStatus {
     SETTLED,
     LENDED,
     LIQUIDATE,
     CANCELLED,
-    PENDING, // change it to New
+    PENDING,
     FILLED,
     DuplicateOrder,
     UtxoError,
@@ -141,7 +189,7 @@ pub enum RequestStatus {
     FilledUpdated,
 }
 impl RequestStatus {
-    //from string
+    /// Creates a `RequestStatus` from a string slice.
     pub fn from_str(s: &str) -> Option<RequestStatus> {
         match s {
             "SETTLED" => Some(RequestStatus::SETTLED),
@@ -164,7 +212,9 @@ impl RequestStatus {
         }
     }
 }
-/// type defined for Realyer to use in case of client Orders
+
+/// A structure that pairs a ZkOS transaction with its corresponding output memo.
+/// This is used internally before the final order message is constructed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClientMemoTx {
     pub tx: Transaction,
@@ -186,14 +236,25 @@ impl ClientMemoTx {
     }
 }
 
+/// The core zero-knowledge component of a `create` order message.
+///
+/// This struct contains the input coin, the output memo, and the cryptographic
+/// signature and proof required to validate the order request without revealing
+/// sensitive information.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ZkosCreateOrder {
-    pub input: Input,         //coin type input
-    pub output: Output,       // memo type output
-    pub signature: Signature, //quisquis signature
+    /// The coin `Input` being spent to fund the order.
+    pub input: Input,
+    /// The `Output` memo containing the order's public/private data commitments.
+    pub output: Output,
+    /// The zkSchnorr signature proving ownership of the input.
+    pub signature: Signature,
+    /// This is a proof of the same value locked between the input and output.
     pub proof: SigmaProof,
 }
 impl ZkosCreateOrder {
+    /// Creates a new `ZkosCreateOrder` from an input, output, and a `ValueWitness`.
+    /// The witness provides the necessary signature and proof.
     pub fn new(input: Input, output: Output, vw: ValueWitness) -> Self {
         Self {
             input,
@@ -202,10 +263,12 @@ impl ZkosCreateOrder {
             proof: vw.get_value_proof().clone(),
         }
     }
+    /// Encodes the struct into a hex string for transport.
     pub fn encode_as_hex_string(&self) -> String {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
     }
+    /// Decodes a `ZkosCreateOrder` from a hex string.
     pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
         let hex_decode = match hex::decode(hex_string) {
             Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
@@ -218,6 +281,7 @@ impl ZkosCreateOrder {
     }
 }
 
+/// The metadata payload for creating a new trader order.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CreateTraderOrder {
     pub account_id: String,
@@ -231,7 +295,10 @@ pub struct CreateTraderOrder {
     pub execution_price: f64,
 }
 impl CreateTraderOrder {
-    //new from values
+    /// Creates a new `CreateTraderOrder` instance from raw values.
+    ///
+    /// # Panics
+    /// Panics if the string values for `position_type`, `order_type`, or `order_status` are invalid.
     pub fn new(
         account_id: String,
         position_type: String,
@@ -256,6 +323,11 @@ impl CreateTraderOrder {
         }
     }
 }
+
+/// The complete message for submitting a new trader order.
+///
+/// This struct combines the order metadata (`CreateTraderOrder`) with its
+/// corresponding zero-knowledge proof components (`ZkosCreateOrder`).
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateTraderOrderZkos {
     pub create_trader_order: CreateTraderOrder,
@@ -271,10 +343,14 @@ impl CreateTraderOrderZkos {
             input,
         }
     }
+
+    /// Encodes the full order message into a hex string.
     pub fn encode_as_hex_string(&self) -> String {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
     }
+
+    /// Decodes the full order message from a hex string.
     pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
         let hex_decode = match hex::decode(hex_string) {
             Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
@@ -286,6 +362,7 @@ impl CreateTraderOrderZkos {
         hex_decode
     }
 
+    /// Submits the hex-encoded order message to the relayer via RPC.
     pub fn submit_order(order_msg: String) -> Result<GetCreateTraderOrderResponse, String> {
         let tx_send: RpcBody<ByteRec> = RpcRequest::new(
             ByteRec { data: order_msg },
@@ -307,6 +384,7 @@ impl CreateTraderOrderZkos {
     }
 }
 
+/// The metadata payload for creating a new lend order.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CreateLendOrder {
     pub account_id: String,
@@ -316,7 +394,10 @@ pub struct CreateLendOrder {
     pub deposit: f64,
 }
 impl CreateLendOrder {
-    //new from values
+    /// Creates a new `CreateLendOrder` instance from raw values.
+    ///
+    /// # Panics
+    /// Panics if `order_type` or `order_status` strings are invalid.
     pub fn new(
         account_id: String,
         balance: f64,
@@ -334,6 +415,7 @@ impl CreateLendOrder {
     }
 }
 
+/// The complete message for submitting a new lend order.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateLendOrderZkos {
     pub create_lend_order: CreateLendOrder,
@@ -346,11 +428,13 @@ impl CreateLendOrderZkos {
             input,
         }
     }
+    /// Encodes the full lend order message into a hex string.
     pub fn encode_as_hex_string(&self) -> String {
         let byt = bincode::serialize(&self).unwrap();
         hex::encode(&byt)
     }
 
+    /// Decodes the full lend order message from a hex string.
     pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
         let hex_decode = match hex::decode(hex_string) {
             Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
@@ -362,6 +446,7 @@ impl CreateLendOrderZkos {
         hex_decode
     }
 
+    /// Submits the hex-encoded lend order message to the relayer via RPC.
     pub fn submit_order(order_msg: String) -> Result<GetCreateLendOrderResponse, String> {
         let tx_send: RpcBody<ByteRec> = RpcRequest::new(
             ByteRec { data: order_msg },
@@ -383,6 +468,8 @@ impl CreateLendOrderZkos {
     }
 }
 
+/// A client-side representation of a trader order that includes the full `Transaction`.
+/// This is an alternative structure that may be used in different client flows.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateTraderOrderClientZkos {
     pub create_trader_order: CreateTraderOrder,
@@ -411,10 +498,15 @@ impl CreateTraderOrderClientZkos {
     }
 }
 
+/// The zero-knowledge component for a settlement or execution message.
+///
+/// It contains the output memo from the original order and a signature to authorize the action.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ZkosSettleMsg {
-    pub output: Output,       //memo type output
-    pub signature: Signature, //quisquis signature
+    /// The `Output` memo from the original `create` order transaction.
+    pub output: Output,
+    /// The zkSchnorr signature authorizing this settlement.
+    pub signature: Signature,
 }
 impl ZkosSettleMsg {
     pub fn new(output: Output, signature: Signature) -> ZkosSettleMsg {
@@ -436,6 +528,7 @@ impl ZkosSettleMsg {
     }
 }
 
+/// The metadata payload for settling a trader order.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ExecuteTraderOrder {
     pub account_id: String,
@@ -446,7 +539,10 @@ pub struct ExecuteTraderOrder {
     pub execution_price: f64,
 }
 impl ExecuteTraderOrder {
-    //new from values
+    /// Creates a new `ExecuteTraderOrder` instance from raw values.
+    ///
+    /// # Panics
+    /// Panics if `order_type` or `order_status` strings are invalid.
     pub fn new(
         account_id: String,
         uuid: Uuid,
@@ -465,6 +561,8 @@ impl ExecuteTraderOrder {
         }
     }
 }
+
+/// The complete message for settling a trader order.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ExecuteTraderOrderZkos {
     pub execute_trader_order: ExecuteTraderOrder,
@@ -497,6 +595,7 @@ impl ExecuteTraderOrderZkos {
         hex_decode
     }
 
+    /// Submits the hex-encoded settlement message to the relayer via RPC.
     pub fn submit_order(order_msg: String) -> Result<GetExecuteTraderOrderResponse, String> {
         let tx_send: RpcBody<ByteRec> = RpcRequest::new(
             ByteRec { data: order_msg },
@@ -518,17 +617,23 @@ impl ExecuteTraderOrderZkos {
     }
 }
 
+/// The metadata payload for settling a lend order (e.g., withdrawing funds).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ExecuteLendOrder {
     pub account_id: String,
     pub uuid: Uuid,
     pub order_type: OrderType,
-    pub settle_withdraw: f64, // % amount to withdraw
+    /// The percentage amount to withdraw from the lending position.
+    pub settle_withdraw: f64,
     pub order_status: OrderStatus,
-    pub poolshare_price: f64, //withdraw pool share price
+    /// The pool share price at the time of withdrawal.
+    pub poolshare_price: f64,
 }
 impl ExecuteLendOrder {
-    //new from values
+    /// Creates a new `ExecuteLendOrder` instance from raw values.
+    ///
+    /// # Panics
+    /// Panics if `order_type` or `order_status` strings are invalid.
     pub fn new(
         account_id: String,
         uuid: Uuid,
@@ -547,6 +652,8 @@ impl ExecuteLendOrder {
         }
     }
 }
+
+/// The complete message for settling a lend order.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ExecuteLendOrderZkos {
     pub execute_lend_order: ExecuteLendOrder,
@@ -575,6 +682,7 @@ impl ExecuteLendOrderZkos {
         hex_decode
     }
 
+    /// Submits the hex-encoded lend settlement message to the relayer via RPC.
     pub fn submit_order(order_msg: String) -> Result<GetExecuteLendOrderResponse, String> {
         let tx_send: RpcBody<ByteRec> = RpcRequest::new(
             ByteRec { data: order_msg },
@@ -596,6 +704,7 @@ impl ExecuteLendOrderZkos {
     }
 }
 
+/// The metadata payload for cancelling a trader order.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CancelTraderOrder {
     pub account_id: String,
@@ -604,7 +713,10 @@ pub struct CancelTraderOrder {
     pub order_status: OrderStatus,
 }
 impl CancelTraderOrder {
-    //new from values
+    /// Creates a new `CancelTraderOrder` instance from raw values.
+    ///
+    /// # Panics
+    /// Panics if `order_type` or `order_status` strings are invalid.
     pub fn new(
         account_id: String,
         uuid: Uuid,
@@ -619,6 +731,8 @@ impl CancelTraderOrder {
         }
     }
 }
+
+/// The complete message for cancelling a trader order.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CancelTraderOrderZkos {
     pub cancel_trader_order: CancelTraderOrder,
@@ -650,6 +764,7 @@ impl CancelTraderOrderZkos {
         hex_decode
     }
 
+    /// Submits the hex-encoded cancellation message to the relayer via RPC.
     pub fn submit_order(order_msg: String) -> Result<GetCancelTraderOrderResponse, String> {
         let tx_send: RpcBody<ByteRec> = RpcRequest::new(
             ByteRec { data: order_msg },
@@ -670,10 +785,14 @@ impl CancelTraderOrderZkos {
         response_unwrap
     }
 }
+
+/// The zero-knowledge component for a cancellation message.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ZkosCancelMsg {
-    pub public_key: String, //This is Account hex address identified as public_key. Do not mistake it for public key of input
-    pub signature: Signature, //quisquis signature  //canceltradeorder sign
+    /// The user's hex-encoded account address.
+    pub public_key: String,
+    /// A zkSchnorr signature over the `CancelTraderOrder` message, authorizing the cancellation.
+    pub signature: Signature,
 }
 impl ZkosCancelMsg {
     pub fn new(public_key: String, signature: Signature) -> ZkosCancelMsg {
@@ -682,6 +801,7 @@ impl ZkosCancelMsg {
             signature,
         }
     }
+    /// Converts a `ZkosCancelMsg` into a `ZkosQueryMsg`, as they are structurally identical.
     pub fn convert_cancel_to_query(&self) -> ZkosQueryMsg {
         ZkosQueryMsg::new(self.public_key.clone(), self.signature.clone())
     }
@@ -702,10 +822,13 @@ impl ZkosCancelMsg {
     }
 }
 
+/// The zero-knowledge component for a query message.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ZkosQueryMsg {
-    pub public_key: String, //This is Account hex address identified as public_key. Do not mistake it for public key of input
-    pub signature: Signature, //quisquis signature  //canceltradeorder sign
+    /// The user's hex-encoded account address.
+    pub public_key: String,
+    /// A signature over the query data, authorizing the request.
+    pub signature: Signature,
 }
 impl ZkosQueryMsg {
     pub fn new(public_key: String, signature: Signature) -> ZkosQueryMsg {
@@ -731,13 +854,17 @@ impl ZkosQueryMsg {
     }
 }
 
+/// The metadata payload for querying a trader order.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueryTraderOrder {
     pub account_id: String,
     pub order_status: OrderStatus,
 }
 impl QueryTraderOrder {
-    //new from values
+    /// Creates a new `QueryTraderOrder` instance from raw values.
+    ///
+    /// # Panics
+    /// Panics if `order_status` string is invalid.
     pub fn new(account_id: String, order_status: String) -> QueryTraderOrder {
         QueryTraderOrder {
             account_id,
@@ -745,6 +872,8 @@ impl QueryTraderOrder {
         }
     }
 }
+
+/// The complete message for querying a trader order.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueryTraderOrderZkos {
     pub query_trader_order: QueryTraderOrder,
@@ -773,13 +902,18 @@ impl QueryTraderOrderZkos {
         hex_decode
     }
 }
+
+/// The metadata payload for querying a lend order.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueryLendOrder {
     pub account_id: String,
     pub order_status: OrderStatus,
 }
 impl QueryLendOrder {
-    //new from values
+    /// Creates a new `QueryLendOrder` instance from raw values.
+    ///
+    /// # Panics
+    /// Panics if `order_status` string is invalid.
     pub fn new(account_id: String, order_status: String) -> QueryLendOrder {
         QueryLendOrder {
             account_id,
@@ -788,6 +922,7 @@ impl QueryLendOrder {
     }
 }
 
+/// The complete message for querying a lend order.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueryLendOrderZkos {
     pub query_lend_order: QueryLendOrder,
@@ -817,6 +952,7 @@ impl QueryLendOrderZkos {
     }
 }
 
+/// Represents the full state of a trader order as returned by the relayer's query endpoints.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct TraderOrder {
     pub uuid: Uuid,
@@ -875,16 +1011,17 @@ impl TraderOrder {
     }
 }
 
+/// Represents the full state of a lend order as returned by the relayer's query endpoints.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct LendOrder {
     pub uuid: Uuid,
     pub account_id: String,
     #[serde(deserialize_with = "as_f64")]
     pub balance: f64,
-    pub order_status: OrderStatus, //lend or settle
-    pub order_type: OrderType,     // LEND
-    pub entry_nonce: usize,        // change it to u256
-    pub exit_nonce: usize,         // change it to u256
+    pub order_status: OrderStatus,
+    pub order_type: OrderType,
+    pub entry_nonce: usize,
+    pub exit_nonce: usize,
     #[serde(deserialize_with = "as_f64")]
     pub deposit: f64,
     #[serde(deserialize_with = "as_f64")]
@@ -896,22 +1033,30 @@ pub struct LendOrder {
     pub nwithdraw: f64,
     #[serde(deserialize_with = "as_f64")]
     pub payment: f64,
+    /// Total locked value before this lend transaction.
     #[serde(deserialize_with = "as_f64")]
-    pub tlv0: f64, //total locked value before lend tx
+    pub tlv0: f64,
+    /// Total pool shares before this lend transaction.
     #[serde(deserialize_with = "as_f64")]
-    pub tps0: f64, // total poolshare before lend tx
+    pub tps0: f64,
+    /// Total locked value after this lend transaction.
     #[serde(deserialize_with = "as_f64")]
-    pub tlv1: f64, // total locked value after lend tx
+    pub tlv1: f64,
+    /// Total pool shares after this lend transaction.
     #[serde(deserialize_with = "as_f64")]
-    pub tps1: f64, // total poolshre value after lend tx
+    pub tps1: f64,
+    /// Total locked value before a lend payment/settlement.
     #[serde(deserialize_with = "as_f64")]
-    pub tlv2: f64, // total locked value before lend payment/settlement
+    pub tlv2: f64,
+    /// Total pool shares before a lend payment/settlement.
     #[serde(deserialize_with = "as_f64")]
-    pub tps2: f64, // total poolshare before lend payment/settlement
+    pub tps2: f64,
+    /// Total locked value after a lend payment/settlement.
     #[serde(deserialize_with = "as_f64")]
-    pub tlv3: f64, // total locked value after lend payment/settlement
+    pub tlv3: f64,
+    /// Total pool shares after a lend payment/settlement.
     #[serde(deserialize_with = "as_f64")]
-    pub tps3: f64, // total poolshare after lend payment/settlement
+    pub tps3: f64,
     pub entry_sequence: usize,
 }
 
@@ -933,6 +1078,7 @@ impl LendOrder {
     }
 }
 
+/// Represents a transaction hash record, linking an order to its on-chain transaction.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TxHash {
     pub id: i64,

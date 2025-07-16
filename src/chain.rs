@@ -1,3 +1,9 @@
+//! Provides functions for interacting with a ZkOS blockchain node via RPC calls.
+//!
+//! This module abstracts the details of JSON-RPC communication for common on-chain
+//! operations such as fetching UTXOs (Coin, Memo, State), retrieving full `Output`
+//! data, and broadcasting transactions.
+
 use crate::relayer_rpcclient::method::{UtxoDetailResponse, UtxoRequest};
 use curve25519_dalek::scalar::Scalar;
 use hex;
@@ -7,10 +13,25 @@ use zkvm::{
     IOType, String as ZkvmString,
 };
 lazy_static! {
+    /// The URL of the ZkOS RPC server, loaded from the `ZKOS_SERVER_URL` environment variable.
+    ///
+    /// # Panics
+    /// Panics if the `ZKOS_SERVER_URL` environment variable is not set at runtime.
     pub static ref ZKOS_SERVER_URL: String =
         std::env::var("ZKOS_SERVER_URL").expect("missing environment variable ZKOS_SERVER_URL");
 }
 
+/// Fetches the first available coin UTXO for a given address and converts it into a spendable `Input`.
+///
+/// This is a convenience function that chains `get_coin_utxo_by_address_hex` and
+/// `get_coin_output_by_utxo_id_hex` to prepare a coin for use in a new transaction.
+///
+/// # Parameters
+/// - `address_hex`: The hex-encoded address to query for coin UTXOs.
+///
+/// # Returns
+/// A `Result` containing the `Input` on success, or an error string if no UTXO is found
+/// or if any of the underlying RPC calls fail.
 pub fn get_transaction_coin_input_from_address(address_hex: String) -> Result<Input, String> {
     let coin_utxo_vec_result = get_coin_utxo_by_address_hex(address_hex);
     match coin_utxo_vec_result {
@@ -37,6 +58,16 @@ pub fn get_transaction_coin_input_from_address(address_hex: String) -> Result<In
         Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
     }
 }
+/// Fetches the first available memo UTXO for a given address and converts it into a spendable `Input`.
+///
+/// # Parameters
+/// - `address_hex`: The hex-encoded address to query for memo UTXOs.
+/// - `memo_output`: The `Output` of the memo being spent. This is required to construct the input.
+/// - `withdraw_amount`: The amount being withdrawn from the memo.
+///
+/// # Returns
+/// A `Result` containing a tuple of the `(Input, Scalar)` on success, where the scalar is the
+/// blinding factor used. Returns an error string on failure.
 pub fn get_transaction_memo_input_from_address(
     address_hex: String,
     memo_output: Output,
@@ -62,8 +93,18 @@ pub fn get_transaction_memo_input_from_address(
         Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
     }
 }
-/// get transaction state input from chain based on address_hex
+/// Fetches the first available state UTXO for an address and converts it into a spendable `Input`.
 ///
+/// This function is used to interact with smart contracts by preparing the current state
+/// as an input for a new transaction.
+///
+/// # Parameters
+/// - `address_hex`: The hex-encoded script address of the contract state to query.
+/// - `output_state`: The `Output` of the state being spent.
+/// - `script_data`: Optional data to be passed to the smart contract's script.
+///
+/// # Returns
+/// A `Result` containing the state `Input` on success, or an error string on failure.
 pub fn get_transaction_state_input_from_address(
     address_hex: String,
     output_state: Output,
@@ -90,6 +131,13 @@ pub fn get_transaction_state_input_from_address(
         Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
     }
 }
+/// Fetches all coin UTXO IDs for a given address.
+///
+/// # Parameters
+/// - `address_hex`: The hex-encoded address to query.
+///
+/// # Returns
+/// A `Result` containing a vector of hex-encoded UTXO ID strings on success, or an error string on failure.
 pub fn get_coin_utxo_by_address_hex(address_hex: String) -> Result<Vec<String>, String> {
     let tx_send: RpcBody<Vec<String>> = RpcRequest::new(vec![address_hex], Method::getUtxos);
     let res = tx_send.send(ZKOS_SERVER_URL.clone());
@@ -105,6 +153,13 @@ pub fn get_coin_utxo_by_address_hex(address_hex: String) -> Result<Vec<String>, 
         Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
     }
 }
+/// Fetches the full `Output` data for a given coin UTXO ID.
+///
+/// # Parameters
+/// - `utxo_id_hex`: The hex-encoded UTXO ID of the coin.
+///
+/// # Returns
+/// A `Result` containing the `Output` on success, or an error string on failure.
 pub fn get_coin_output_by_utxo_id_hex(utxo_id_hex: String) -> Result<Output, String> {
     let tx_send: RpcBody<Vec<String>> = RpcRequest::new(vec![utxo_id_hex], Method::getOutput);
     let res = tx_send.send(ZKOS_SERVER_URL.clone());
@@ -116,6 +171,13 @@ pub fn get_coin_output_by_utxo_id_hex(utxo_id_hex: String) -> Result<Output, Str
         Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
     }
 }
+/// Fetches all memo UTXO IDs for a given address.
+///
+/// # Parameters
+/// - `address_hex`: The hex-encoded address to query.
+///
+/// # Returns
+/// A `Result` containing a vector of hex-encoded UTXO ID strings on success, or an error string on failure.
 pub fn get_memo_utxo_by_address_hex(address_hex: String) -> Result<Vec<String>, String> {
     let tx_send: RpcBody<Vec<String>> = RpcRequest::new(vec![address_hex], Method::getMemoUtxos);
     let res = tx_send.send(ZKOS_SERVER_URL.clone());
@@ -131,6 +193,13 @@ pub fn get_memo_utxo_by_address_hex(address_hex: String) -> Result<Vec<String>, 
         Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
     }
 }
+/// Fetches the full `Output` data for a given memo UTXO ID.
+///
+/// # Parameters
+/// - `utxo_id_hex`: The hex-encoded UTXO ID of the memo.
+///
+/// # Returns
+/// A `Result` containing the `Output` on success, or an error string on failure.
 pub fn get_memo_output_by_utxo_id_hex(utxo_id_hex: String) -> Result<Output, String> {
     let tx_send: RpcBody<Vec<String>> = RpcRequest::new(vec![utxo_id_hex], Method::getMemoOutput);
     let res = tx_send.send(ZKOS_SERVER_URL.clone());
@@ -142,6 +211,13 @@ pub fn get_memo_output_by_utxo_id_hex(utxo_id_hex: String) -> Result<Output, Str
         Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
     }
 }
+/// Fetches all state UTXO IDs for a given address.
+///
+/// # Parameters
+/// - `address_hex`: The hex-encoded address to query.
+///
+/// # Returns
+/// A `Result` containing a vector of hex-encoded UTXO ID strings on success, or an error string on failure.
 pub fn get_state_utxo_by_address_hex(address_hex: String) -> Result<Vec<String>, String> {
     let tx_send: RpcBody<Vec<String>> = RpcRequest::new(vec![address_hex], Method::getStateUtxos);
     let res = tx_send.send(ZKOS_SERVER_URL.clone());
@@ -157,6 +233,13 @@ pub fn get_state_utxo_by_address_hex(address_hex: String) -> Result<Vec<String>,
         Err(arg) => Err(format!("Error at Response from RPC :{:?}", arg).into()),
     }
 }
+/// Fetches the full `Output` data for a given state UTXO ID.
+///
+/// # Parameters
+/// - `utxo_id_hex`: The hex-encoded UTXO ID of the state.
+///
+/// # Returns
+/// A `Result` containing the `Output` on success, or an error string on failure.
 pub fn get_state_output_by_utxo_id_hex(utxo_id_hex: String) -> Result<Output, String> {
     let tx_send: RpcBody<Vec<String>> = RpcRequest::new(vec![utxo_id_hex], Method::getStateOutput);
     let res = tx_send.send(ZKOS_SERVER_URL.clone());
@@ -169,6 +252,14 @@ pub fn get_state_output_by_utxo_id_hex(utxo_id_hex: String) -> Result<Output, St
     }
 }
 
+/// Broadcasts a transaction to the network.
+///
+/// # Parameters
+/// - `tx`: The `transaction::Transaction` to be broadcast.
+///
+/// # Returns
+/// A `Result` containing the transaction hash as a string on successful broadcast,
+/// or an error string on failure.
 pub fn tx_commit_broadcast_transaction(tx: transaction::Transaction) -> Result<String, String> {
     let tx_send: RpcBody<transaction::Transaction> = RpcRequest::new(tx, Method::txCommit);
     let res = tx_send.send(ZKOS_SERVER_URL.clone());
@@ -181,6 +272,16 @@ pub fn tx_commit_broadcast_transaction(tx: transaction::Transaction) -> Result<S
     }
 }
 
+/// Fetches detailed UTXO information (both UTXO and Output) for a given address and type.
+///
+/// This is a more general-purpose function for querying different types of UTXOs.
+///
+/// # Parameters
+/// - `address_hex`: The hex-encoded address to query.
+/// - `out_type`: The `IOType` to query for (`Coin`, `Memo`, or `State`).
+///
+/// # Returns
+/// A `Result` containing a `UtxoDetailResponse` on success, or an error string on failure.
 pub fn get_utxo_details_by_address(
     address_hex: String,
     out_type: IOType,

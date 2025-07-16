@@ -1,6 +1,12 @@
-use address::Network;
+//! Handles the creation of ZkVM-based smart contract transactions.
+//!
+//! This module provides the high-level functions necessary to construct and prove
+//! transactions that deploy and initialize smart contracts on the Twilight network.
+//! It orchestrates the creation of inputs, outputs, and the required call proofs
+//! for interacting with the ZkOS virtual machine.
 
 use crate::{chain::*, programcontroller::ContractManager};
+use address::Network;
 use curve25519_dalek::scalar::Scalar;
 use rand::rngs::OsRng;
 use transaction::{quisquislib::ristretto::RistrettoSecretKey, Transaction, TransactionData};
@@ -9,16 +15,31 @@ use zkvm::{
     Commitment, InputData, OutputData, String as ZkvmString,
 };
 
-/// Creates a contract deploy transaction
-/// @param sk: RistrettoSecretKey of the coin owner
-/// @param value_sats: value in sats to be deposited in the contract
-/// @param coin_address: on-chain address of the coin owner
-/// @param ecryption_commitment_scalar: commitment scalar used for Elgamal encryption of QQ Account and memo commitment
-/// @param program_json_path: path to the json file containing the contract program
-/// @param chain_net: Network address indicator i.e., Main or TestNet
-/// @param state_variables: vector of state variables to be initialized
-/// @param program_tag: tag of the program to be deployed
-/// @return transaction and the newly created output state
+/// Creates a complete script transaction for deploying a new smart contract.
+///
+/// This function orchestrates the entire deployment process:
+/// 1. Fetches the user's coin to be used for the initial deposit.
+/// 2. Loads the contract programs from the specified JSON file.
+/// 3. Creates the contract address from the programs' Merkle root.
+/// 4. Generates the initial `OutputMemo` and state `Output` for the contract.
+/// 5. Creates the `CallProof` required to run the contract's initialization program.
+/// 6. Builds and signs the final script transaction.
+///
+/// # Parameters
+/// - `sk`: The secret key of the account deploying the contract.
+/// - `value_sats`: The initial amount in satoshis to deposit into the contract.
+/// - `pool_share`: The initial pool share amount (if applicable for the contract).
+/// - `coin_address`: The hex-encoded address of the deployer.
+/// - `ecryption_commitment_scalar`: A random scalar for ElGamal encryption and commitments.
+/// - `program_json_path`: The file path to the JSON file containing the contract's programs.
+/// - `chain_net`: The target network (`Main` or `TestNet`).
+/// - `state_variables`: A vector of initial values for the contract's state variables.
+/// - `program_tag`: The tag of the initialization program to run upon deployment.
+/// - `fee`: The transaction fee.
+///
+/// # Returns
+/// A `Result` containing a tuple of the deploy `Transaction` and the new state `Output` on success,
+/// or a string describing the error on failure.
 pub fn create_contract_deploy_transaction(
     sk: RistrettoSecretKey,
     value_sats: u64,
@@ -26,7 +47,7 @@ pub fn create_contract_deploy_transaction(
     coin_address: String,
     ecryption_commitment_scalar: Scalar,
     program_json_path: &str,
-    chain_net: Network, // Main / TestNet
+    chain_net: Network,
     state_variables: Vec<u64>,
     program_tag: String,
     fee: u64,
@@ -35,7 +56,7 @@ pub fn create_contract_deploy_transaction(
     let coin_input = get_transaction_coin_input_from_address(coin_address.clone())?;
 
     //get the programs to deployed for the contract from the given path
-    let contract_manager = ContractManager::import_program(&program_json_path);
+    let contract_manager = ContractManager::import_program(program_json_path);
     // create the contract address
     let contract_address = contract_manager.create_contract_address(chain_net)?;
 
@@ -54,7 +75,6 @@ pub fn create_contract_deploy_transaction(
         state_variables,
         contract_address.clone(),
         coin_address.clone(),
-        //state_blinding,
     );
     // create input and output vectors
     let input: Vec<Input> = vec![coin_input, input_state];
@@ -85,20 +105,26 @@ pub fn create_contract_deploy_transaction(
         Err(e) => Err(format!("Error at creating script transaction :{:?}", e).into()),
     }
 }
-/// creates input and output state for contract deployment
-/// Input state is initialized as zero
-/// Output State is initialized with the coin deposit values
-/// @param value_sats: value in sats to be deposited in the contract
-/// @param state_variables: vector of state variables to be initialized
-/// @param contract_address: contract address
-/// @param coin_address: on-chain address of the coin owner
-/// @return input state and output state
+
+/// Creates the initial input and output state UTXOs for a contract deployment.
+///
+/// The `Input` state is always zeroed out, as a new contract has no prior state.
+/// The `Output` state is initialized with the starting deposit value and any
+/// other specified state variables, all committed to using random blinding factors.
+///
+/// # Parameters
+/// - `value_sats`: The initial value to be deposited and committed to in the contract's state.
+/// - `state_variables`: A vector of initial values for the contract's other state variables.
+/// - `contract_address`: The hex-encoded address of the new contract.
+/// - `coin_address`: The hex-encoded address of the owner/deployer.
+///
+/// # Returns
+/// A tuple containing the `(Input, Output)` state UTXOs.
 pub fn create_state_for_deployment(
     value_sats: u64,
     state_variables: Vec<u64>,
     contract_address: String,
     coin_address: String,
-    // blinding : Scalar, //blinding for TVL and TPS commitments
 ) -> (Input, Output) {
     // create input state
     // Input state will be zero at initialization.
@@ -134,12 +160,12 @@ pub fn create_state_for_deployment(
 
     // create output state using values from client
     // create value commitment
-    let value_commitment = Commitment::blinded(value_sats); //, blinding.clone());
-                                                            // create state variable commitments
+    let value_commitment = Commitment::blinded(value_sats);
+    // create state variable commitments
     let mut s_var_vec: Vec<ZkvmString> = Vec::new();
     for i in 0..state_variables.len() {
         let s_var =
-            ZkvmString::Commitment(Box::new(Commitment::blinded(state_variables[i].clone()))); //, blinding.clone())));
+            ZkvmString::Commitment(Box::new(Commitment::blinded(state_variables[i].clone())));
         s_var_vec.push(s_var);
     }
     // create Output state
@@ -156,18 +182,26 @@ pub fn create_state_for_deployment(
     (input_state, output)
 }
 
-/// creates output memo for contract deployment
-/// @param initial_deposit: value in sats to be deposited in the contract
-/// @param contract_address: contract address
-/// @param coin_address: on-chain address of the coin owner
-/// @param scalar_commitment: commitment scalar used for Elgamal encryption of QQ Account and memo commitment
-/// @return output memo
+/// Creates the `OutputMemo` for a contract deployment transaction.
+///
+/// This memo is a public record on the blockchain that contains commitments to the
+/// initial deposit and other relevant data like pool shares.
+///
+/// # Parameters
+/// - `initial_deposit`: The amount being deposited into the contract.
+/// - `pool_share`: The initial pool share amount (if applicable).
+/// - `contract_address`: The hex-encoded address of the new contract.
+/// - `coin_address`: The hex-encoded address of the owner/deployer.
+/// - `scalar_commitment`: A random scalar used for creating the value commitments.
+///
+/// # Returns
+/// An `Output` struct containing the generated `OutputMemo`.
 pub fn create_memo_for_deployment(
     initial_deposit: u64,
     pool_share: u64,
     contract_address: String,
     coin_address: String,
-    scalar_commitment: Scalar, // commitment scalar for encryption and commitment
+    scalar_commitment: Scalar,
 ) -> Output {
     // create output memo
     let script_address = contract_address.clone();
@@ -184,6 +218,7 @@ pub fn create_memo_for_deployment(
     let memo = Output::memo(OutputData::Memo(memo_out));
     memo
 }
+
 #[cfg(test)]
 #[allow(unused_imports)]
 #[allow(dead_code)]
@@ -209,7 +244,7 @@ mod test {
     fn get_transaction_coin_input_from_address_test() {
         dotenvy::dotenv().expect("Failed loading dotenv");
         let address = std::env::var("TEST_ADDRESS")
-            .unwrap_or_else(|_| "0c0a2555a4de4e44e9f10e8d682b1e63f58216ec3ae0d5947e6c65fd1efa952433e0a226db8e1ab54305ce578e39a305871ada6037e76a2ba74bc86e5c8011d736be751ed4".to_string());
+            .expect("Failed to load TEST_ADDRESS environment variable.");
         println!(
             "utxo_vec:{:?}",
             get_transaction_coin_input_from_address(address)
@@ -268,7 +303,6 @@ mod test {
             state_variables,
             add.as_hex().clone(),
             add.as_hex().clone(),
-            //state_blinding,
         );
         // create input and output vectors
         let input: Vec<Input> = vec![coin_input, input_state];
@@ -285,17 +319,16 @@ mod test {
         dotenvy::dotenv().expect("Failed loading dotenv");
         // Generate a test key for demonstration purposes - never use hardcoded seeds in production
         // Load RELAYER_SEED from .env
-        let seed = std::env::var("RELAYER_SEED").expect("Failed to load SEED from .env");
+        let seed = std::env::var("RELAYER_SEED").expect("Failed to load RELAYER_SEED from .env");
         //derive private key;
         let sk = SecretKey::from_bytes(seed.as_bytes());
 
         // data for contract initialization
         let value_sats: u64 = 20000000000u64;
-        let coin_address = std::env::var("TEST_COIN_ADDRESS")
-            .unwrap_or_else(|_| "0ca01385e8e9cea89a187e0b0ab2b1caaf713df527acdb88f764358d8d657db34ca2df7eb6c3673d2c7b34c836e5c5bb4fc1d91df3185a576084134bd8ff120d1b9e2eebef".to_string());
-        let commitment_scalar_hex = std::env::var("TEST_COMMITMENT_SCALAR").unwrap_or_else(|_| {
-            "2398cadb6f3f9fa7314b1d0192fd66998541c77b9e2029aa3e6ffea9b340ce0b".to_string()
-        });
+        let coin_address =
+            std::env::var("TEST_COIN_ADDRESS").expect("Failed to load TEST_COIN_ADDRESS from .env");
+        let commitment_scalar_hex = std::env::var("TEST_COMMITMENT_SCALAR")
+            .expect("Failed to load TEST_COMMITMENT_SCALAR from .env");
         let encryption_commitment_scalar =
             crate::util::hex_to_scalar(commitment_scalar_hex.to_string()).unwrap();
         let program_json_path: &str = "./relayerprogram.json";

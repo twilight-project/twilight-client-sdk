@@ -1,3 +1,10 @@
+//! Provides the high-level API for interacting with the Twilight Relayer.
+//!
+//! This module contains all the necessary functions for creating, executing, canceling,
+//! and querying both trade and lend orders. It abstracts away the low-level details of
+//! message signing and data serialization required for authenticated communication
+//! with the relayer service.
+
 use crate::relayer_types::{
     CancelTraderOrder, CancelTraderOrderZkos, CreateLendOrder, CreateLendOrderZkos,
     CreateTraderOrder, CreateTraderOrderZkos, ExecuteLendOrder, ExecuteLendOrderZkos,
@@ -16,14 +23,26 @@ use uuid::Uuid;
 use zkschnorr::Signature;
 use zkvm::{zkos_types::ValueWitness, Input, Output};
 
-///Create a ZkosCreateTraderOrder OR ZkosCreateLendOrder from ZkosAccount
-/// Returns ZkosCreateOrder as string
-/// input : Input::coin(InputData::coin(utxo, out_coin.clone(), 0));
-/// output : Output::memo(OutputData::memo(_memo));
-/// seed : Secret key
-/// rscalar: Scalar used to create Encryption and Commitment
-/// value: value of the order.  Should be equal to the balance of the input otherwise the difference might be burned
-///Utility function used to create ZkosCreateOrder type
+/// A utility function to create the core `ZkosCreateOrder` component.
+///
+/// This helper function generates the `ValueWitness` required to prove that the value
+/// in the input coin is the same as the value committed to in the output memo, without
+
+/// revealing the actual value. This proof is a fundamental part of creating any
+/// ZkOS-based order.
+///
+/// # Parameters
+/// - `input`: The `Input::coin` to be spent for the order.
+/// - `output`: The `Output::memo` containing the committed value and order details.
+/// - `secret_key`: The secret key of the owner of the input coin.
+/// - `rscalar`: The random scalar used to create the encryption and commitment in the output.
+/// - `value`: The actual value of the order, which must match the balance of the `input`.
+///
+/// # Returns
+/// A `ZkosCreateOrder` struct containing the input, output, and the generated witness.
+///
+/// # Panics
+/// Panics if the provided addresses or outputs are not of the expected type (e.g., if `output` is not a memo).
 pub fn create_zkos_order(
     input: Input,
     output: Output,
@@ -57,8 +76,30 @@ pub fn create_zkos_order(
     ZkosCreateOrder::new(input, output, witness)
 }
 
-///Create a ZkosCreateTraderOrder from ZkosAccount
+/// Constructs and serializes a message to create a new trader order.
 ///
+/// This function bundles all trader order parameters with the necessary ZK proofs
+/// into a single hex-encoded string ready to be sent to the relayer.
+///
+/// # Parameters
+/// - `input_coin`: The `Input` coin UTXO to fund the order's margin.
+/// - `output_memo`: The `Output` memo containing the committed order details.
+/// - `secret_key`: The trader's secret key.
+/// - `rscalar`: The hex-encoded random scalar used for the memo's commitments.
+/// - `value`: The amount of initial margin, which must match the `input_coin`'s value.
+/// - `account_id`: The user's account identifier on the relayer.
+/// - `position_type`: The order side ("LONG" or "SHORT").
+/// - `order_type`: The type of order (e.g., "MARKET").
+/// - `leverage`: The leverage for the trade.
+/// - `initial_margin`: The initial margin amount.
+/// - `available_margin`: The available margin.
+/// - `order_status`: The initial status of the order (e.g., "PENDING").
+/// - `entryprice`: The desired entry price for the trade.
+/// - `execution_price`: The execution price (typically set by the relayer).
+///
+/// # Returns
+/// A `Result` containing the hex-encoded `CreateTraderOrderZkos` message string,
+/// or an error if the scalar decoding fails.
 pub fn create_trader_order_zkos(
     input_coin: Input,
     output_memo: Output,
@@ -99,13 +140,28 @@ pub fn create_trader_order_zkos(
     Ok(order_hex)
 }
 
-/// ExecuteOrderZkos. Used to settle trade or lend orders
-/// Input = Memo(Output) with Prover view
-/// seed  = private signature to derive secret key
-/// rest of the normal settle order message
-/// tx_type = "ORDERTX" for settling trader orders
-/// tx_type = "LENDTX" for settling lend orders
-/// returns hex string of the object
+/// Constructs and serializes a message to execute (settle) a trade or lend order.
+///
+/// This function signs the original `OutputMemo` created for the order to prove ownership
+/// and authorize the relayer to proceed with settlement. The `tx_type` parameter
+/// determines whether it's a trade or lend order settlement.
+///
+/// # Parameters
+/// - `output_memo`: The original `OutputMemo` that was used to create the order.
+/// - `secret_key`: The secret key of the user who owns the memo.
+/// - `account_id`: The user's account identifier.
+/// - `uuid`: The `Uuid` of the specific order to be executed.
+/// - `order_type`: The type of the order (e.g., "MARKET").
+/// - `settle_margin_settle_withdraw`: The margin to settle or amount to withdraw.
+/// - `order_status`: The expected status after settlement (e.g., "FILLED").
+/// - `execution_price_poolshare_price`: The final execution price or pool share price.
+/// - `tx_type`: The type of transaction, `TXType::ORDERTX` for trades or `TXType::LENDTX` for lending.
+///
+/// # Returns
+/// A hex-encoded string of the `ExecuteTraderOrderZkos` or `ExecuteLendOrderZkos` message.
+///
+/// # Panics
+/// Panics on serialization errors or if the owner address is invalid.
 pub fn execute_order_zkos(
     output_memo: Output, // Provides the Prover Memo Output used to create the order. Input memo will be created by Exchange on behalf of the user
     secret_key: &RistrettoSecretKey,
@@ -161,8 +217,26 @@ pub fn execute_order_zkos(
     }
 }
 
-/// Create a ZkosLendOrder from ZkosAccount
+/// Constructs and serializes a message to create a new lend order.
 ///
+/// This function bundles all lend order parameters with the necessary ZK proofs
+/// into a single hex-encoded string ready to be sent to the relayer.
+///
+/// # Parameters
+/// - `input_coin`: The `Input` coin UTXO to fund the lend order.
+/// - `output_memo`: The `Output` memo containing the committed deposit details.
+/// - `secret_key`: The lender's secret key.
+/// - `rscalar`: The hex-encoded random scalar used for the memo's commitments.
+/// - `value`: The deposit amount, which must match the `input_coin`'s value.
+/// - `account_id`: The user's account identifier on the relayer.
+/// - `balance`: The user's balance.
+/// - `order_type`: The type of order (e.g., "LEND").
+/// - `order_status`: The initial status of the order (e.g., "PENDING").
+/// - `deposit`: The amount to deposit.
+///
+/// # Returns
+/// A `Result` containing the hex-encoded `CreateLendOrderZkos` message string,
+/// or an error if the scalar decoding fails.
 pub fn create_lend_order_zkos(
     input_coin: Input,
     output_memo: Output,
@@ -189,8 +263,24 @@ pub fn create_lend_order_zkos(
     Ok(order_hex)
 }
 
-/// CancelTraderOrderZkos
-/// output-> hex string of the query object
+/// Constructs and serializes a message to cancel a pending trader order.
+///
+/// The function signs the cancellation request with the user's secret key to
+/// authorize the action.
+///
+/// # Parameters
+/// - `address_hex`: The user's hex-encoded public address string.
+/// - `secret_key`: The user's secret key for signing.
+/// - `account_id`: The user's account identifier.
+/// - `uuid`: The `Uuid` of the order to cancel.
+/// - `order_type`: The type of the order.
+/// - `order_status`: The new desired status (e.g., "CANCELLED").
+///
+/// # Returns
+/// A hex-encoded string of the `CancelTraderOrderZkos` message.
+///
+/// # Panics
+/// Panics on address decoding or serialization errors.
 pub fn cancel_trader_order_zkos(
     address_hex: String, //hex address string
     secret_key: &RistrettoSecretKey,
@@ -220,8 +310,22 @@ pub fn cancel_trader_order_zkos(
     order_hex
 }
 
-/// QueryTraderOrderZkos
-/// gives hex of the query object
+/// Constructs and serializes a message to query the status of trader orders.
+///
+/// The query is signed with the user's secret key to ensure only the owner
+/// can query their orders.
+///
+/// # Parameters
+/// - `address_hex`: The user's hex-encoded public address string.
+/// - `secret_key`: The user's secret key for signing.
+/// - `account_id`: The user's account identifier.
+/// - `order_status`: The status of orders to query (e.g., "PENDING", "FILLED").
+///
+/// # Returns
+/// A hex-encoded string of the `QueryTraderOrderZkos` message.
+///
+/// # Panics
+/// Panics on address decoding or serialization errors.
 pub fn query_trader_order_zkos(
     address_hex: String, //hex address string
     secret_key: &RistrettoSecretKey,
@@ -248,8 +352,22 @@ pub fn query_trader_order_zkos(
     order_hex
 }
 
-/// QueryLendOrderZkos
+/// Constructs and serializes a message to query the status of lend orders.
 ///
+/// The query is signed with the user's secret key to ensure only the owner
+/// can query their orders.
+///
+/// # Parameters
+/// - `address_hex`: The user's hex-encoded public address string.
+/// - `secret_key`: The user's secret key for signing.
+/// - `account_id`: The user's account identifier.
+/// - `order_status`: The status of orders to query (e.g., "PENDING", "FILLED").
+///
+/// # Returns
+/// A hex-encoded string of the `QueryLendOrderZkos` message.
+///
+/// # Panics
+/// Panics on address decoding or serialization errors.
 pub fn query_lend_order_zkos(
     address_hex: String, //hex address string
     secret_key: &RistrettoSecretKey,

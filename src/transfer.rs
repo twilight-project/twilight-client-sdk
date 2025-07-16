@@ -1,4 +1,13 @@
-use address::{Address, AddressType, Network};
+//! Handles the creation and verification of various transaction types, focusing on
+//! private and anonymous transfers.
+//!
+//! This module provides functions to build:
+//! - **Quisquis Transactions**: Private transfers that use an anonymity set to obscure the
+//!   true sender and receiver.
+//! - **Burn Messages**: Transactions that burn a ZkOS coin and create a message for
+//!   interoperability with other chains.
+
+use address::{Address, AddressType, Network, Script, Standard};
 use core::convert::TryInto;
 use curve25519_dalek::scalar::Scalar;
 use transaction::quisquislib::{accounts::Account, ristretto::RistrettoSecretKey};
@@ -12,22 +21,23 @@ use hex;
 
 use serde::{Deserialize, Serialize};
 
-//Rename dark to stealth in all functions
-/// Needed to store the encrypt scalar for future
-#[allow(dead_code)]
+/// Represents the result of a private transfer, containing the transaction hex
+/// and the scalar used for encryption, which is needed for future spending.
 pub struct TransferTxWallet {
-    tx_hex: String,
-    encrypt_scalar_hex: String,
+    pub tx_hex: String,
+    pub encrypt_scalar_hex: String,
 }
 // ------- qqReciever for Transfer Tx ------- //
+/// Defines a receiver in a Quisquis transaction.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QqReciever {
-    amount: i64, //amount to be recieved
+    pub amount: i64, //amount to be recieved
     // can be an address hex string or a trading account input json string
-    trading_account: String, //Json String of Trading account of reciever
+    pub trading_account: String, //Json String of Trading account of reciever
 }
 
 impl QqReciever {
+    /// Creates a new `QqReciever`.
     pub fn new(amount: i64, trading_account: String) -> Self {
         Self {
             amount,
@@ -60,13 +70,15 @@ impl QqReciever {
 }
 
 // ------- qqSender for Transfer Tx ------- //
+/// Defines a sender in a Quisquis transaction.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QqSender {
-    total_amount: i64,          //total amount to be sent
-    input: String,              // input coin to be spent
-    receivers: Vec<QqReciever>, //list of recievers
+    pub total_amount: i64,          //total amount to be sent
+    pub input: String,              // input coin to be spent
+    pub receivers: Vec<QqReciever>, //list of recievers
 }
 impl QqSender {
+    /// Creates a new `QqSender`.
     pub fn new(total_amount: i64, input: String, receivers: Vec<QqReciever>) -> Self {
         Self {
             total_amount,
@@ -74,6 +86,10 @@ impl QqSender {
             receivers,
         }
     }
+    /// Deserializes the input JSON string into an `Input` struct.
+    ///
+    /// # Panics
+    /// Panics if the `input` string is not a valid JSON representation of an `Input`.
     pub fn to_input(&self) -> Input {
         let input: Input = serde_json::from_str(&self.input).unwrap();
         input
@@ -94,8 +110,8 @@ impl QqSender {
     //     out_coin.to_quisquis_account()
     // }
 }
-///Utility function to convert Jsons into Rust Structs
-/// this should be used for processing txs in the browser
+/// Utility function to convert Jsons into Rust Structs.
+/// This should be used for processing txs in the browser.
 fn preprocess_tx_request_frontend(
     tx_vec: String,
     sk: RistrettoSecretKey,
@@ -227,18 +243,24 @@ fn preprocess_tx_request_frontend(
 //     )
 // }
 
-/// Create Quisquis Transaction with anonymity Set
-/// Returns Transaction
-// Works for single sender and reciever
-// seed = Signature string
-// sender = Input as json string
-// reciever = Either address as Hex String or Input as json string
-// amount = Amount to be sent as u64
-// address_input = Flag
-//  0 ->  reciever is address.
-// 1  ->  reciever is input
-// anonymity_set = Json String of vector of anonymity Inputs
-// returns the tx as Hex string
+/// Creates a Quisquis transaction, which provides enhanced privacy by using an anonymity set.
+///
+/// This function builds a transaction for a single sender and a single receiver. The receiver
+/// can be specified either by a public address (in which case a new encrypted account is generated)
+/// or by providing their existing UTXO information.
+///
+/// # Parameters
+/// - `sk`: The secret key of the sender.
+/// - `sender_inp`: The `Input` coin being spent by the sender.
+/// - `reciever`: A string that is either the hex-encoded address of the receiver or a JSON string of their `Input` UTXO.
+/// - `amount`: The amount to be transferred.
+/// - `address_input`: A boolean flag. `false` if `reciever` is an address, `true` if it is an `Input`.
+/// - `updated_sender_balance`: The sender's remaining balance after the transfer.
+/// - `anonymity_set`: A JSON string representing a `Vec<Input>` to be used as the anonymity set.
+/// - `fee`: The transaction fee.
+///
+/// # Returns
+/// A hex-encoded string of the finalized `Transaction`.
 pub fn create_quisquis_transaction_single(
     sk: RistrettoSecretKey,
     sender_inp: Input,
@@ -363,14 +385,27 @@ fn compute_address_input(address_input: bool, reciever: String) -> (Account, Sca
     }
 }
 
-// Works for single sender and reciever
-// seed = Signature string
-// sender = Input as json string
-// reciever = Either address as Hex String or Input as json string
-// amount = Amount to be sent as u64
-// address_input = Flag
-//  0 ->  reciever is address
-// 1  ->  reciever is input
+/// Creates a simple private transfer transaction for a single sender and receiver.
+///
+/// It creates a transaction that does not use an anonymity set,
+///  making it less private than a full Quisquis
+/// transaction but simpler to construct.
+///
+/// # Parameters
+/// - `sk`: The secret key of the sender.
+/// - `sender`: A JSON string of the sender's `Input` UTXO.
+/// - `reciever`: A string that is either the hex address of the receiver or a JSON string of their `Input`.
+/// - `amount`: The amount to transfer.
+/// - `address_input`: `false` if `reciever` is an address, `true` if it's an `Input`.
+/// - `updated_sender_balance`: The sender's remaining balance after the transfer.
+/// - `fee`: The transaction fee.
+///
+/// # Returns
+/// A `TransferTxWallet` containing the hex-encoded transaction and the encryption scalar
+/// needed for the receiver to spend the new coin.
+///
+/// # Panics
+/// Panics on JSON deserialization errors or if the transaction cannot be created.
 pub fn create_private_transfer_tx_single(
     sk: RistrettoSecretKey,
     sender: String,
@@ -458,13 +493,25 @@ pub fn create_private_transfer_tx_single(
         tx_hex,
         encrypt_scalar_hex: scalar_hex,
     };
-    //let msg_to_return = serde_json::to_string(&msg_to_return).unwrap();
-    //returns hex encoded tx string
-    //return Ok(msg_to_return);
     tx_dark_wallet
 }
-///Create Quisquis Dark Transaction.
-///Returns Transaction
+
+/// Creates a private transfer transaction for multiple senders and receivers.
+///
+/// This function aggregates multiple transfers into a single transaction. It is designed
+/// to be called from a WASM environment and takes serialized JSON strings as input.
+///
+/// # Parameters
+/// - `tx_vec`: A JSON string representing a `Vec<QqSender>`, defining all sending parties and their recipients.
+/// - `sk`: The secret key for all senders. This function currently assumes a single secret key manages all sending inputs.
+/// - `updated_sender_balance_ser`: A JSON string for a `Vec<u64>` of the senders' remaining balances.
+/// - `updated_balance_reciever_ser`: A JSON string for a `Vec<u64>` of the amounts being sent to each receiver.
+///
+/// # Returns
+/// A hex-encoded string of the finalized `Transaction`.
+///
+/// # Panics
+/// Panics if any of the JSON strings are malformed or if the transaction cannot be created.
 pub fn create_private_transfer_transaction(
     tx_vec: String,
     sk: RistrettoSecretKey,
@@ -525,7 +572,16 @@ pub fn create_private_transfer_transaction(
     msg_to_return
 }
 
-///Verify Quisquis and Dark Transaction.
+/// Verifies the cryptographic integrity of a transaction.
+///
+/// # Parameters
+/// - `tx`: The hex-encoded transaction string to verify.
+///
+/// # Returns
+/// `Ok(())` if the transaction is valid, otherwise an `Err` with a description of the failure.
+///
+/// # Panics
+/// Panics if the hex string or the transaction data is malformed and cannot be deserialized.
 pub fn verify_quisquis_tx(tx: String) -> Result<(), &'static str> {
     //decode the tx to binary
     let tx_binary: Vec<u8> = hex::decode(&tx).unwrap();
@@ -564,8 +620,20 @@ pub fn verify_quisquis_tx(tx: String) -> Result<(), &'static str> {
 //     Ok(msg_to_return)
 // }
 
-/// Create burn transaction message
-
+/// Creates a transaction that "burns" a coin and attaches a message.
+///
+/// This is used for interoperability, allowing value to be moved from ZkOS to another system.
+/// The burn message can be picked up by a relayer and processed on the destination chain.
+///
+/// # Parameters
+/// - `input`: The `Input` coin to be burned.
+/// - `amount`: The amount to burn. This must match the value encrypted in the `input`.
+/// - `ecrypt_scalar_hex`: The hex-encoded encryption scalar from the original creation of the `input` coin. This is required to prove ownership.
+/// - `sk`: The secret key of the owner of the `input`.
+/// - `init_address`: The destination address on the external system (e.g., a Cosmos address).
+///
+/// # Returns
+/// A hex-encoded string of the burn message `Transaction`.
 pub fn create_burn_message_transaction(
     input: Input,
     amount: u64,
@@ -587,8 +655,18 @@ pub fn create_burn_message_transaction(
     msg_to_return
 }
 
-/// Decode zkos tx
-
+/// Decodes a hex-encoded transaction string into a `Transaction` struct.
+///
+/// This is useful for inspecting the contents of a transaction.
+///
+/// # Parameters
+/// - `tx`: The hex-encoded transaction string.
+///
+/// # Returns
+/// The deserialized `Transaction` struct.
+///
+/// # Panics
+/// Panics if the hex string or transaction data is malformed and cannot be deserialized.
 pub fn decode_tx(tx: String) -> Transaction {
     //decode the tx to binary
     let tx_binary: Vec<u8> = hex::decode(&tx).unwrap();
@@ -609,9 +687,6 @@ pub fn decode_tx(tx: String) -> Transaction {
 //     #[test]
 //     fn test_create_quisquis_transfer_tx_single_existing_receiver() {
 //         // lets say bob wants to sent 500 tokens to alice from his one account
-
-//         //USING Keplr SEED Directly
-//         let sign_str = "PsvekVHEwt6eBn4Ainsq5sSsPr733om7noQRE0MLizUw3LIAv+yPcZoJjqH0DKzyo8q+NhjvHm4VEycExkF7TQ==";
 
 //         // lets create sender accounts to send these amounts from
 //         let bob_pk_1 = generate_public_key_from_signature(sign_str).unwrap();
@@ -675,9 +750,6 @@ pub fn decode_tx(tx: String) -> Transaction {
 //     fn test_create_quisquis_transfer_tx_single_receiver_address() {
 //         // lets say bob wants to sent 500 tokens to alice from his one account
 
-//         //USING Keplr SEED Directly
-//         let sign_str = "PsvekVHEwt6eBn4Ainsq5sSsPr733om7noQRE0MLizUw3LIAv+yPcZoJjqH0DKzyo8q+NhjvHm4VEycExkF7TQ==";
-
 //         // lets create sender accounts to send these amounts from
 //         let bob_pk_1 = generate_public_key_from_signature(sign_str).unwrap();
 
@@ -728,9 +800,6 @@ pub fn decode_tx(tx: String) -> Transaction {
 //     #[test]
 //     fn test_create_dark_quisquis_tx_single_sender_reciever() {
 //         // lets say bob wants to sent 5 tokens to alice from his one account
-
-//         //USING Keplr SEED Directly
-//         let sign_str = "PsvekVHEwt6eBn4Ainsq5sSsPr733om7noQRE0MLizUw3LIAv+yPcZoJjqH0DKzyo8q+NhjvHm4VEycExkF7TQ==";
 
 //         // lets create sender accounts to send these amounts from
 //         let bob_pk_1 = generate_public_key_from_signature(sign_str).unwrap();
@@ -799,8 +868,7 @@ pub fn decode_tx(tx: String) -> Transaction {
 //     fn test_create_dark_quisquis_tx() {
 //         // lets say bob wants to sent 5 tokens to alice and 3 tokens to fay from his one account
 
-//         //USING Keplr SEED Directly
-//         let sign_str = "PsvekVHEwt6eBn4Ainsq5sSsPr733om7noQRE0MLizUw3LIAv+yPcZoJjqH0DKzyo8q+NhjvHm4VEycExkF7TQ==";
+//
 
 //         // lets create sender accounts to send these amounts from
 //         let bob_pk_1 = generate_public_key_from_signature(sign_str).unwrap();
@@ -895,11 +963,11 @@ pub fn decode_tx(tx: String) -> Transaction {
 
 //     #[test]
 //     fn test_check_tx_api() {
-//         let tx_abd = "00000000000000000100000000000000000000000000000002020002000000000000000000000000000000074c5bfe3c1fb5e098735c6eab14636f8d16d85fda716bdc51854719eb5fea1c003a27d4a612190d59881c4b2e8b0f0701f64729510636b6c3e49f971a84746600eeeea95da22187367d5f4218452f8a2e60a7407a58670ecea31630e14b5c833c8a00000000000000306362306636663561613466666165616432373039363639656536313262396533376561346163663335633662646566336337343734626166663632353563633032343238626562363062656539353831336362623530336262613564373439353161663332653261363035396336313336333161366430653732663562343033643837656531346166000000000000000000000000000000000000000000000000000000000000000000000000000000000000546d0e6ab01451797f510d9e45d475ec64cfe2ba30afc0ad45a393fb40a16000de5474e267a5fff225e00de1bf8455cf22817002edb58c2f341dd479a83bfd108a0000000000000030636230663666356161346666616561643237303936363965653631326239653337656134616366333563366264656633633734373462616666363235356363303234323862656236306265653935383133636262353033626261356437343935316166333265326136303539633631333633316136643065373266356234303364383765653134616600020000000000000000000000000000004a0898730539b991fc0b6fb51a57aa0349a6f0cb9f00438d085fb4c7a36354009a34b5c65687b7111e5afcad3fb6ac36a696ca1a3a94df2befbc5f54069285178a00000000000000306362306636663561613466666165616432373039363639656536313262396533376561346163663335633662646566336337343734626166663632353563633032343238626562363062656539353831336362623530336262613564373439353161663332653261363035396336313336333161366430653732663562343033643837656531346166000000000000000060b6ed6441f9debce4888af0ee4ca664811cd091240a82633a168ee37200cc3b2e4c46f33c4e508271356004b66da54a44ce788e93a8801248c3434cb80632328a000000000000003063623066366635616134666661656164323730393636396565363132623965333765613461636633356336626465663363373437346261666636323535636330323432386265623630626565393538313363626235303362626135643734393531616633326532613630353963363133363331613664306537326635623430336438376565313461660200000000000000b0f6f5aa4ffaead2709669ee612b9e37ea4acf35c6bdef3c7474baff6255cc02428beb60bee95813cbb503bba5d74951af32e2a6059c613631a6d0e72f5b403df4989469c986379d6447027bc087eff0da42c8e920295a9763ff777f90bba7154020455d06cb24d082283ec3f8cd9f3cef52787ec2028e70cf631f9b27ac4d4cb0f6f5aa4ffaead2709669ee612b9e37ea4acf35c6bdef3c7474baff6255cc02428beb60bee95813cbb503bba5d74951af32e2a6059c613631a6d0e72f5b403dd6f70d59aba2e53fbd21ac1e3fec6ea9add1672b3ad2b071ad6be47c98b2b86d8a0caf2834b1cc53ca0783fa74f17b738244ba84b8bf928884bf589095acf9370200000000000000e2f2ae0a6abc4e71a884a961c500515f58e30b6aa582dd8db6a65945e08d2d768c9240b456a9e6dc65c377a1048d745f94a08cdb7f44cbcd7b46f34048871134cc61ec8b80cd54f10cc0887df1bc12e8211a8687ac68b5fed27fd2c6ab6619146caba4d2af3661783be5fde8ea66d8fbcf6d4ec48f630ae95b4279028cc3b43ce2f2ae0a6abc4e71a884a961c500515f58e30b6aa582dd8db6a65945e08d2d768c9240b456a9e6dc65c377a1048d745f94a08cdb7f44cbcd7b46f34048871134caa1a822251724ab3734bc765d24673da702910df38b3b9d8348fedb572db46f3ad63d4052fab2dee359f60fa8a50a7ce26622c0fa5b56a73dfad0f15086717b010000000200000000000000f984b7347e9a3d198a49e77fa00047d8af35f8ede861ddb6247eb50e3fbcca0bc79d7ae2446dfc9e3b7fef4d26aa95ceabed20cd81ea58baf54d3605428adb060200000000000000174dfe23e680eeefe5011ccd7c3704b48f89e5d2f0bebb31f973b6745b88d50ed9e4d12bd9c6f47b333f6244bba7fb1b7315f7865b1b2690b3037835294d3b0902000000000000002e99e55019ed4ea1a7127ee639c1443449536290fca605665eca16cbb62bd306305802a5fd937e50e9a3c9c112daad8c1616a3650d00d497bb2fde6a1b9f170a4434f424832facb6a07f9e2c9330353d7cafa1ce8504e489485356cd8379f5020100000000000000e2f2ae0a6abc4e71a884a961c500515f58e30b6aa582dd8db6a65945e08d2d768c9240b456a9e6dc65c377a1048d745f94a08cdb7f44cbcd7b46f34048871134268c66db5ff4cb26bbf082a37baf77712c04cadc4135f29011bb87594142886df059cdf2fb444abdde72411b40c3da3a9d7dc518fadbf2e418bac35a7952361201000000010000000000000019f3859eb4d0b90701f0d82200c72c489de5602177c2c75aa2cddb850c45a00801000000000000000202b273346e3c5ba1dcea9f10ab301287fbd73ec61b8acab26fa038d5749f0001000000000000001235e96792e4c6ce2682316fd55742bd9b72052c66795f5f4e75328effd9c3081b9f0038782e4fd38f336663855004fb951fed992bd1067a4f8e2566bf5aea0b0100000000000000e002000000000000a06a7478010cad4e5a2089ff16fd46a2eefacc5e713e3a4bca3610b126d02950949f7bcbaee227352e542dddd4d07f1612c434e91d97353846e299fe9f522d0086718f8f0c741a7105795871e680a58b0e7e5663b15d3815f4e1cafb0c82fd437cdb14a50ffdbc2651eb07c6a2e8f23097ad53d6d6cc64fbc9b27c1600ae6140c44560d33c00a2e52c77c30ea8e621e7984a49451870c8cb180563efc1669d068759deb4b1210956a7ce163ddb05fe23051b9bdd10773c7c416a04388dd8d907410dfb4ea09c69f766e8f624df69aa8a429802787523a3b7d718c560724f5e06443ad3e56e3b0255248f58368f9cd70c189263a6d68021c14f51663942086a4ea6b786c496e82b1591741828e58ed5acd66f015256324eca3084e7ab74e54554cc8e243b536d876cf52c24c7fff7cc0098f42eeb9f2b6616f695c16ca8c924596668b40add3b8a93d56117847c7a6c549660cff3ee80fb2f02a4a51f076cad427e4b367a81cf4dce432ccb7a74e3f817ad586df6ee950631fef84b1f9527785cb85b04443c76baa77066b7d37c3b8fb4e0f4f0534635344b6797031ed593e85d6e1ce7c387a9098aae3e2b79fd0826066d09cd0218de6910155675811c67ca5a6c0274147c44de49a20bbed94615b7f435b656fa9eadad7fe31f9db73dd9cd0eb63760ab36315de0cccb97312e8ab06bd9187bd2fb071f7cb5fbffd53b4ade16f6c9cadcf2515c9f6130dd1e1995611be9ed5762bb9a269585e32a95d0a67450288dbf91aea691c96146f0007746cfcc6100674fc3be3423779b4e054669f71ce605a5f25d2bba0a5cd689c221639dc644e249e715354192a54eee576c5d3e1a76d958e5b3fcf4d58a2a25817c9119946f5245c4717707fdd362a833e093764aa4db75872ba4c9cc9ea8be1b1abca97c1a7bfd4959935984678099569e2a66249743625a54c3373a062c4206964602dfba7656f57e1c65bedb93e4362a5d680427f65eaff0e4c917c19293b1a6541c85fb2f44141b09e8ef9488815158fa570301000000000000000000";
+//         let tx_abd = "00000000000000000100000000000000000000000000000002020002000000000000000000000000000000074c5bfe3c1fb5e098735c6eab14636f8d16d85fda716bdc51854719eb5fea1c003a27d4a612190d59881c4b2e8b0f0701f64729510636b6c3e49f971a84746600eeeea95da22187367d5f4218452f8a2e60a7407a58670ecea31630e14b5c833c8a00000000000000306362306636663561613466666165616432373039363639656536313262396533376561346163663335633662646566336337343734626166663632353563633032343238626562363062656539353831336362623530336262613564373439353161663332653261363035396336313336333161366430653732663562343033643837656531346166000000000000000000000000000000000000000000000000000000000000000000000000000000000000546d0e6ab01451797f510d9e45d475ec64cfe2ba30afc0ad45a393fb40a16000de5474e267a5fff225e00de1bf8455cf22817002edb58c2f341dd479a83bfd108a0000000000000030636230663666356161346666616561643237303936363965653631326239653337656134616366333563366264656633633734373462616666363235356363303234323862656236306265653935383133636262353033626261356437343935316166333265326136303539633631333633316136643065373266356234303364383765653134616600020000000000000000000000000000004a0898730539b991fc0b6fb51a57aa0349a6f0cb9f00438d085fb4c7a36354009a34b5c65687b7111e5afcad3fb6ac36a696ca1a3a94df2befbc5f54069285178a00000000000000306362306636663561613466666165616432373039363639656536313262396533376561346163663335633662646566336337343734626166663632353563633032343238626562363062656539353831336362623530336262613564373439353161663332653261363035396336313336333161366430653732663562343033643837656531346166000000000000000060b6ed6441f9debce4888af0ee4ca664811cd091240a82633a168ee37200cc3b2e4c46f33c4e508271356004b66da54a44ce788e93a8801248c3434cb80632328a000000000000003063623066366635616134666661656164323730393636396565363132623965333765613461636633356336626465663363373437346261666636323535636330323432386265623630626565393538313363626235303362626135643734393531616633326532613630353963363133363331613664306537326635623430336438376565313461660200000000000000b0f6f5aa4ffaead2709669ee612b9e37ea4acf35c6bdef3c7474baff6255cc02428beb60bee95813cbb503bba5d74951af32e2a6059c613631a6d0e72f5b403dd6f70d59aba2e53fbd21ac1e3fec6ea9add1672b3ad2b071ad6be47c98b2b86d8a0caf2834b1cc53ca0783fa74f17b738244ba84b8bf928884bf589095acf9370200000000000000e2f2ae0a6abc4e71a884a961c500515f58e30b6aa582dd8db6a65945e08d2d768c9240b456a9e6dc65c377a1048d745f94a08cdb7f44cbcd7b46f34048871134cc61ec8b80cd54f10cc0887df1bc12e8211a8687ac68b5fed27fd2c6ab6619146caba4d2af3661783be5fde8ea66d8fbcf6d4ec48f630ae95b4279028cc3b43ce2f2ae0a6abc4e71a884a961c500515f58e30b6aa582dd8db6a65945e08d2d768c9240b456a9e6dc65c377a1048d745f94a08cdb7f44cbcd7b46f34048871134268c66db5ff4cb26bbf082a37baf77712c04cadc4135f29011bb87594142886df059cdf2fb444abdde72411b40c3da3a9d7dc518fadbf2e418bac35a7952361201000000010000000000000019f3859eb4d0b90701f0d82200c72c489de5602177c2c75aa2cddb850c45a00801000000000000000202b273346e3c5ba1dcea9f10ab301287fbd73ec61b8acab26fa038d5749f0001000000000000001235e96792e4c6ce2682316fd55742bd9b72052c66795f5f4e75328effd9c3081b9f0038782e4fd38f336663855004fb951fed992bd1067a4f8e2566bf5aea0b0100000000000000e002000000000000a06a7478010cad4e5a2089ff16fd46a2eefacc5e713e3a4bca3610b126d02950949f7bcbaee227352e542dddd4d07f1612c434e91d97353846e299fe9f522d0086718f8f0c741a7105795871e680a58b0e7e5663b15d3815f4e1cafb0c82fd437cdb14a50ffdbc2651eb07c6a2e8f23097ad53d6d6cc64fbc9b27c1600ae6140c44560d33c00a2e52c77c30ea8e621e7984a49451870c8cb180563efc1669d068759deb4b1210956a7ce163ddb05fe23051b9bdd10773c7c416a04388dd8d907410dfb4ea09c69f766e8f624df69aa8a429802787523a3b7d718c560724f5e06443ad3e56e3b0255248f58368f9cd70c189263a6d68021c14f51663942086a4ea6b786c496e82b1591741828e58ed5acd66f015256324eca3084e7ab74e54554cc8e243b536d876cf52c24c7fff7cc0098f42eeb9f2b6616f695c16ca8c924596668b40add3b8a93d56117847c7a6c549660cff3ee80fb2f02a4a51f076cad427e4b367a81cf4dce432ccb7a74e3f817ad586df6ee950631fef84b1f9527785cb85b04443c76baa77066b7d37c3b8fb4e0f4f0534635344b6797031ed593e85d6e1ce7c387a9098aae3e2b79fd0826066d09cd0218de6910155675811c67ca5a6c0274147c44de49a20bbed94615b7f435b656fa9eadad7fe31f9db73dd9cd0eb63760ab36315de0cccb97312e8ab06bd9187bd2fb071f7cb5fbffd53b4ade16f6c9cadcf2515c9f6130dd1e1995611be9ed5762bb9a269585e32a95d0a67450288dbf91aea691c96146f0007746cfcc6100674fc3be3423779b4e054669f71ce605a5f25d2bba0a5cd689c221639dc644e249e715354192a54eee576c5d3e1a76d958e5b3fcf4d58a2a25817c9119946f5245c4717707fdd362a833e093764aa4db75872ba4c9cc9ea8be1b1abca97c1a7bfd4959935984678099569e2a66249743625a54c3373a062c4206964602dfba7656f57e1c65bedb93e4362a5d680427f65eaff0e4c917c19293b1a6541c85fb2f44141b09e8ef9488815158fa570301000000000000000000";
 //         let tx_bytes = hex::decode(tx_abd).unwrap();
 //         let tx: transaction::Transaction = bincode::deserialize(&tx_bytes).unwrap();
 
-//         let sign_str = "PsvekVHEwt6eBn4Ainsq5sSsPr733om7noQRE0MLizUw3LIAv+yPcZoJjqH0DKzyo8q+NhjvHm4VEycExkF7TQ==";
+//
 //         // let sign_bytes = base64::decode(sign_str).unwrap();
 //         //get transfer tx
 //         //let transfer_tx =tx.
@@ -944,8 +1012,7 @@ pub fn decode_tx(tx: String) -> Transaction {
 //     fn test_create_burn_message_tx() {
 //         // Construct a dark single tx to prepare data for Burn message
 //         // lets say bob wants to sent 5 tokens to alice from his one account
-//         //USING Keplr SEED Directly
-//         let sign_str = "PsvekVHEwt6eBn4Ainsq5sSsPr733om7noQRE0MLizUw3LIAv+yPcZoJjqH0DKzyo8q+NhjvHm4VEycExkF7TQ==";
+//
 
 //         // lets create sender accounts to send these amounts from
 //         let bob_pk_1 = generate_public_key_from_signature(sign_str).unwrap();
@@ -1021,8 +1088,8 @@ pub fn decode_tx(tx: String) -> Transaction {
 //     fn test_decode_tx() {
 //         // create a dark tx
 //         // lets say bob wants to sent 5 tokens to alice from his one account
-//         //USING Keplr SEED Directly
-//         let sign_str = "PsvekVHEwt6eBn4Ainsq5sSsPr733om7noQRE0MLizUw3LIAv+yPcZoJjqH0DKzyo8q+NhjvHm4VEycExkF7TQ==";
+//
+//         let sign_str = "";
 
 //         // lets create sender accounts to send these amounts from
 //         let bob_pk_1 = generate_public_key_from_signature(sign_str).unwrap();

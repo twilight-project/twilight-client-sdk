@@ -1,9 +1,4 @@
-use twilight_client_sdk::{
-    keys_management,
-    transfer,
-    relayer,
-    chain,
-};
+use twilight_client_sdk::{chain, keys_management, relayer, transfer};
 
 fn main() {
     // Example: Initialize a new wallet
@@ -17,9 +12,27 @@ fn main() {
         "wallet.txt".to_string(),
         iv,
         Some(seed.to_string()),
-    ).expect("Failed to initialize wallet");
+    )
+    .expect("Failed to initialize wallet");
 
     println!("Wallet initialized: {:?}", wallet);
+
+    // }
+
+    // Example usage - in production, use secure password management and random seed generation
+    println!(
+        "Warning: This is example code only. Never use hardcoded passwords or seeds in production!"
+    );
+
+    // Example of how to use the wallet functions:
+    // 1. Generate a secure password and IV
+    // 2. Generate or input a secure seed
+    // 3. Initialize wallet with proper error handling
+
+    // let password = // Get from secure input
+    // let iv = // Generate random IV
+    // let seed = // Generate or input secure seed
+    // let wallet = init_wallet(password, "wallet.txt".to_string(), iv, Some(seed));
 
     // Example: Create a private transfer transaction (replace with your actual API)
     // let tx_hex = transfer::create_private_transfer_tx_single(
