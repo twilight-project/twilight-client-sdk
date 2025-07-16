@@ -48,6 +48,7 @@
 //! - [`programcontroller`] - ZkVM program management and Merkle proof generation
 //! - [`relayer_types`] - Data structures for relayer API communication
 //! - [`relayer_rpcclient`] - Low-level RPC client for relayer communication
+//! - [`encrypted_account`] - Encrypted account management and utilities
 
 #[macro_use]
 extern crate lazy_static;
@@ -85,3 +86,6 @@ pub mod transfer;
 
 /// Utility functions for data conversion and transaction building.
 pub mod util;
+
+/// Encrypted account management and utilities.
+pub mod encrypted_account;
