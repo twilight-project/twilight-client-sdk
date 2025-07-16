@@ -2,70 +2,69 @@ use address::AddressType;
 use address::Network;
 use quisquislib::accounts::Account;
 use quisquislib::elgamal::ElGamalCommitment;
+use quisquislib::keys::SecretKey;
 use quisquislib::ristretto::RistrettoPublicKey;
 use quisquislib::ristretto::RistrettoSecretKey;
 use rand::rngs::OsRng;
 use serde::Serialize;
 use serde::Deserialize;
+use sha2::{Digest, Sha512};
 use zkvm::Address;
 use core::convert::TryInto;
 use curve25519_dalek::scalar::Scalar;
 use zkvm::zkos_types::{
     IOType, Output, OutputCoin, OutputData,
 };
-use sha2::{Sha512, Digest};
-use quisquislib::keys::SecretKey;
 
+/// The constant message that must be signed by the user's Cosmos wallet.
+/// The resulting signature is used as the master seed for all Ristretto key derivations.
+pub const DERIVATION_MESSAGE: &[u8] = b"This signature is for deriving the master Twilight ZkOS Ristretto key. Version: 1. Do not share this signature.";
 
-const DERIVATION_MESSAGE: &[u8] = b"This signature is for deriving the master Twilight ZkOS Ristretto key. Version: 1. Do not share this signature.";
+/// Manages the deterministic derivation of Ristretto keys from a master seed.
+///
+/// This struct holds the master key in memory for the duration of a session
+/// and should be created upon wallet unlock by providing a signature from a
+/// primary wallet (e.g., Cosmos).
+pub struct KeyManager {
+    master_key: RistrettoSecretKey,
+}
+
+impl KeyManager {
+    /// Creates a new `KeyManager` by deriving a master key from a Cosmos signature.
+    /// The signature should be from signing the constant `DERIVATION_MESSAGE`.
+    pub fn from_cosmos_signature(cosmos_signature_bytes: &[u8; 64]) -> Self {
+        Self {
+            master_key: derive_master_ristretto_key(cosmos_signature_bytes),
+        }
+    }
+
+    /// Derives a child key for a specific account index using an HD wallet pattern.
+    pub fn derive_child_key(&self, account_index: u32) -> RistrettoSecretKey {
+        derive_child_key(&self.master_key, account_index)
+    }
+}
 
 /// Derives the single, master Ristretto secret key from a user's Cosmos signature.
-///
 /// This function is deterministic. The same signature will always produce the same key.
-///
-/// # Parameters
-/// - `cosmos_signature_bytes`: The 64 raw bytes of the secp256k1 signature obtained
-///   by signing the constant `DERIVATION_MESSAGE`.
-///
-/// # Returns
-/// The master `RistrettoSecretKey`.
-fn derive_master_ristretto_secret_key(cosmos_signature_bytes: &[u8; 64]) -> RistrettoSecretKey {
+fn derive_master_ristretto_key(cosmos_signature_bytes: &[u8; 64]) -> RistrettoSecretKey {
     // The `from_bytes` function internally uses a strong hash (KDF), which is exactly
     // what we need to securely convert the signature into a key.
-    quisquislib::keys::SecretKey::from_bytes(cosmos_signature_bytes)
+    SecretKey::from_bytes(cosmos_signature_bytes)
 }
-//Utility function used for converting seed to Ristretto secret Key
-/*fn hex_str_to_secret_key(seed: &str) -> RistrettoSecretKey {
-    //doing hash for more security and restricting size to 32 bytes
-    //let mut hasher = Keccak256::new();
-    //hasher.update(seed);
-    //let hash_32: [u8; 32] = hasher.finalize().try_into().unwrap();
-    // NO Need to do Hash here. The SecreetKey::from_bytes function is already doing a 512bit hash internally
-    //derive private key
-    quisquislib::keys::SecretKey::from_bytes(seed.as_bytes())
-}*/
 
 /// Derives a child key from a master key and an account index.
 /// This creates a simple Hierarchical Deterministic (HD) path.
-///
-/// # Parameters
-/// - `master_key`: The master Ristretto secret key.
-/// - `account_index`: The index for the child account (e.g., 0, 1, 2...).
-///
-/// # Returns
-/// A new `RistrettoSecretKey` for the specified account.
 fn derive_child_key(master_key: &RistrettoSecretKey, account_index: u32) -> RistrettoSecretKey {
     let mut hasher = Sha512::new();
 
-    // Hash the master key bytes concatenated with the account index.
-    // This domain-separates each child key.
+    // Hash the master key bytes concatenated with a domain separator and the account index.
     hasher.update(master_key.as_bytes());
-    hasher.update(b"twilight_child_key"); // Domain separation
+    hasher.update(b"twilight_child_key"); // Domain separation constant
     hasher.update(&account_index.to_le_bytes());
 
     // The SecretKey::from_bytes function will perform another hash, which is fine.
     // It ensures the result is a valid key in the group.
-    quisquislib::keys::SecretKey::from_bytes(&hasher.finalize())
+    SecretKey::from_bytes(&hasher.finalize())
 }
 
 // convert the hex string into a RistrettoPublicKey
@@ -176,13 +175,13 @@ impl From<Output> for EncryptedAccount {
 }
 
 /// Verify Public/Private Keypair.
-/// Returns true iff the EncryptedAccount public key corresponds to private key
-pub fn verify_keypair_encrypted_account(sk: RistrettoSecretKey, acc: String) -> Result<bool,  &'static str> {
-    // create sk from seed
-    //let sk: RistrettoSecretKey = hex_str_to_secret_key(seed);
-
+/// Returns true iff the EncryptedAccount public key corresponds to the provided private key.
+pub fn verify_keypair_encrypted_account(
+    sk: &RistrettoSecretKey,
+    acc_hex: String,
+) -> Result<bool, &'static str> {
     //recreate EncryptedAccount
-    let acc = EncryptedAccount::from_hex_str(acc)?;
+    let acc = EncryptedAccount::from_hex_str(acc_hex)?;
     // recreate traditional quisquis Account
     let account: Account = EncryptedAccount::into(acc.clone());
     if account.verify_account_keypair(&sk).is_ok() {
@@ -193,15 +192,16 @@ pub fn verify_keypair_encrypted_account(sk: RistrettoSecretKey, acc: String) -> 
 }
 
 ///Verify EncryptedAccount.
-/// Returns true iff the public key corresponds to private key
-/// and the account balance commitment is equal to balance
+/// Returns true iff the public key corresponds to the provided private key
+/// and the account balance commitment is equal to the provided balance.
 ///
-pub fn verify_encrypted_account(sk: RistrettoSecretKey, acc: String, balance: u32) -> Result<bool,  &'static str> {
-    //derive private key
-    //let sk: RistrettoSecretKey = hex_str_to_secret_key(seed);
-
+pub fn verify_encrypted_account(
+    sk: &RistrettoSecretKey,
+    acc_hex: String,
+    balance: u32,
+) -> Result<bool, &'static str> {
     //recreate account
-    let encrypted_acc = EncryptedAccount::from_hex_str(acc)?;
+    let encrypted_acc = EncryptedAccount::from_hex_str(acc_hex)?;
     let acc: Account = EncryptedAccount::into(encrypted_acc.clone());
     if acc.verify_account(&sk, balance.into()).is_ok() {
         Ok(true)
@@ -273,15 +273,20 @@ pub fn generate_encrypted_account_with_balance(
     return Ok(chain_account.to_hex_str());
 }
 /// Decrypt EncryptedAccount
-/// Returns balance iff the public key corresponds to private key and the the encryption is valid
-/// Input is EncryptedAccount as Hex String and seed is the signature seed from twilight wallet
-/// Output is balance as u64
-
-pub fn decrypt_encrypted_account_value(sk: RistrettoSecretKey, zk_acc: String) -> Result<u64, &'static str> {
-    //derive private key
-    //let sk: RistrettoSecretKey = hex_str_to_secret_key(seed);
+/// Returns balance iff the public key corresponds to the provided private key and the encryption is valid.
+///
+/// # Parameters
+/// - `sk`: The `RistrettoSecretKey` corresponding to the encrypted account.
+/// - `zk_acc_hex`: The hex-encoded `EncryptedAccount` to decrypt.
+///
+/// # Returns
+/// The decrypted balance as a `u64`.
+pub fn decrypt_encrypted_account_value(
+    sk: &RistrettoSecretKey,
+    zk_acc_hex: String,
+) -> Result<u64, &'static str> {
     //recreate zkosAccount
-    let trading_acc = EncryptedAccount::from_hex_str(zk_acc)?;
+    let trading_acc = EncryptedAccount::from_hex_str(zk_acc_hex)?;
     // get O.G Quisquis account
     let account: Account = trading_acc.into();
     //get balance
