@@ -7,7 +7,7 @@
 //! - **Burn Messages**: Transactions that burn a ZkOS coin and create a message for
 //!   interoperability with other chains.
 
-use address::{Address, AddressType, Network, Script, Standard};
+use address::{Address, AddressType, Network};
 use core::convert::TryInto;
 use curve25519_dalek::scalar::Scalar;
 use transaction::quisquislib::{accounts::Account, ristretto::RistrettoSecretKey};
@@ -18,15 +18,75 @@ use zkvm::zkos_types::{Input, InputData, OutputCoin, Utxo};
 
 use crate::*;
 use hex;
-
 use serde::{Deserialize, Serialize};
-
 /// Represents the result of a private transfer, containing the transaction hex
 /// and the scalar used for encryption, which is needed for future spending.
 pub struct TransferTxWallet {
     pub tx_hex: String,
     pub encrypt_scalar_hex: String,
 }
+impl TransferTxWallet {
+    pub fn new(tx_hex: String, encrypt_scalar_hex: String) -> Self {
+        Self {
+            tx_hex,
+            encrypt_scalar_hex,
+        }
+    }
+
+    pub fn get_encrypt_scalar_hex(&self) -> String {
+        self.encrypt_scalar_hex.clone()
+    }
+    pub fn get_encrypt_scalar(&self) -> Option<Scalar> {
+        let byt = match hex::decode(&self.encrypt_scalar_hex.clone()) {
+            Ok(bytes) => bytes,
+            Err(_) => return None,
+        };
+        // Try to convert the vector into an array of 32 bytes
+        let result: Result<[u8; 32], _> = byt.try_into();
+        match result {
+            Ok(bytes) => Some(Scalar::from_bytes_mod_order(bytes)),
+            Err(_) => None,
+        }
+    }
+    pub fn get_tx(&self) -> Option<Transaction> {
+        let tx_bin = match hex::decode(&self.tx_hex.clone()) {
+            Ok(bytes) => bytes,
+            Err(_) => return None,
+        };
+        match bincode::deserialize(&tx_bin) {
+            Ok(tx) => Some(tx),
+            Err(_) => None,
+        }
+    }
+}
+
+pub struct TransferTxMultipleAccountsWallet {
+    pub tx_hex: String,
+    pub encrypt_scalar_hex: Vec<String>,
+}
+impl TransferTxMultipleAccountsWallet {
+    pub fn new(tx_hex: String, encrypt_scalar_hex: Vec<String>) -> Self {
+        Self {
+            tx_hex,
+            encrypt_scalar_hex,
+        }
+    }
+
+    pub fn get_tx(&self) -> Option<Transaction> {
+        let tx_bin = match hex::decode(&self.tx_hex.clone()) {
+            Ok(bytes) => bytes,
+            Err(_) => return None,
+        };
+        match bincode::deserialize(&tx_bin) {
+            Ok(tx) => Some(tx),
+            Err(_) => None,
+        }
+    }
+    pub fn get_encrypt_scalar(&self) -> Vec<String> {
+        self.encrypt_scalar_hex.clone()
+    }
+}
+
 // ------- qqReciever for Transfer Tx ------- //
 /// Defines a receiver in a Quisquis transaction.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -261,6 +321,18 @@ fn preprocess_tx_request_frontend(
 ///
 /// # Returns
 /// A hex-encoded string of the finalized `Transaction`.
+/// Create Quisquis Transaction with anonymity Set
+/// Returns Transaction
+// Works for single sender and reciever
+// seed = Signature string
+// sender = Input as json string
+// reciever = Either address as Hex String or Input as json string
+// amount = Amount to be sent as u64
+// address_input = Flag
+//  0 ->  reciever is address.
+// 1  ->  reciever is input
+// anonymity_set = Json String of vector of anonymity Inputs
+// returns the tx as Hex string
 pub fn create_quisquis_transaction_single(
     sk: RistrettoSecretKey,
     sender_inp: Input,
@@ -408,7 +480,7 @@ fn compute_address_input(address_input: bool, reciever: String) -> (Account, Sca
 /// Panics on JSON deserialization errors or if the transaction cannot be created.
 pub fn create_private_transfer_tx_single(
     sk: RistrettoSecretKey,
-    sender: String,
+    sender_inp: Input,
     reciever: String,
     amount: u64,
     address_input: bool,
@@ -422,7 +494,7 @@ pub fn create_private_transfer_tx_single(
 
     let (rec_acc, rec_comm_scalar) = compute_address_input(address_input, reciever.clone());
 
-    let sender_inp: Input = serde_json::from_str(&sender).unwrap();
+    // let sender_inp: Input = serde_json::from_str(&sender).unwrap();
     let sender_acc = sender_inp.to_quisquis_account().unwrap();
 
     let sender_array = vec![Sender::set_sender(
@@ -495,7 +567,6 @@ pub fn create_private_transfer_tx_single(
     };
     tx_dark_wallet
 }
-
 /// Creates a private transfer transaction for multiple senders and receivers.
 ///
 /// This function aggregates multiple transfers into a single transaction. It is designed
@@ -570,6 +641,77 @@ pub fn create_private_transfer_transaction(
     let msg_to_return = hex::encode(&tx_bin);
     //returns hex encoded tx string
     msg_to_return
+}
+
+///Create Quisquis Dark Transaction.
+///Returns Transaction
+pub fn create_private_transfer_transaction_single_source_multiple_recievers(
+    sender_array: Vec<Sender>,
+    input_sender: Input,
+    sk: RistrettoSecretKey,
+    updated_sender_balance: Vec<u64>,
+    updated_balance_reciever: Vec<u64>,
+    witness_comm_scalar: Option<&[Scalar]>,
+    fee: u64,
+) -> TransferTxMultipleAccountsWallet {
+    let (value_vector, account_vector, sender_count, receiver_count) =
+        Sender::generate_value_and_account_vector(sender_array).unwrap();
+
+    //  println!("value_vector: {:?}", value_vector);
+    //  println!("account_vector: {:?}", account_vector);
+    //  println!("sender_count: {:?}", sender_count);
+    //  println!("receiver_count: {:?}", receiver_count);
+
+    // create Inputs for recievers with Utxo as 000000000000000000000000000, 0
+    let utxo: Utxo = Utxo::default();
+
+    //create vec of Sneder + Reciver Inputs
+    let rec_accounts = &account_vector[sender_count..];
+    let mut input_vector = Vec::<Input>::new();
+    input_vector.push(input_sender.clone());
+
+    for (i, input) in rec_accounts.iter().enumerate() {
+        //create address
+        let (pk, enc) = input.get_account();
+        let out_coin = OutputCoin::new(
+            enc.clone(),
+            Address::standard_address(Network::default(), pk.clone()).as_hex(),
+        );
+
+        let inp = Input::coin(InputData::coin(utxo, out_coin, i as u8));
+        input_vector.push(inp.clone());
+    }
+    let sk_vector = vec![sk];
+    //create quisquis dark transfer transaction
+    let transfer = transaction::TransferTransaction::create_private_transfer_transaction(
+        &value_vector,
+        &account_vector,
+        &updated_sender_balance,
+        &updated_balance_reciever,
+        &input_vector,
+        &sk_vector,
+        sender_count,
+        receiver_count,
+        witness_comm_scalar,
+        fee,
+    );
+    let (tx, final_comm_scalar) = transfer.unwrap();
+    let transaction: transaction::Transaction = transaction::Transaction::transaction_transfer(
+        transaction::TransactionData::TransactionTransfer(tx),
+    );
+    let tx_bin = bincode::serialize(&transaction).unwrap();
+    let tx_hex = hex::encode(&tx_bin);
+
+    let mut encrypt_scalar_vec: Vec<String> = Vec::new();
+    for scalar in final_comm_scalar.unwrap() {
+        let scalar_hex = hex::encode(scalar.to_bytes());
+        encrypt_scalar_vec.push(scalar_hex);
+    }
+    let tx_dark_wallet = TransferTxMultipleAccountsWallet {
+        tx_hex,
+        encrypt_scalar_hex: encrypt_scalar_vec,
+    };
+    tx_dark_wallet
 }
 
 /// Verifies the cryptographic integrity of a transaction.

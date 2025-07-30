@@ -51,6 +51,8 @@
 
 #[macro_use]
 extern crate lazy_static;
+// #[macro_use]
+extern crate diesel;
 pub extern crate quisquislib;
 pub extern crate transaction;
 pub extern crate transactionapi;
@@ -85,3 +87,9 @@ pub mod transfer;
 
 /// Utility functions for data conversion and transaction building.
 pub mod util;
+
+pub mod agent;
+pub mod db_ops;
+pub mod models;
+pub mod schema;
+mod test;

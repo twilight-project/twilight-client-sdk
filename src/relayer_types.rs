@@ -10,11 +10,12 @@
 use crate::relayer_rpcclient::method::*;
 use crate::relayer_rpcclient::txrequest::RELAYER_RPC_SERVER_URL;
 use crate::relayer_rpcclient::txrequest::{RpcBody, RpcRequest};
+use transaction::Transaction;
+
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::SigmaProof;
 use serde::{Deserialize, Serialize};
 use serde_this_or_that::as_f64;
-use transaction::Transaction;
 use uuid::Uuid;
 use zkschnorr::Signature;
 use zkvm::{
@@ -63,6 +64,14 @@ impl OrderType {
             "DARK" => Some(OrderType::DARK),
             "LEND" => Some(OrderType::LEND),
             _ => None,
+        }
+    }
+    pub fn to_str(&self) -> String {
+        match self {
+            OrderType::LIMIT => "LIMIT".to_string(),
+            OrderType::MARKET => "MARKET".to_string(),
+            OrderType::DARK => "DARK".to_string(),
+            OrderType::LEND => "LEND".to_string(),
         }
     }
 }
@@ -162,6 +171,27 @@ impl OrderStatus {
             "RejectedFromChain" => Some(OrderStatus::RejectedFromChain),
             "FilledUpdated" => Some(OrderStatus::FilledUpdated),
             _ => None,
+        }
+    }
+    pub fn to_str(&self) -> String {
+        match self {
+            OrderStatus::SETTLED => "SETTLED".to_string(),
+            OrderStatus::LENDED => "LENDED".to_string(),
+            OrderStatus::LIQUIDATE => "LIQUIDATE".to_string(),
+            OrderStatus::CANCELLED => "CANCELLED".to_string(),
+            OrderStatus::PENDING => "PENDING".to_string(),
+            OrderStatus::FILLED => "FILLED".to_string(),
+            OrderStatus::DuplicateOrder => "DuplicateError".to_string(),
+            OrderStatus::UtxoError => "UtxoError".to_string(),
+            OrderStatus::Error => "Error".to_string(),
+            OrderStatus::NoResponseFromChain => "NoResponseFromChain".to_string(),
+            OrderStatus::BincodeError => "BincodeError".to_string(),
+            OrderStatus::HexCodeError => "HexCodeError".to_string(),
+            OrderStatus::SerializationError => "SerializationError".to_string(),
+            OrderStatus::RequestSubmitted => "RequestSubmitted".to_string(),
+            OrderStatus::OrderNotFound => "OrderNotFound".to_string(),
+            OrderStatus::RejectedFromChain => "RejectedFromChain".to_string(),
+            OrderStatus::FilledUpdated => "FilledUpdated".to_string(),
         }
     }
 }
@@ -1090,4 +1120,20 @@ pub struct TxHash {
     pub datetime: String,
     pub output: Option<String>,
     pub request_id: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_zkos_settle_msg_decode() {
+        let hex_str = "0100000001000000000000000000000001000000000000000000000000000000010101010000000000000000000000000000007b24b4202f440a02210a97259dcd3e5a5bce45965b0808738cf6d207001e282504c24eb9da0a517474ba8c91e3757330b4fdd5829585cbd015db96eca6cddf76334c19e99dd0670a63c32195b45a283911f7c88deaf694af627f2b6a075e8e816b8a0000000000000030636338316435393335336636373866663463643832383231303464376263626164383265633536313334323536356266383837336130306236383135303338333464653161653636383638323334343965346561313637653030643763623962633631323034366533353836316437363634363462376366353833346362663231363365313365353600010000000000000001000000010000002a000000000000003138323237323664346265336336623333623166333434633734333263626530343230333861663162388a000000000000003063633831643539333533663637386666346364383238323130346437626362616438326563353631333432353635626638383733613030623638313530333833346465316165363638363832333434396534656131363765303064376362396263363132303436653335383631643736363436346237636635383334636266323136336531336535360100000000000000960000000000000000000000000000000b2b0bd85855144bd22660963905f00d9da6702f35b8b9488b4b39f9785d5d09010400000000000000030000000100000064e4941300000000000000000000000000000000000000000000000000000000020000000100000000000000160000000000000000000000000000000b2b0bd85855144bd22660963905f00d9da6702f35b8b9488b4b39f9785d5d090300000001000000e1840100000000000000000000000000000000000000000000000000000000000300000001000000ecd3f55c1a631258d69cf7a2def9de1400000000000000000000000000000010000000001600000000000000060a0403000000060a0405000000060a0d0e1302020200000000010000000000000003000000000000003d107ff89a1f0387ca226522f82bca1fbf43059a200c49bdae998400bfe89ea52c92d3c5e02c98dc6b6f1f91cfd42e136d1d4f1de6bdb351b12be20f9535960c7c1b7c42e22f98283d98314b914cdbfc380ef2bb1c3e3a91685a05614fc4cf6da1010000000000000034ca9475efa2d661115967c60f72712666f676eb5707f47a680508996e02b62ea4e66dc5e5fcf60b18ab42c8e0e876163e3217770e859762cc72d69751b664090016db32b1514c0314f0f9058fafd6f89501358bd8fcea55216a411f31eec2037646d497898199bb4dea865c5eb38f72a0deb85ece868d7aeb7347ac7cb54f5aaa7ee3135c838c52fee6cd7de18e92ff0f52fc6a1268e5b963ba08fd1170cf2e52552b20b2b809553351a084229df6afeb06b432f14a503c5c546e3d4934fd4cc4144aa99ceb77c6bfa666a74a29ecad79e2662ded23377e2e33f6d6b65275531aa921f9fc2b8da92b37578c2f32eeb008f6f431703f225de8b55ca59e74f912c951f68f1249a1dc83bbe6c5317c9f0667fe24ddd3444a668823c1c3e65b8005c1948414032a65b59c1d0c6bc6c5753178f3503781a07ea9727b77ce2645210bc9f040b39e96fa56e23c674684266efb8c2dd64fe426f52c0fe503155c50d2091a59b2db95882fe2072a33f3d077bf3b9edea69bbaa2f74464f64250a21b680cd3f5923b855db53b7f79768e4113c141341a1d471b2be33463cdda2801d99f090100000000000000020000004000000000000000a2ec92b338f33fdf738878c95791e341cfa611768f2aab181098533431dbba0793a0c15bdc6d28b6e0f21f56f459316402b2dca053e93e9c3664f95fd75d560d01000000010000000000000019e7cef73aafdf03b2a2879f6877713e98138d00cc5f8065a0ebd62e9016de0301000000000000009e3fbd61072969550bdbc1d16b2ed195b4d4562f24b7f191c0a64f388c525a090000000000000000dfff85668f7a1f65c3adf805f9aaa12f617d734f0e49bb4cd52b71ab23030f0c01020000000100000000000000e40c00000000000000000000000000001d78c73228b12805922f396627dd010bf48cc2db54fcc8365ba67b67d5e8170b";
+
+        let result = ZkosSettleMsg::decode_from_hex_string(hex_str.to_string());
+        println!("result1: {:?}", result);
+
+        let result2 = bincode::deserialize::<Transaction>(&hex::decode(hex_str).unwrap());
+        println!("result2: {:?}", result2);
+    }
 }

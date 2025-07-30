@@ -333,9 +333,9 @@ mod test {
             crate::util::hex_to_scalar(commitment_scalar_hex.to_string()).unwrap();
         let program_json_path: &str = "./relayerprogram.json";
         let chain_net = address::Network::default();
-        let state_variables: Vec<u64> = vec![2000000];
+        let state_variables: Vec<u64> = vec![1000000];
         let program_tag: String = "RelayerInitializer".to_string();
-        let pool_share = 2000000u64;
+        let pool_share = 1000000u64;
         // create tx
         let tx = crate::script::create_contract_deploy_transaction(
             sk,

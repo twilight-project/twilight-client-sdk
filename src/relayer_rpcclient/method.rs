@@ -219,26 +219,6 @@ impl GetLendOrderInfoResponse {
     }
 }
 // Query trader order info Response
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GetBTCPRice {
-    pub result: BTCPrice,
-}
-impl GetBTCPRice {
-    pub fn get_response(
-        resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
-    ) -> Result<GetBTCPRice, String> {
-        let tx_hash: Result<GetBTCPRice, String> = match resp.result {
-            Ok(response) => match serde_json::from_value(response) {
-                Ok(response) => Ok(GetBTCPRice { result: response }),
-
-                Err(arg) => Err(arg.to_string()),
-            },
-            Err(arg) => Err(arg.to_string()),
-        };
-        tx_hash
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UtxoRequest {
     pub address_or_id: String,
@@ -334,6 +314,26 @@ impl RequestResponse {
         self.id_key.clone()
     }
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetBTCPRice {
+    pub result: BTCPrice,
+}
+impl GetBTCPRice {
+    pub fn get_response(
+        resp: crate::relayer_rpcclient::txrequest::RpcResponse<serde_json::Value>,
+    ) -> Result<GetBTCPRice, String> {
+        let tx_hash: Result<GetBTCPRice, String> = match resp.result {
+            Ok(response) => match serde_json::from_value(response) {
+                Ok(response) => Ok(GetBTCPRice { result: response }),
+
+                Err(arg) => Err(arg.to_string()),
+            },
+            Err(arg) => Err(arg.to_string()),
+        };
+        tx_hash
+    }
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct RequestID {
     uuid: Uuid,
@@ -367,7 +367,7 @@ impl RequestID {
 mod test {
     use super::RequestResponse;
     // use hex_literal::hex;
-    use sha2::{Digest, Sha256};
+
     #[test]
     fn request_id_test() {
         let id  =  RequestResponse::new("order success".to_string(), "0ce8ffc7587e8ac1c8328f44b5219834b98125c7ef176a31f3ac7201b749ad913b84b8600e6d2a6f607454a9527238f6978f31102d308f3acb3599e7b725163117df5cb11c".to_string());
