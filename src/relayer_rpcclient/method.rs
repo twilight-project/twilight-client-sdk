@@ -4,7 +4,7 @@ use serde_this_or_that::as_f64;
 use sha2::{Digest, Sha256};
 use std::{hash::Hash, time::SystemTime};
 use uuid::Uuid;
-use zkvm::{IOType, Output, Utxo};
+use zkvm::{IOType, Input, Output, Utxo};
 /// Serialized as the "method" field of JSON-RPC/HTTP requests.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub enum Method {
@@ -283,6 +283,14 @@ impl UtxoDetailResponse {
             Err(arg) => Err(arg.to_string()),
         };
         utxo_id_result
+    }
+    pub fn get_input(&self) -> Result<Input, String> {
+        let out_coin = match self.output.as_out_coin() {
+            Some(coin) => coin.clone(),
+            None => return Err("Invalid Output:: Not a Coin Output")?,
+        };
+        let inp = Input::coin(zkvm::InputData::coin(self.id.clone(), out_coin, 0));
+        Ok(inp)
     }
 }
 

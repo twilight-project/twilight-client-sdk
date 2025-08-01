@@ -80,7 +80,7 @@ pub fn get_accounts_with_not_null_scalar_str_market(
         .filter(scalar_str.is_not_null().and(balance.gt(0)))
         .order(id.asc())
         .limit(size)
-        .offset(0)
+        .offset(20)
         .load(conn)
 }
 
