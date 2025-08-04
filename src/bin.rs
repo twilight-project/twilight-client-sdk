@@ -73,11 +73,11 @@ fn main() {
         })
         .unwrap();
 
-    let find_executed_limit_orders = thread::Builder::new()
+    let _find_executed_limit_orders = thread::Builder::new()
         .name("find_executed_limit_orders".to_string())
         .spawn(move || {
             // Create accounts from main trading account
-            find_executed_limit_orders_service(sk);
+            let _ = find_executed_limit_orders_service(sk);
         })
         .unwrap();
     // let _update_settled_orders = thread::Builder::new()

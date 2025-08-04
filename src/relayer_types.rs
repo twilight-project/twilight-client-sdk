@@ -1112,7 +1112,7 @@ impl LendOrder {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TxHash {
     pub id: i64,
-    pub order_id: String,
+    pub order_id: Uuid,
     pub account_id: String,
     pub tx_hash: String,
     pub order_type: OrderType,
@@ -1120,6 +1120,16 @@ pub struct TxHash {
     pub datetime: String,
     pub output: Option<String>,
     pub request_id: Option<String>,
+}
+impl TxHash {
+    pub fn get_output(&self) -> Result<Output, String> {
+        let output = self.output.clone();
+        let output = match output {
+            Some(output) => output,
+            None => return Err("No output found".to_string()),
+        };
+        crate::util::hex_to_output(output)
+    }
 }
 
 #[cfg(test)]

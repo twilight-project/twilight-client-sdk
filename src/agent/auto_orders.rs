@@ -373,9 +373,8 @@ pub fn single_settle_order_request(
     }
 
     // convert hex string to Output
-    let output = crate::util::hex_to_output(output.unwrap());
-    let uuid_str = result[0].order_id.clone();
-    let uuid = uuid::Uuid::parse_str(&uuid_str).unwrap();
+    let output = crate::util::hex_to_output(output.unwrap())?;
+    let uuid = result[0].order_id.clone();
 
     // limit type settlement
     let mut entry_price_local = 0;
