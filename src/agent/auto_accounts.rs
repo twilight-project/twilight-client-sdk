@@ -308,7 +308,7 @@ fn single_to_multiple_account_transfer(
         );
     // let updated_scalar = tx_wallet.get_encrypt_scalar().unwrap()[0];
     //  println!("comm_rscalar: {:?}", crate::util::scalar_to_hex(updated_scalar));
-    Ok(tx_wallet)
+    tx_wallet.map_err(|e| e.to_string())
 }
 
 // creates transfer tx for single account transfer

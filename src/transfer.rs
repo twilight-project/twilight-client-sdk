@@ -653,9 +653,9 @@ pub fn create_private_transfer_transaction_single_source_multiple_recievers(
     updated_balance_reciever: Vec<u64>,
     witness_comm_scalar: Option<&[Scalar]>,
     fee: u64,
-) -> TransferTxMultipleAccountsWallet {
+) -> Result<TransferTxMultipleAccountsWallet, &'static str> {
     let (value_vector, account_vector, sender_count, receiver_count) =
-        Sender::generate_value_and_account_vector(sender_array).unwrap();
+        Sender::generate_value_and_account_vector(sender_array)?;
 
     //  println!("value_vector: {:?}", value_vector);
     //  println!("account_vector: {:?}", account_vector);
@@ -695,7 +695,7 @@ pub fn create_private_transfer_transaction_single_source_multiple_recievers(
         witness_comm_scalar,
         fee,
     );
-    let (tx, final_comm_scalar) = transfer.unwrap();
+    let (tx, final_comm_scalar) = transfer?;
     let transaction: transaction::Transaction = transaction::Transaction::transaction_transfer(
         transaction::TransactionData::TransactionTransfer(tx),
     );
@@ -711,7 +711,7 @@ pub fn create_private_transfer_transaction_single_source_multiple_recievers(
         tx_hex,
         encrypt_scalar_hex: encrypt_scalar_vec,
     };
-    tx_dark_wallet
+    Ok(tx_dark_wallet)
 }
 
 /// Verifies the cryptographic integrity of a transaction.
