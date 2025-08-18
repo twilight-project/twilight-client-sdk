@@ -49,6 +49,9 @@ tag = "v0.0.1"
 [dependencies.address]
 git = "https://github.com/twilight-project/zkos-rust.git"
 tag = "v0.0.1"
+[dependencies.utxo-in-memory]
+git = "https://github.com/twilight-project/zkos-rust.git"
+tag = "v0.0.1"
 [dependencies.zkschnorr]
 git = "https://github.com/twilight-project/zk-schnorr.git"
 tag = "Testnet-v1.0.0"

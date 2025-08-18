@@ -25,14 +25,14 @@ fn main() {
     dotenvy::dotenv().expect("Failed loading dotenv");
     let sk = <RistrettoSecretKey as SecretKey>::from_bytes(RELAYER_SEED_PHRASE.as_bytes());
 
-    let create_db_accounts1 = thread::Builder::new()
+    let _create_db_accounts1 = thread::Builder::new()
         .name("create_db_accounts1".to_string())
         .spawn(move || {
             // Create accounts from main trading account
             create_db_accounts_from_main_trading_account1(sk);
         })
         .unwrap();
-    let create_db_accounts2 = thread::Builder::new()
+    let _create_db_accounts2 = thread::Builder::new()
         .name("create_db_accounts2".to_string())
         .spawn(move || {
             // Create accounts from main trading account
@@ -40,7 +40,7 @@ fn main() {
         })
         .unwrap();
 
-    let limit_order_service = thread::Builder::new()
+    let _limit_order_service = thread::Builder::new()
         .name("limit_order_service".to_string())
         .spawn(move || {
             // Create accounts from main trading account
@@ -51,7 +51,7 @@ fn main() {
         })
         .unwrap();
 
-    let market_order_service = thread::Builder::new()
+    let _market_order_service = thread::Builder::new()
         .name("market_order_service".to_string())
         .spawn(move || {
             // Create accounts from main trading account
@@ -62,7 +62,7 @@ fn main() {
         })
         .unwrap();
 
-    let settle_market_orders = thread::Builder::new()
+    let _settle_market_orders = thread::Builder::new()
         .name("settle_market_orders".to_string())
         .spawn(move || {
             // Create accounts from main trading account
@@ -80,13 +80,13 @@ fn main() {
             let _ = find_executed_limit_orders_service(sk);
         })
         .unwrap();
-    // let _update_settled_orders = thread::Builder::new()
-    //     .name("update_settled_orders".to_string())
-    //     .spawn(move || {
-    //         // Create accounts from main trading account
-    //         update_settled_orders_db(sk);
-    //     })
-    //     .unwrap();
+    let _update_settled_orders = thread::Builder::new()
+        .name("update_settled_orders".to_string())
+        .spawn(move || {
+            // Create accounts from main trading account
+            update_settled_orders_db(sk);
+        })
+        .unwrap();
     loop {
         sleep(Duration::from_secs(600))
     }

@@ -52,10 +52,12 @@
 #[macro_use]
 extern crate lazy_static;
 // #[macro_use]
+pub extern crate address;
 extern crate diesel;
 pub extern crate quisquislib;
 pub extern crate transaction;
 pub extern crate transactionapi;
+pub extern crate utxo_in_memory;
 pub extern crate zkschnorr;
 pub extern crate zkvm;
 
