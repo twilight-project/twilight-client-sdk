@@ -244,3 +244,24 @@ This wallet handles cryptographic keys and financial transactions. Always:
 **Built with privacy and security in mind for the Twilight ecosystem** 🔒
 
  
+
+install diesel cli in the repository
+
+cargo install diesel_cli
+ or 
+cargo install diesel_cli --no-default-features --features postgres
+
+
+This will create a new DB named order_book_staging as defined in the .env file
+
+run the following command to setup the diesel 
+diesel setup
+
+The migrations are already set up
+
+run following to create tables
+diesel migration run  
+
+to recheck
+diesel migration redo 
+

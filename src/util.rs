@@ -597,15 +597,25 @@ pub fn get_state_info_from_output_hex(
 ///
 /// # Panics
 /// Panics if the JSON is invalid or serialization fails.
-pub fn get_utxo_hex_from_json(utxo_json: String) -> String {
-    let utxo: Utxo = serde_json::from_str(&utxo_json).unwrap();
-    let utxo_bytes = bincode::serialize(&utxo).unwrap();
+pub fn get_utxo_hex_from_json(utxo_json: String) -> Result<String, String> {
+    let utxo: Utxo = serde_json::from_str(&utxo_json).map_err(|e| e.to_string())?;
+    let utxo_bytes = bincode::serialize(&utxo).map_err(|e| e.to_string())?;
     let utxo_hex = hex::encode(&utxo_bytes);
-    utxo_hex
+    Ok(utxo_hex)
 }
 
 /// Converts a `Scalar` to its hex-encoded string representation.
 pub fn scalar_to_hex(scalar: Scalar) -> String {
     let byt = scalar.to_bytes();
     hex::encode(&byt)
+}
+/// convert u64 value to ZkvmString
+pub fn u64_commitment_to_zkvm_string(value: u64) -> ZkvmString {
+    let commitment = Commitment::blinded(value);
+    ZkvmString::from(commitment)
+}
+
+pub fn hex_to_output(hex_str: String) -> Result<Output, String> {
+    let bytes = hex::decode(&hex_str).map_err(|e| e.to_string())?;
+    bincode::deserialize(&bytes).map_err(|e| e.to_string())
 }
