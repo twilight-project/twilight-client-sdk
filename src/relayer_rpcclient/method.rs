@@ -10,10 +10,13 @@ use zkvm::{IOType, Input, Output, Utxo};
 pub enum Method {
     /// Sends a transaction and immediately returns transaction hash.
     CreateTraderOrder,
+    CreateTraderOrderSlTp,
     CreateLendOrder,
     ExecuteTraderOrder,
     ExecuteLendOrder,
+    ExecuteTraderOrderSlTp,
     CancelTraderOrder,
+    CancelTraderOrderSlTp,
     #[allow(non_camel_case_types)]
     transaction_hashes,
     #[allow(non_camel_case_types)]
