@@ -11,8 +11,8 @@ use crate::{
         CreateLendOrderZkos, CreateTraderOrder, CreateTraderOrderClientZkos,
         CreateTraderOrderClientZkosSlTp, ExecuteLendOrder, ExecuteLendOrderZkos,
         ExecuteTraderOrder, ExecuteTraderOrderZkos, ExecuteTraderOrderZkosSlTp, QueryLendOrder,
-        QueryLendOrderZkos, QueryTraderOrder, QueryTraderOrderZkos, SlTpOrder, TXType,
-        ZkosCancelMsg, ZkosCreateOrder, ZkosQueryMsg, ZkosSettleMsg,
+        QueryLendOrderZkos, QueryTraderOrder, QueryTraderOrderZkos, SlTpOrder, SlTpOrderCancel,
+        TXType, ZkosCancelMsg, ZkosCreateOrder, ZkosQueryMsg, ZkosSettleMsg,
     },
 };
 use address::{Address, AddressType};
@@ -557,7 +557,7 @@ pub fn cancel_trader_order_zkos_sltp(
     uuid: Uuid,
     order_type: String,
     order_status: String,
-    sltp: Option<SlTpOrder>,
+    sltp_cancel: SlTpOrderCancel,
 ) -> String {
     //prepare data for signature and same value proof
 
@@ -575,7 +575,7 @@ pub fn cancel_trader_order_zkos_sltp(
 
     let cancel_order_msg: ZkosCancelMsg = ZkosCancelMsg::new(address_hex.clone(), signature);
     let cancel_order_zkos: CancelTraderOrderZkosSlTp =
-        CancelTraderOrderZkosSlTp::new(cancel_order, cancel_order_msg, sltp);
+        CancelTraderOrderZkosSlTp::new(cancel_order, cancel_order_msg, sltp_cancel);
     let order_hex: String = cancel_order_zkos.encode_as_hex_string();
     order_hex
 }

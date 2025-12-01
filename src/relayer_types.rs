@@ -153,6 +153,10 @@ pub enum OrderStatus {
     OrderNotFound,
     /// The order has been filled and its state updated, awaiting settlement.
     FilledUpdated,
+    /// The stop loss order has been cancelled.
+    CancelledStopLoss,
+    /// The take profit order has been cancelled.
+    CancelledTakeProfit,
 }
 impl OrderStatus {
     /// Creates an `OrderStatus` from a string slice.
@@ -174,6 +178,8 @@ impl OrderStatus {
             "OrderNotFound" => Some(OrderStatus::OrderNotFound),
             "RejectedFromChain" => Some(OrderStatus::RejectedFromChain),
             "FilledUpdated" => Some(OrderStatus::FilledUpdated),
+            "CancelledStopLoss" => Some(OrderStatus::CancelledStopLoss),
+            "CancelledTakeProfit" => Some(OrderStatus::CancelledTakeProfit),
             _ => None,
         }
     }
@@ -196,6 +202,8 @@ impl OrderStatus {
             OrderStatus::OrderNotFound => "OrderNotFound".to_string(),
             OrderStatus::RejectedFromChain => "RejectedFromChain".to_string(),
             OrderStatus::FilledUpdated => "FilledUpdated".to_string(),
+            OrderStatus::CancelledStopLoss => "CancelledStopLoss".to_string(),
+            OrderStatus::CancelledTakeProfit => "CancelledTakeProfit".to_string(),
         }
     }
 }
@@ -298,6 +306,18 @@ pub struct SlTpOrder {
 }
 impl SlTpOrder {
     pub fn new(sl: Option<f64>, tp: Option<f64>) -> Self {
+        Self { sl, tp }
+    }
+}
+/// The stop loss and take profit order for a trader order.
+/// This is used to create a trader order with stop loss and take profit.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SlTpOrderCancel {
+    pub sl: bool,
+    pub tp: bool,
+}
+impl SlTpOrderCancel {
+    pub fn new(sl: bool, tp: bool) -> Self {
         Self { sl, tp }
     }
 }
@@ -1303,18 +1323,18 @@ impl ExecuteTraderOrderZkosSlTp {
 pub struct CancelTraderOrderZkosSlTp {
     pub cancel_trader_order: CancelTraderOrder,
     pub msg: ZkosCancelMsg,
-    pub sltp: Option<SlTpOrder>,
+    pub sltp_cancel: SlTpOrderCancel,
 }
 impl CancelTraderOrderZkosSlTp {
     pub fn new(
         cancel_trader_order: CancelTraderOrder,
         msg: ZkosCancelMsg,
-        sltp: Option<SlTpOrder>,
+        sltp_cancel: SlTpOrderCancel,
     ) -> CancelTraderOrderZkosSlTp {
         CancelTraderOrderZkosSlTp {
             cancel_trader_order,
             msg,
-            sltp,
+            sltp_cancel,
         }
     }
     pub fn encode_as_hex_string(&self) -> String {
