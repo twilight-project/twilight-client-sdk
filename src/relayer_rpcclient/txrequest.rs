@@ -207,6 +207,16 @@ impl RpcRequest<ByteRec> for RpcBody<ByteRec> {
 
                 return rpc_response(res);
             }
+            Method::ExecuteTraderOrderSlTp => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+                return rpc_response(res);
+            }
             Method::ExecuteLendOrder => {
                 let client = reqwest::blocking::Client::new();
                 let clint_clone = client.clone();
