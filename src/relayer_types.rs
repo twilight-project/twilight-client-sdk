@@ -1,6 +1,7 @@
 use curve25519_dalek::scalar::Scalar;
-use quisquislib::accounts::SigmaProof;
+// use quisquislib::accounts::SigmaProof;
 use serde::{Deserialize, Serialize};
+use transaction::quisquislib::accounts::SigmaProof;
 use transaction::Transaction;
 use uuid::Uuid;
 use zkschnorr::Signature;
@@ -32,6 +33,7 @@ pub enum OrderType {
     MARKET,
     DARK,
     LEND,
+    SLTP,
 }
 impl OrderType {
     //from string
@@ -41,6 +43,7 @@ impl OrderType {
             "MARKET" => Some(OrderType::MARKET),
             "DARK" => Some(OrderType::DARK),
             "LEND" => Some(OrderType::LEND),
+            "SLTP" => Some(OrderType::SLTP),
             _ => None,
         }
     }
@@ -81,6 +84,32 @@ pub enum OrderStatus {
     CANCELLED,
     PENDING, // change it to New
     FILLED,  //executed on price ticker
+    /// The order was rejected as a duplicate.
+    DuplicateOrder,
+    /// An error occurred with the UTXO.
+    UtxoError,
+    /// A generic error occurred.
+    Error,
+    /// The relayer received no response from the chain.
+    NoResponseFromChain,
+    /// The transaction was rejected by the chain.
+    RejectedFromChain,
+    /// An error occurred during bincode serialization/deserialization.
+    BincodeError,
+    /// An error occurred during hex encoding/decoding.
+    HexCodeError,
+    /// A generic serialization error.
+    SerializationError,
+    /// The order was submitted successfully to the relayer.
+    RequestSubmitted,
+    /// The requested order could not be found.
+    OrderNotFound,
+    /// The order has been filled and its state updated, awaiting settlement.
+    FilledUpdated,
+    /// The stop loss order has been cancelled.
+    CancelledStopLoss,
+    /// The take profit order has been cancelled.
+    CancelledTakeProfit,
 }
 impl OrderStatus {
     //from string
@@ -92,11 +121,65 @@ impl OrderStatus {
             "CANCELLED" => Some(OrderStatus::CANCELLED),
             "PENDING" => Some(OrderStatus::PENDING),
             "FILLED" => Some(OrderStatus::FILLED),
+            "DuplicateError" => Some(OrderStatus::DuplicateOrder),
+            "UtxoError" => Some(OrderStatus::UtxoError),
+            "Error" => Some(OrderStatus::Error),
+            "NoResponseFromChain" => Some(OrderStatus::NoResponseFromChain),
+            "BincodeError" => Some(OrderStatus::BincodeError),
+            "HexCodeError" => Some(OrderStatus::HexCodeError),
+            "SerializationError" => Some(OrderStatus::SerializationError),
+            "OrderNotFound" => Some(OrderStatus::OrderNotFound),
+            "RejectedFromChain" => Some(OrderStatus::RejectedFromChain),
+            "FilledUpdated" => Some(OrderStatus::FilledUpdated),
+            "CancelledStopLoss" => Some(OrderStatus::CancelledStopLoss),
+            "CancelledTakeProfit" => Some(OrderStatus::CancelledTakeProfit),
             _ => None,
         }
     }
 }
-
+pub enum SlTpOrderType {
+    StopLoss,
+    TakeProfit,
+}
+impl SlTpOrderType {
+    pub fn from_str(s: &str) -> Option<SlTpOrderType> {
+        match s {
+            "StopLoss" => Some(SlTpOrderType::StopLoss),
+            "TakeProfit" => Some(SlTpOrderType::TakeProfit),
+            _ => None,
+        }
+    }
+    pub fn to_str(&self) -> String {
+        match self {
+            SlTpOrderType::StopLoss => "StopLoss".to_string(),
+            SlTpOrderType::TakeProfit => "TakeProfit".to_string(),
+        }
+    }
+}
+/// The stop loss and take profit order for a trader order.
+/// This is used to create a trader order with stop loss and take profit.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SlTpOrder {
+    pub sl: Option<f64>,
+    pub tp: Option<f64>,
+}
+impl SlTpOrder {
+    pub fn new(sl: Option<f64>, tp: Option<f64>) -> Self {
+        Self { sl, tp }
+    }
+}
+/// The stop loss and take profit order for a trader order.
+/// This is used to create a trader order with stop loss and take profit.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SlTpOrderCancel {
+    pub sl: bool,
+    pub tp: bool,
+}
+impl SlTpOrderCancel {
+    pub fn new(sl: bool, tp: bool) -> Self {
+        Self { sl, tp }
+    }
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ZkosCreateOrder {
     pub input: Input,         //coin type input
@@ -713,6 +796,115 @@ impl QueryLendOrderZkos {
         QueryLendOrderZkos {
             query_lend_order,
             msg,
+        }
+    }
+    pub fn encode_as_hex_string(&self) -> String {
+        let byt = bincode::serialize(&self).unwrap();
+        hex::encode(&byt)
+    }
+
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
+}
+/// The complete message for creating a trader order with stop loss and take profit.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateTraderOrderClientZkosSlTp {
+    pub create_trader_order: CreateTraderOrder,
+    pub tx: Transaction,
+    pub sltp: Option<SlTpOrder>,
+    pub msg: Option<ZkosSettleMsg>,
+}
+impl CreateTraderOrderClientZkosSlTp {
+    pub fn new(
+        create_trader_order: CreateTraderOrder,
+        tx: Transaction,
+        sltp: Option<SlTpOrder>,
+        msg: Option<ZkosSettleMsg>,
+    ) -> Self {
+        Self {
+            create_trader_order,
+            tx,
+            sltp,
+            msg,
+        }
+    }
+    pub fn encode_as_hex_string(&self) -> Result<String, String> {
+        let byt = bincode::serialize(&self).map_err(|e| format!("Error:{:?}", e))?;
+        Ok(hex::encode(&byt))
+    }
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
+}
+
+/// The complete message for settling a trader order.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ExecuteTraderOrderZkosSlTp {
+    pub execute_trader_order: ExecuteTraderOrder,
+    pub msg: ZkosSettleMsg,
+    pub sltp: Option<SlTpOrder>,
+}
+
+impl ExecuteTraderOrderZkosSlTp {
+    pub fn new(
+        execute_trader_order: ExecuteTraderOrder,
+        msg: ZkosSettleMsg,
+        sltp: Option<SlTpOrder>,
+    ) -> ExecuteTraderOrderZkosSlTp {
+        ExecuteTraderOrderZkosSlTp {
+            execute_trader_order,
+            msg,
+            sltp,
+        }
+    }
+    pub fn encode_as_hex_string(&self) -> String {
+        let byt = bincode::serialize(&self).unwrap();
+        hex::encode(&byt)
+    }
+
+    pub fn decode_from_hex_string(hex_string: String) -> Result<Self, String> {
+        let hex_decode = match hex::decode(hex_string) {
+            Ok(bytes_data) => match bincode::deserialize(&bytes_data) {
+                Ok(zkos_data) => Ok(zkos_data),
+                Err(arg) => Err(format!("Error:{:?}", arg)),
+            },
+            Err(arg) => Err(format!("Error:{:?}", arg)),
+        };
+        hex_decode
+    }
+}
+/// The complete message for cancelling a trader order.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CancelTraderOrderZkosSlTp {
+    pub cancel_trader_order: CancelTraderOrder,
+    pub msg: ZkosCancelMsg,
+    pub sltp_cancel: SlTpOrderCancel,
+}
+impl CancelTraderOrderZkosSlTp {
+    pub fn new(
+        cancel_trader_order: CancelTraderOrder,
+        msg: ZkosCancelMsg,
+        sltp_cancel: SlTpOrderCancel,
+    ) -> CancelTraderOrderZkosSlTp {
+        CancelTraderOrderZkosSlTp {
+            cancel_trader_order,
+            msg,
+            sltp_cancel,
         }
     }
     pub fn encode_as_hex_string(&self) -> String {

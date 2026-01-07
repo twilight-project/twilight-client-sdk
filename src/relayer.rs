@@ -1,16 +1,17 @@
 use crate::programcontroller::ContractManager;
 use crate::relayer_types::{
-    CancelTraderOrder, CancelTraderOrderZkos, CreateLendOrder, CreateLendOrderZkos,
-    CreateTraderOrder, CreateTraderOrderClientZkos, CreateTraderOrderZkos, ExecuteLendOrder,
-    ExecuteLendOrderZkos, ExecuteTraderOrder, ExecuteTraderOrderZkos, PositionType, QueryLendOrder,
-    QueryLendOrderZkos, QueryTraderOrder, QueryTraderOrderZkos, TXType, ZkosCancelMsg,
-    ZkosCreateOrder, ZkosQueryMsg, ZkosSettleMsg,
+    CancelTraderOrder, CancelTraderOrderZkos, CancelTraderOrderZkosSlTp, CreateLendOrder,
+    CreateLendOrderZkos, CreateTraderOrder, CreateTraderOrderClientZkos,
+    CreateTraderOrderClientZkosSlTp, CreateTraderOrderZkos, ExecuteLendOrder, ExecuteLendOrderZkos,
+    ExecuteTraderOrder, ExecuteTraderOrderZkos, ExecuteTraderOrderZkosSlTp, PositionType,
+    QueryLendOrder, QueryLendOrderZkos, QueryTraderOrder, QueryTraderOrderZkos, SlTpOrder,
+    SlTpOrderCancel, TXType, ZkosCancelMsg, ZkosCreateOrder, ZkosQueryMsg, ZkosSettleMsg,
 };
 use crate::script;
 use crate::transaction::{self, ScriptTransaction, Transaction};
 use address::{Address, AddressType};
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
-use quisquislib::{
+use transaction::quisquislib::{
     accounts::Account,
     keys::PublicKey,
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
@@ -426,6 +427,237 @@ pub fn create_trade_order_client_transaction(
     // println!("verify_call_proof: {:?}", verify_call_proof);
 
     Ok(Transaction::from(script_tx))
+}
+
+/// Constructs and serializes a message to execute (settle) a trade or lend order.
+///
+/// This function signs the original `OutputMemo` created for the order to prove ownership
+/// and authorize the relayer to proceed with settlement. The `tx_type` parameter
+/// determines whether it's a trade or lend order settlement.
+///
+/// # Parameters
+/// - `output_memo`: The original `OutputMemo` that was used to create the order.
+/// - `secret_key`: The secret key of the user who owns the memo.
+/// - `account_id`: The user's account identifier.
+/// - `uuid`: The `Uuid` of the specific order to be executed.
+/// - `order_type`: The type of the order (e.g., "MARKET").
+/// - `settle_margin_settle_withdraw`: The margin to settle or amount to withdraw.
+/// - `order_status`: The expected status after settlement (e.g., "FILLED").
+/// - `execution_price_poolshare_price`: The final execution price or pool share price.
+/// - `tx_type`: The type of transaction, `TXType::ORDERTX` for trades or `TXType::LENDTX` for lending.
+/// - `sltp`: The stop loss and take profit order.
+/// # Returns
+/// A hex-encoded string of the `ExecuteTraderOrderZkos` or `ExecuteLendOrderZkos` message.
+///
+/// # Panics
+/// Panics on serialization errors or if the owner address is invalid.
+pub fn execute_order_zkos_sltp(
+    output_memo: Output, // Provides the Prover Memo Output used to create the order. Input memo will be created by Exchange on behalf of the user
+    secret_key: &RistrettoSecretKey,
+    account_id: String,
+    uuid: Uuid,
+    order_type: String,
+    settle_margin_settle_withdraw: f64, //random value =0
+    order_status: String,
+    execution_price_poolshare_price: f64,
+    tx_type: TXType, // ORDER or LEND
+    sltp: Option<SlTpOrder>,
+) -> String {
+    //prepare data for signature
+    //extract publickey from owner address of output memo
+    let owner_address_string = output_memo.as_output_data().get_owner_address().unwrap();
+    let owner: Address = Address::from_hex(&owner_address_string, AddressType::default()).unwrap();
+    let pk: RistrettoPublicKey = owner.into();
+
+    // sign the input memo
+    let message = bincode::serialize(&output_memo).unwrap();
+    let signature: Signature = pk.sign_msg(&message, &secret_key, ("PublicKeySign").as_bytes());
+
+    //Let order type (Trade or Lend)
+
+    let settle_zkos_msg: ZkosSettleMsg = ZkosSettleMsg::new(output_memo.clone(), signature.clone());
+
+    match tx_type {
+        TXType::ORDERTX => {
+            let execute_order: ExecuteTraderOrder = ExecuteTraderOrder::new(
+                account_id,
+                uuid,
+                order_type,
+                settle_margin_settle_withdraw,
+                order_status,
+                execution_price_poolshare_price,
+            );
+            let order_zkos_settle: ExecuteTraderOrderZkosSlTp =
+                ExecuteTraderOrderZkosSlTp::new(execute_order, settle_zkos_msg.clone(), sltp);
+            return order_zkos_settle.encode_as_hex_string();
+        }
+        TXType::LENDTX => {
+            let execute_lend: ExecuteLendOrder = ExecuteLendOrder::new(
+                account_id,
+                uuid,
+                order_type,
+                settle_margin_settle_withdraw,
+                order_status,
+                execution_price_poolshare_price,
+            );
+            let order_zkos_settle: ExecuteLendOrderZkos =
+                ExecuteLendOrderZkos::new(execute_lend, settle_zkos_msg.clone());
+            return order_zkos_settle.encode_as_hex_string();
+        }
+    }
+}
+
+/// Constructs and serializes a message to create a new trader order.
+///
+/// This function bundles all trader order parameters with the necessary ZK proofs
+/// into a single hex-encoded string ready to be sent to the relayer.
+///
+/// # Parameters
+/// - `input_coin`: The `Input` coin UTXO to fund the order's margin.
+/// - `output_memo`: The `Output` memo containing the committed order details.
+/// - `secret_key`: The trader's secret key.
+/// - `rscalar`: The hex-encoded random scalar used for the memo's commitments.
+/// - `value`: The amount of initial margin, which must match the `input_coin`'s value.
+/// - `account_id`: The user's account identifier on the relayer.
+/// - `position_type`: The order side ("LONG" or "SHORT").
+/// - `order_type`: The type of order (e.g., "MARKET").
+/// - `leverage`: The leverage for the trade.
+/// - `initial_margin`: The initial margin amount.
+/// - `available_margin`: The available margin.
+/// - `order_status`: The initial status of the order (e.g., "PENDING").
+/// - `entryprice`: The desired entry price for the trade.
+/// - `execution_price`: The execution price (typically set by the relayer).
+///
+/// # Returns
+/// A `Result` containing the hex-encoded `CreateTraderOrderZkosSlTp` message string,
+/// or an error if the scalar decoding fails.
+pub fn create_trader_order_zkos_sltp(
+    input_coin: Input,
+    secret_key: RistrettoSecretKey,
+    rscalar: Scalar, // Hex string of Scalar
+    value: u64,
+    position_type: String,
+    order_type: String,
+    leverage: f64,
+    initial_margin: f64,
+    available_margin: f64,
+    order_status: String,
+    entryprice: f64,
+    execution_price: f64,
+    position_value: u64,
+    position_size: u64,
+    order_side: crate::relayer_types::PositionType,
+    programs: &ContractManager,
+    timebounds: u32,
+    sltp: Option<SlTpOrder>,
+    msg: Option<ZkosSettleMsg>,
+) -> Result<String, &'static str> {
+    // extract owner address from input
+    let owner_address = match input_coin.as_owner_address() {
+        Some(owner_address) => owner_address.clone(),
+        None => return Err("Error extracting owner address"),
+    };
+
+    // create TraderOrder type for relayer
+    let create_order: CreateTraderOrder = CreateTraderOrder::new(
+        owner_address.clone(),
+        position_type,
+        order_type,
+        leverage,
+        initial_margin,
+        available_margin,
+        order_status,
+        entryprice,
+        execution_price,
+    );
+    // create Trader Order transaction
+
+    // load the contract_manager
+    //let programs = crate::programcontroller::ContractManager::import_program(&contract_path);
+    let contract_address = programs.create_contract_address(address::Network::default())?;
+
+    // create memo output
+    let memo = crate::util::create_output_memo_for_trader(
+        contract_address,
+        owner_address,
+        value,
+        position_size,
+        leverage as u64,
+        entryprice as u64,
+        order_side,
+        rscalar,
+        timebounds,
+    );
+
+    // create ZkOrder transaction
+    let order_tx = create_trade_order_client_transaction(
+        input_coin,
+        memo,
+        secret_key,
+        rscalar,
+        value,
+        position_value,
+        address::Network::default(),
+        1u64,
+        programs.clone(),
+    )?;
+
+    let create_zkos_order_full: CreateTraderOrderClientZkosSlTp =
+        CreateTraderOrderClientZkosSlTp::new(create_order, order_tx, sltp, msg);
+    let order_hex: String = match create_zkos_order_full.encode_as_hex_string() {
+        Ok(order_hex) => order_hex,
+        Err(_) => return Err("Error encoding order as hex string"),
+    };
+    Ok(order_hex)
+}
+
+/// Constructs and serializes a message to cancel a pending sltp (stop loss and take profit) of trader order.
+///
+/// The function signs the cancellation request with the user's secret key to
+/// authorize the action.
+///
+/// # Parameters
+/// - `address_hex`: The user's hex-encoded public address string.
+/// - `secret_key`: The user's secret key for signing.
+/// - `account_id`: The user's account identifier.
+/// - `uuid`: The `Uuid` of the order to cancel.
+/// - `order_type`: The type of the order.
+/// - `order_status`: The new desired status (e.g., "CANCELLED").
+/// - `sltp`: The stop loss and take profit order.
+///
+/// # Returns
+/// A hex-encoded string of the `CancelTraderOrderZkos` message.
+///
+/// # Panics
+/// Panics on address decoding or serialization errors.
+pub fn cancel_trader_order_zkos_sltp(
+    address_hex: String, //hex address string
+    secret_key: &RistrettoSecretKey,
+    account_id: String,
+    uuid: Uuid,
+    order_type: String,
+    order_status: String,
+    sltp_cancel: SlTpOrderCancel,
+) -> String {
+    //prepare data for signature and same value proof
+
+    let add: Address = Address::from_hex(&address_hex, AddressType::default()).unwrap();
+
+    let cancel_order: CancelTraderOrder =
+        CancelTraderOrder::new(account_id, uuid, order_type, order_status);
+    //create ZkosCancelMsg
+    // pk for Sign
+    let pk: RistrettoPublicKey = add.into();
+    // the cancel request is the message for Sign
+    let message = bincode::serialize(&cancel_order).unwrap();
+
+    let signature: Signature = pk.sign_msg(&message, &secret_key, ("PublicKeySign").as_bytes());
+
+    let cancel_order_msg: ZkosCancelMsg = ZkosCancelMsg::new(address_hex.clone(), signature);
+    let cancel_order_zkos: CancelTraderOrderZkosSlTp =
+        CancelTraderOrderZkosSlTp::new(cancel_order, cancel_order_msg, sltp_cancel);
+    let order_hex: String = cancel_order_zkos.encode_as_hex_string();
+    order_hex
 }
 
 #[cfg(test)]

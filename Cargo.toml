@@ -36,18 +36,25 @@ lazy_static = "1.4.0"
 #reqwest = { version = "0.11", features = ["blocking", "json"] }
 [dependencies.zkvm]
 git = "https://github.com/twilight-project/zkos-rust.git"
-branch = "develop"
+# branch = "develop"
+tag = "v0.1.2"
+
 [dependencies.transaction]
 git = "https://github.com/twilight-project/zkos-rust.git"
-branch = "develop"
+# branch = "develop"
+tag = "v0.1.2"
 #[dependencies.transactionapi]
 #git = "ssh://github.com/twilight-project/zkos-rust.git"
 #branch = "develop"
 [dependencies.address]
 git = "https://github.com/twilight-project/zkos-rust.git"
-branch = "develop"
+# branch = "develop"
+tag = "v0.1.2"
 [dependencies.zkschnorr]
 git = "https://github.com/twilight-project/zk-schnorr.git"
-[dependencies.quisquis-rust]
-git = "https://github.com/twilight-project/quisquis-rust.git"
-branch = "develop"
+# tag = "v0.1.1"
+tag = "Testnet-v1.0.0"
+# [dependencies.quisquis-rust]
+# git = "https://github.com/twilight-project/quisquis-rust.git"
+# tag = "v0.1.1"
+# branch = "develop"

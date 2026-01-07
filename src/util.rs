@@ -3,7 +3,8 @@ use core::time;
 use address::{Address, AddressType};
 
 use curve25519_dalek::scalar::Scalar;
-use quisquislib::elgamal::ElGamalCommitment;
+// use quisquislib::elgamal::ElGamalCommitment;
+use transaction::quisquislib::elgamal::ElGamalCommitment;
 use transaction::quisquislib::{
     keys::PublicKey,
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},

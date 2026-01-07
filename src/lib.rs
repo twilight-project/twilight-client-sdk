@@ -9,7 +9,8 @@
 #[macro_use]
 extern crate lazy_static;
 
-pub extern crate quisquislib;
+// pub extern crate quisquislib;
+
 pub extern crate transaction;
 pub extern crate zkschnorr;
 pub extern crate zkvm;
