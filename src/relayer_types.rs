@@ -157,6 +157,14 @@ pub enum OrderStatus {
     CancelledStopLoss,
     /// The take profit order has been cancelled.
     CancelledTakeProfit,
+    /// The close limit price was updated/replaced with a new one.
+    LimitPriceUpdated,
+    /// The stop loss price was updated/replaced.
+    StopLossUpdated,
+    /// The take profit price was updated/replaced.
+    TakeProfitUpdated,
+    /// The order was rejected by the risk engine.
+    RejectedByRiskEngine,
 }
 impl OrderStatus {
     /// Creates an `OrderStatus` from a string slice.
@@ -180,6 +188,10 @@ impl OrderStatus {
             "FilledUpdated" => Some(OrderStatus::FilledUpdated),
             "CancelledStopLoss" => Some(OrderStatus::CancelledStopLoss),
             "CancelledTakeProfit" => Some(OrderStatus::CancelledTakeProfit),
+            "LimitPriceUpdated" => Some(OrderStatus::LimitPriceUpdated),
+            "StopLossUpdated" => Some(OrderStatus::StopLossUpdated),
+            "TakeProfitUpdated" => Some(OrderStatus::TakeProfitUpdated),
+            "RejectedByRiskEngine" => Some(OrderStatus::RejectedByRiskEngine),
             _ => None,
         }
     }
@@ -204,6 +216,10 @@ impl OrderStatus {
             OrderStatus::FilledUpdated => "FilledUpdated".to_string(),
             OrderStatus::CancelledStopLoss => "CancelledStopLoss".to_string(),
             OrderStatus::CancelledTakeProfit => "CancelledTakeProfit".to_string(),
+            OrderStatus::LimitPriceUpdated => "LimitPriceUpdated".to_string(),
+            OrderStatus::StopLossUpdated => "StopLossUpdated".to_string(),
+            OrderStatus::TakeProfitUpdated => "TakeProfitUpdated".to_string(),
+            OrderStatus::RejectedByRiskEngine => "RejectedByRiskEngine".to_string(),
         }
     }
 }
@@ -1176,6 +1192,9 @@ pub struct TxHash {
     pub datetime: String,
     pub output: Option<String>,
     pub request_id: Option<String>,
+    pub reason: Option<String>,
+    pub old_price: Option<f64>,
+    pub new_price: Option<f64>,
 }
 impl TxHash {
     pub fn get_output(&self) -> Result<Output, String> {
