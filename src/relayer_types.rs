@@ -167,6 +167,8 @@ pub enum OrderStatus {
     RejectedByRiskEngine,
     /// The close limit order was cancelled during settlement/removal.
     CancelledLimitClose,
+    /// The order has been updated (e.g. limit order re-submitted after update).
+    OrderUpdated,
 }
 impl OrderStatus {
     /// Creates an `OrderStatus` from a string slice.
@@ -195,6 +197,7 @@ impl OrderStatus {
             "TakeProfitUpdated" => Some(OrderStatus::TakeProfitUpdated),
             "RejectedByRiskEngine" => Some(OrderStatus::RejectedByRiskEngine),
             "CancelledLimitClose" => Some(OrderStatus::CancelledLimitClose),
+            "OrderUpdated" => Some(OrderStatus::OrderUpdated),
             _ => None,
         }
     }
@@ -224,6 +227,7 @@ impl OrderStatus {
             OrderStatus::TakeProfitUpdated => "TakeProfitUpdated".to_string(),
             OrderStatus::RejectedByRiskEngine => "RejectedByRiskEngine".to_string(),
             OrderStatus::CancelledLimitClose => "CancelledLimitClose".to_string(),
+            OrderStatus::OrderUpdated => "OrderUpdated".to_string(),
         }
     }
 }
