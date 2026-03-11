@@ -56,6 +56,10 @@ pub enum OrderType {
     LEND,
     /// A trader order with stop loss and take profit.
     SLTP,
+    /// Settlement triggered by stop-loss price being hit.
+    Stoploss,
+    /// Settlement triggered by take-profit price being hit.
+    Takeprofit,
 }
 impl OrderType {
     /// Creates an `OrderType` from a string slice.
@@ -66,6 +70,8 @@ impl OrderType {
             "DARK" => Some(OrderType::DARK),
             "LEND" => Some(OrderType::LEND),
             "SLTP" => Some(OrderType::SLTP),
+            "Stoploss" => Some(OrderType::Stoploss),
+            "Takeprofit" => Some(OrderType::Takeprofit),
             _ => None,
         }
     }
@@ -76,6 +82,8 @@ impl OrderType {
             OrderType::DARK => "DARK".to_string(),
             OrderType::LEND => "LEND".to_string(),
             OrderType::SLTP => "SLTP".to_string(),
+            OrderType::Stoploss => "Stoploss".to_string(),
+            OrderType::Takeprofit => "Takeprofit".to_string(),
         }
     }
 }
@@ -157,10 +165,16 @@ pub enum OrderStatus {
     CancelledStopLoss,
     /// The take profit order has been cancelled.
     CancelledTakeProfit,
+    /// The close limit price was set for the first time.
+    LimitPriceAdded,
     /// The close limit price was updated/replaced with a new one.
     LimitPriceUpdated,
+    /// The stop loss price was set for the first time.
+    StopLossAdded,
     /// The stop loss price was updated/replaced.
     StopLossUpdated,
+    /// The take profit price was set for the first time.
+    TakeProfitAdded,
     /// The take profit price was updated/replaced.
     TakeProfitUpdated,
     /// The order was rejected by the risk engine.
@@ -192,8 +206,11 @@ impl OrderStatus {
             "FilledUpdated" => Some(OrderStatus::FilledUpdated),
             "CancelledStopLoss" => Some(OrderStatus::CancelledStopLoss),
             "CancelledTakeProfit" => Some(OrderStatus::CancelledTakeProfit),
+            "LimitPriceAdded" => Some(OrderStatus::LimitPriceAdded),
             "LimitPriceUpdated" => Some(OrderStatus::LimitPriceUpdated),
+            "StopLossAdded" => Some(OrderStatus::StopLossAdded),
             "StopLossUpdated" => Some(OrderStatus::StopLossUpdated),
+            "TakeProfitAdded" => Some(OrderStatus::TakeProfitAdded),
             "TakeProfitUpdated" => Some(OrderStatus::TakeProfitUpdated),
             "RejectedByRiskEngine" => Some(OrderStatus::RejectedByRiskEngine),
             "CancelledLimitClose" => Some(OrderStatus::CancelledLimitClose),
@@ -222,8 +239,11 @@ impl OrderStatus {
             OrderStatus::FilledUpdated => "FilledUpdated".to_string(),
             OrderStatus::CancelledStopLoss => "CancelledStopLoss".to_string(),
             OrderStatus::CancelledTakeProfit => "CancelledTakeProfit".to_string(),
+            OrderStatus::LimitPriceAdded => "LimitPriceAdded".to_string(),
             OrderStatus::LimitPriceUpdated => "LimitPriceUpdated".to_string(),
+            OrderStatus::StopLossAdded => "StopLossAdded".to_string(),
             OrderStatus::StopLossUpdated => "StopLossUpdated".to_string(),
+            OrderStatus::TakeProfitAdded => "TakeProfitAdded".to_string(),
             OrderStatus::TakeProfitUpdated => "TakeProfitUpdated".to_string(),
             OrderStatus::RejectedByRiskEngine => "RejectedByRiskEngine".to_string(),
             OrderStatus::CancelledLimitClose => "CancelledLimitClose".to_string(),
