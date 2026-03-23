@@ -243,25 +243,26 @@ mod tests {
         return prog;
     }
 
+    // program to prove IM * Leverage = positionvalue
+    // Stack -> C(IM) -> PositionSize -> C(Leverage) -> EntryPrice -> OrderSide -> tx_Data(C(PositionValue))
     pub fn get_trader_order_program() -> Program {
         let order_prog = Program::build(|p| {
-            p.drop() // drop the order_side from stack. Not needed in the proof
-                .roll(3) // Get IM to top of stack
+            p.commit()
+                .expr()
+                .roll(3) // Get Leverage to top of stack
                 .commit()
                 .expr()
-                .roll(1) // Get EntryPrice to top of stack
-                .scalar()
-                .mul() // EntryPrice * IM
-                .roll(1) // Get Leverage to top of stack
+                .roll(5) // Get IM to top of stack
                 .commit()
                 .expr()
-                .mul() // Leverage * EntryPrice * IM
-                .roll(1)
-                .scalar()
-                .eq() // Leverage * EntryPrice * IM == PositionSize
-                .verify();
+                .mul() // IM * Leverage
+                .eq() // IM * Leverage == PositionValue
+                .verify()
+                .drop() // drop OrderSide
+                .drop() // drop EntryPrice
+                .drop(); // drop PositionSize
         });
-        return order_prog;
+        order_prog
     }
 
     pub fn get_settle_trader_order_program() -> Program {
@@ -624,5 +625,48 @@ mod tests {
                 .unwrap()
                 .verify_call_proof(address_hex, &decoded_program_data, &hasher);
         println!("verify: {:?}", verify);
+    }
+
+    #[test]
+    fn compare_programs_with_correct_json() {
+        // Load correct programs from relayerprogram.json
+        let expected = ContractManager::import_program("./relayerprogram.json");
+
+        // Build programs from code (same order as load_relayer_contract_program_into_json)
+        let code_programs: Vec<(&str, Program)> = vec![
+            ("RelayerInitializer", relayer_contract_initialize_program()),
+            ("CreateTraderOrder", get_trader_order_program()),
+            ("SettleTraderOrder", get_settle_trader_order_program()),
+            ("CreateLendOrder", lend_order_deposit_program()),
+            ("SettleLendOrder", lend_order_settle_program()),
+            ("LiquidateOrder", get_liquidate_order_program()),
+            (
+                "SettleTraderOrderNegativeMarginDifference",
+                get_settle_trader_order_negative_margin_difference_program(),
+            ),
+        ];
+
+        let mut all_match = true;
+        for (name, program) in &code_programs {
+            let actual_hex = hex::encode(program.encode_to_vec());
+            match expected.program_index.get(*name) {
+                None => {
+                    println!("MISSING tag in JSON: {}", name);
+                    all_match = false;
+                }
+                Some(idx) => {
+                    let expected_hex = &expected.program[*idx];
+                    if &actual_hex != expected_hex {
+                        println!("MISMATCH for {}:", name);
+                        println!("  expected: {}", expected_hex);
+                        println!("  actual:   {}", actual_hex);
+                        all_match = false;
+                    } else {
+                        println!("OK: {}", name);
+                    }
+                }
+            }
+        }
+        assert!(all_match, "Some programs do not match the correct JSON!");
     }
 }
