@@ -159,9 +159,7 @@ impl RpcRequest<ByteRec> for RpcBody<ByteRec> {
 
     fn into_json(self) -> String {
         let tx = serde_json::to_string(&self).unwrap();
-        let mut file = File::create("foo.txt").unwrap();
-        file.write_all(&serde_json::to_vec_pretty(&tx.clone()).unwrap())
-            .unwrap();
+
         tx
     }
 
@@ -299,9 +297,7 @@ impl RpcRequest<TransactionHashArgs> for RpcBody<TransactionHashArgs> {
     }
     fn into_json(self) -> String {
         let tx = serde_json::to_string(&self).unwrap();
-        let mut file = File::create("foo.txt").unwrap();
-        file.write_all(&serde_json::to_vec_pretty(&tx.clone()).unwrap())
-            .unwrap();
+
         tx
     }
 
@@ -363,9 +359,7 @@ impl RpcRequest<Option<String>> for RpcBody<Option<String>> {
     }
     fn into_json(self) -> String {
         let tx = serde_json::to_string(&self).unwrap();
-        let mut file = File::create("foo.txt").unwrap();
-        file.write_all(&serde_json::to_vec_pretty(&tx.clone()).unwrap())
-            .unwrap();
+
         tx
     }
 
@@ -427,9 +421,7 @@ impl RpcRequest<UtxoRequest> for RpcBody<UtxoRequest> {
     }
     fn into_json(self) -> String {
         let tx = serde_json::to_string(&self).unwrap();
-        let mut file = File::create("foo.txt").unwrap();
-        file.write_all(&serde_json::to_vec_pretty(&tx.clone()).unwrap())
-            .unwrap();
+
         tx
     }
 
