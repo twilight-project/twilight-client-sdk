@@ -18,8 +18,10 @@ lazy_static! {
     ///
     /// # Panics
     /// Panics if the `ZKOS_SERVER_URL` environment variable is not set at runtime.
-    pub static ref ZKOS_SERVER_URL: String =
-        std::env::var("ZKOS_SERVER_URL").expect("missing environment variable ZKOS_SERVER_URL");
+    pub static ref ZKOS_SERVER_URL: String ={
+        let default_url="https://zkserver.twilight.org".to_string();
+        std::env::var("ZKOS_SERVER_URL").unwrap_or(default_url)
+    };
 }
 
 /// Fetches the first available coin UTXO for a given address and converts it into a spendable `Input`.
